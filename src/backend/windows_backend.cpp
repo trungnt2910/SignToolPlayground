@@ -193,7 +193,7 @@ QueriedCertificateStore QueryCertificateStore(const std::filesystem::path& path)
     DWORD format = 0;
     HCERTSTORE store = nullptr;
     HCRYPTMSG message = nullptr;
-    const CERT_CONTEXT* single_certificate = nullptr;
+    const CERT_CONTEXT* queried_certificate = nullptr;
 
     if (!CryptQueryObject(
             CERT_QUERY_OBJECT_FILE,
@@ -206,14 +206,14 @@ QueriedCertificateStore QueryCertificateStore(const std::filesystem::path& path)
             &format,
             &store,
             &message,
-            reinterpret_cast<const void**>(&single_certificate))) {
+            reinterpret_cast<const void**>(&queried_certificate))) {
         ThrowLastError("Failed to open the certificate source");
     }
 
     return QueriedCertificateStore {
         UniqueCertStore(store),
         UniqueCryptMessage(message),
-        UniqueCertContext(single_certificate),
+        UniqueCertContext(queried_certificate),
     };
 }
 

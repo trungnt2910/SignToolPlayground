@@ -125,7 +125,7 @@ public:
         : subject_name_(subject_name)
     {
         const auto directory = std::filesystem::temp_directory_path();
-        exported_certificate_path_ = directory / L"ccky-expected.cer";
+        exported_certificate_path_ = directory / L"ccky-exported.cer";
         thumbprint_path_ = directory / L"ccky-thumbprint.txt";
 
         ASSERT_EQ(
