@@ -21,6 +21,13 @@ std::filesystem::path GetFixturePath(const std::wstring_view filename)
     return std::filesystem::path(CCKY_TEST_SOURCE_DIR) / L"testdata" / filename;
 }
 
+std::filesystem::path MakeUniqueTemporaryPath(const std::wstring_view stem, const std::wstring_view extension)
+{
+    return std::filesystem::temp_directory_path() /
+           (std::wstring(stem) + L"-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64()) +
+            std::wstring(extension));
+}
+
 std::string WideToUtf8(const std::wstring_view value)
 {
     if (value.empty()) {
@@ -86,7 +93,7 @@ std::wstring QuotePowerShellLiteral(const std::wstring& value)
 
 int RunPowerShellScript(const std::wstring& script)
 {
-    const std::filesystem::path script_path = std::filesystem::temp_directory_path() / L"ccky-test-script.ps1";
+    const std::filesystem::path script_path = MakeUniqueTemporaryPath(L"ccky-test-script", L".ps1");
     std::ofstream stream(script_path);
     if (!stream.is_open()) {
         return -1;
@@ -96,7 +103,10 @@ int RunPowerShellScript(const std::wstring& script)
 
     const std::wstring command = L"powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
                                  script_path.wstring() + L"\"";
-    return _wsystem(command.c_str());
+    const int exit_code = _wsystem(command.c_str());
+    std::error_code error;
+    std::filesystem::remove(script_path, error);
+    return exit_code;
 }
 
 std::wstring ReadFileAsWideString(const std::filesystem::path& path)
@@ -124,9 +134,8 @@ public:
     explicit TemporaryCodeSigningCertificate(const std::wstring& subject_name)
         : subject_name_(subject_name)
     {
-        const auto directory = std::filesystem::temp_directory_path();
-        exported_certificate_path_ = directory / L"ccky-exported.cer";
-        thumbprint_path_ = directory / L"ccky-thumbprint.txt";
+        exported_certificate_path_ = MakeUniqueTemporaryPath(L"ccky-exported", L".cer");
+        thumbprint_path_ = MakeUniqueTemporaryPath(L"ccky-thumbprint", L".txt");
 
         ASSERT_EQ(
             RunPowerShellScript(
@@ -193,7 +202,7 @@ UniqueCertContext GetFirstCertificate(const HCERTSTORE store)
         return {};
     }
 
-    return UniqueCertContext(CertDuplicateCertificateContext(certificate));
+    return UniqueCertContext(certificate);
 }
 
 std::wstring GetSubjectString(const CERT_CONTEXT* certificate)

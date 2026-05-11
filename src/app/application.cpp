@@ -3,17 +3,20 @@
 #include <ccky/app/backend.h>
 
 #include <algorithm>
-#include <codecvt>
 #include <cstring>
 #include <cwctype>
-#include <locale>
 #include <memory>
+#include <cstdlib>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 namespace ccky {
 namespace {
@@ -37,12 +40,68 @@ bool IsSwitch(const std::wstring_view token)
 
 std::wstring WidenMessage(const std::string_view value)
 {
-    try {
-        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-        return converter.from_bytes(value.data(), value.data() + value.size());
-    } catch (const std::range_error&) {
+#if defined(_WIN32)
+    if (value.empty()) {
+        return {};
+    }
+
+    int length = MultiByteToWideChar(
+        CP_UTF8,
+        MB_ERR_INVALID_CHARS,
+        value.data(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0);
+    if (length == 0) {
+        length = MultiByteToWideChar(
+            CP_ACP,
+            0,
+            value.data(),
+            static_cast<int>(value.size()),
+            nullptr,
+            0);
+        if (length == 0) {
+            return std::wstring(value.begin(), value.end());
+        }
+
+        std::wstring wide(static_cast<size_t>(length), L'\0');
+        (void)MultiByteToWideChar(
+            CP_ACP,
+            0,
+            value.data(),
+            static_cast<int>(value.size()),
+            wide.data(),
+            length);
+        return wide;
+    }
+
+    std::wstring wide(static_cast<size_t>(length), L'\0');
+    (void)MultiByteToWideChar(
+        CP_UTF8,
+        MB_ERR_INVALID_CHARS,
+        value.data(),
+        static_cast<int>(value.size()),
+        wide.data(),
+        length);
+    return wide;
+#else
+    if (value.empty()) {
+        return {};
+    }
+
+    std::mbstate_t state {};
+    const char* source = value.data();
+    const size_t length = std::mbsrtowcs(nullptr, &source, 0, &state);
+    if (length == static_cast<size_t>(-1)) {
         return std::wstring(value.begin(), value.end());
     }
+
+    std::wstring wide(length, L'\0');
+    state = std::mbstate_t {};
+    source = value.data();
+    (void)std::mbsrtowcs(wide.data(), &source, wide.size(), &state);
+    return wide;
+#endif
 }
 
 class ArgumentCursor {

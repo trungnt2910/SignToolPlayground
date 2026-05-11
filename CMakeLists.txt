@@ -19,7 +19,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 FetchContent_Declare(
     wil
     GIT_REPOSITORY https://github.com/microsoft/wil.git
-    GIT_TAG master
+    GIT_TAG v1.0.260126.7
 )
 set(WIL_BUILD_PACKAGING OFF CACHE BOOL "" FORCE)
 set(WIL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
