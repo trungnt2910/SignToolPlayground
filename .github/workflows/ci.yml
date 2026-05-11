@@ -21,15 +21,23 @@ jobs:
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile llvm-mingw.zip
           Expand-Archive -Path llvm-mingw.zip -DestinationPath $env:RUNNER_TEMP
           $toolchain = Get-ChildItem $env:RUNNER_TEMP -Directory | Where-Object { $_.Name -like 'llvm-mingw-*ucrt-x86_64' } | Select-Object -First 1
-          "${($toolchain.FullName)}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $toolchainBin = Join-Path $toolchain.FullName bin
+          $cCompiler = Join-Path $toolchainBin x86_64-w64-mingw32-clang.exe
+          $cxxCompiler = Join-Path $toolchainBin x86_64-w64-mingw32-clang++.exe
+          if (!(Test-Path $cCompiler) -or !(Test-Path $cxxCompiler)) {
+            throw "LLVM MinGW wrapper compilers were not found in $toolchainBin"
+          }
+          "CCKY_LLVM_MINGW_BIN=$toolchainBin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CCKY_C_COMPILER=$cCompiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CCKY_CXX_COMPILER=$cxxCompiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $toolchainBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Configure
         shell: pwsh
-        run: >-
-          cmake -S $env:GITHUB_WORKSPACE -B $env:GITHUB_WORKSPACE\build
-          -G "Ninja"
-          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-clang
-          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-clang++
+        run: |
+          cmake -S $env:GITHUB_WORKSPACE -B "$env:GITHUB_WORKSPACE\build" -G Ninja `
+            "-DCMAKE_C_COMPILER=$env:CCKY_C_COMPILER" `
+            "-DCMAKE_CXX_COMPILER=$env:CCKY_CXX_COMPILER"
 
       - name: Build
         shell: pwsh
