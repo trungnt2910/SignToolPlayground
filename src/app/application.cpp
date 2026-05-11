@@ -3,8 +3,10 @@
 #include <ccky/app/backend.h>
 
 #include <algorithm>
+#include <codecvt>
 #include <cstring>
 #include <cwctype>
+#include <locale>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -35,7 +37,12 @@ bool IsSwitch(const std::wstring_view token)
 
 std::wstring WidenMessage(const std::string_view value)
 {
-    return std::wstring(value.begin(), value.end());
+    try {
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        return converter.from_bytes(value.data(), value.data() + value.size());
+    } catch (const std::range_error&) {
+        return std::wstring(value.begin(), value.end());
+    }
 }
 
 class ArgumentCursor {

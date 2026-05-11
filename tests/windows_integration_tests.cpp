@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,34 @@ namespace {
 std::filesystem::path GetFixturePath(const std::wstring_view filename)
 {
     return std::filesystem::path(CCKY_TEST_SOURCE_DIR) / L"testdata" / filename;
+}
+
+std::string WideToUtf8(const std::wstring_view value)
+{
+    if (value.empty()) {
+        return {};
+    }
+
+    const int size = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0,
+        nullptr,
+        nullptr);
+    std::string utf8(static_cast<size_t>(size), '\0');
+    (void)WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        utf8.data(),
+        size,
+        nullptr,
+        nullptr);
+    return utf8;
 }
 
 struct CertContextDeleter {
@@ -62,7 +91,7 @@ int RunPowerShellScript(const std::wstring& script)
     if (!stream.is_open()) {
         return -1;
     }
-    stream << std::string(script.begin(), script.end());
+    stream << WideToUtf8(script);
     stream.close();
 
     const std::wstring command = L"powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
@@ -73,6 +102,9 @@ int RunPowerShellScript(const std::wstring& script)
 std::wstring ReadFileAsWideString(const std::filesystem::path& path)
 {
     std::wifstream stream(path);
+    if (!stream.is_open()) {
+        throw std::runtime_error("Failed to open the expected text file.");
+    }
     std::wstring value;
     std::getline(stream, value);
     return value;
@@ -81,6 +113,9 @@ std::wstring ReadFileAsWideString(const std::filesystem::path& path)
 std::vector<unsigned char> ReadBinaryFile(const std::filesystem::path& path)
 {
     std::ifstream stream(path, std::ios::binary);
+    if (!stream.is_open()) {
+        throw std::runtime_error("Failed to open the expected binary file.");
+    }
     return std::vector<unsigned char>(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
 }
 

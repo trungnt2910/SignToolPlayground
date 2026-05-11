@@ -223,12 +223,7 @@ UniqueCertContext DuplicateCertificate(const CERT_CONTEXT* certificate)
         throw std::runtime_error("Certificate source does not contain a certificate.");
     }
 
-    const CERT_CONTEXT* duplicate = CertDuplicateCertificateContext(certificate);
-    if (duplicate == nullptr) {
-        ThrowLastError("Failed to duplicate certificate context");
-    }
-
-    return UniqueCertContext(duplicate);
+    return UniqueCertContext(CertDuplicateCertificateContext(certificate));
 }
 
 UniqueCertContext FirstCertificateFromStore(const QueriedCertificateStore& queried_store)
