@@ -6,7 +6,6 @@
 #include <cstring>
 #include <cwctype>
 #include <memory>
-#include <cstdlib>
 #include <sstream>
 #include <stdexcept>
 #include <string>

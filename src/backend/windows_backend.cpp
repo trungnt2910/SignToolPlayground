@@ -181,6 +181,7 @@ void EnsurePrivateKeyIsAvailable(const CERT_CONTEXT* certificate)
 }
 
 struct QueriedCertificateStore {
+    DWORD content_type = 0;
     UniqueCertStore store;
     UniqueCryptMessage message;
     UniqueCertContext single_certificate;
@@ -211,9 +212,11 @@ QueriedCertificateStore QueryCertificateStore(const std::filesystem::path& path)
     }
 
     return QueriedCertificateStore {
+        content,
         UniqueCertStore(store),
         UniqueCryptMessage(message),
-        UniqueCertContext(queried_certificate),
+        UniqueCertContext(
+            content == CERT_QUERY_CONTENT_CERT || content == CERT_QUERY_CONTENT_SERIALIZED_CERT ? queried_certificate : nullptr),
     };
 }
 
@@ -233,7 +236,9 @@ UniqueCertContext FirstCertificateFromStore(const QueriedCertificateStore& queri
             reinterpret_cast<HCERTSTORE>(queried_store.store.get()),
             nullptr);
         if (first != nullptr) {
-            return DuplicateCertificate(first);
+            const auto duplicate = DuplicateCertificate(first);
+            CertFreeCertificateContext(first);
+            return duplicate;
         }
     }
 

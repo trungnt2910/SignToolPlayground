@@ -23,9 +23,29 @@ std::filesystem::path GetFixturePath(const std::wstring_view filename)
 
 std::filesystem::path MakeUniqueTemporaryPath(const std::wstring_view stem, const std::wstring_view extension)
 {
-    return std::filesystem::temp_directory_path() /
-           (std::wstring(stem) + L"-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64()) +
-            std::wstring(extension));
+    std::wstring prefix(stem.substr(0, std::min<size_t>(stem.size(), 3U)));
+    if (prefix.size() < 3) {
+        prefix.append(3 - prefix.size(), L'x');
+    }
+
+    std::wstring temp_file(MAX_PATH, L'\0');
+    const UINT result = GetTempFileNameW(
+        std::filesystem::temp_directory_path().c_str(),
+        prefix.c_str(),
+        0,
+        temp_file.data());
+    if (result == 0) {
+        throw std::runtime_error("Failed to allocate a temporary file path.");
+    }
+
+    temp_file.resize(wcslen(temp_file.c_str()));
+    std::filesystem::path path(temp_file);
+    if (!extension.empty()) {
+        std::error_code error;
+        std::filesystem::remove(path, error);
+        path.replace_extension(extension);
+    }
+    return path;
 }
 
 std::string WideToUtf8(const std::wstring_view value)
@@ -152,8 +172,11 @@ public:
     ~TemporaryCodeSigningCertificate()
     {
         if (!thumbprint_.empty()) {
-            (void)RunPowerShellScript(
+            const int exit_code = RunPowerShellScript(
                 L"Remove-Item -LiteralPath " + QuotePowerShellLiteral(L"Cert:\\CurrentUser\\My\\" + thumbprint_));
+            if (exit_code != 0) {
+                OutputDebugStringW(L"CCKY test cleanup failed to remove temporary certificate.\n");
+            }
         }
     }
 
