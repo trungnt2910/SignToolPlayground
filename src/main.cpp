@@ -21,6 +21,18 @@ int wmain(const int argc, wchar_t** argv)
 #else
 namespace {
 
+std::wstring WidenArgumentFallback(const char* value)
+{
+    static bool warned = false;
+    if (!warned) {
+        std::cerr << "ccky: warning: falling back to byte-wise argument conversion.\n";
+        warned = true;
+    }
+
+    const std::string fallback(value);
+    return std::wstring(fallback.begin(), fallback.end());
+}
+
 std::wstring WidenArgument(const char* value)
 {
     if (value == nullptr || *value == '\0') {
@@ -31,14 +43,15 @@ std::wstring WidenArgument(const char* value)
     const char* measurement_source = value;
     const size_t length = std::mbsrtowcs(nullptr, &measurement_source, 0, &state);
     if (length == static_cast<size_t>(-1)) {
-        const std::string fallback(value);
-        return std::wstring(fallback.begin(), fallback.end());
+        return WidenArgumentFallback(value);
     }
 
     std::wstring wide(length, L'\0');
     state = std::mbstate_t {};
     const char* source = value;
-    (void)std::mbsrtowcs(wide.data(), &source, wide.size(), &state);
+    if (std::mbsrtowcs(wide.data(), &source, wide.size(), &state) == static_cast<size_t>(-1)) {
+        return WidenArgumentFallback(value);
+    }
     return wide;
 }
 
