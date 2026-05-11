@@ -237,7 +237,7 @@ UniqueCertContext FirstCertificateFromStore(const QueriedCertificateStore& queri
         if (first != nullptr) {
             auto duplicate = DuplicateCertificate(first);
             CertFreeCertificateContext(first);
-            return std::move(duplicate);
+            return duplicate;
         }
     }
 

@@ -28,8 +28,8 @@ std::wstring WidenArgument(const char* value)
     }
 
     std::mbstate_t state {};
-    const char* source = value;
-    const size_t length = std::mbsrtowcs(nullptr, &source, 0, &state);
+    const char* measurement_source = value;
+    const size_t length = std::mbsrtowcs(nullptr, &measurement_source, 0, &state);
     if (length == static_cast<size_t>(-1)) {
         const std::string fallback(value);
         return std::wstring(fallback.begin(), fallback.end());
@@ -37,7 +37,7 @@ std::wstring WidenArgument(const char* value)
 
     std::wstring wide(length, L'\0');
     state = std::mbstate_t {};
-    source = value;
+    const char* source = value;
     (void)std::mbsrtowcs(wide.data(), &source, wide.size(), &state);
     return wide;
 }
