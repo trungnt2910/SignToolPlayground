@@ -181,7 +181,8 @@ namespace
             return -1;
         }
         stream << WideToUtf8(
-            L"Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; "
+            L"if (-not (Get-Module Microsoft.PowerShell.Security -ErrorAction SilentlyContinue)) {"
+            L"Import-Module Microsoft.PowerShell.Security -ErrorAction Stop }; "
             L"if (-not (Get-PSDrive -Name Cert -ErrorAction SilentlyContinue)) { "
             L"New-PSDrive -Name Cert -PSProvider Certificate -Root '\\' | Out-Null }; " +
             script);
