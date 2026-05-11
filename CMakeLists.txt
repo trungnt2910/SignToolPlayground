@@ -27,6 +27,9 @@ FetchContent_MakeAvailable(wil)
 
 add_library(ccky_app STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/certmgr/command.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/signtool/command.cpp
 )
 add_library(ccky::app ALIAS ccky_app)
 

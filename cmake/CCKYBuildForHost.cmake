@@ -24,7 +24,7 @@ function(ccky_enable_build_for_host)
     ccky_get_host_mingw_target(_ccky_target)
     message(STATUS "CCKY_BUILD_FOR_HOST enabled for ${_ccky_target}")
 
-    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-target;${_ccky_target}>)
+    add_compile_options(-target ${_ccky_target})
     add_link_options(-target ${_ccky_target})
 
     set(CCKY_HOST_MINGW_TARGET "${_ccky_target}" PARENT_SCOPE)

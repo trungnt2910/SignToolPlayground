@@ -2,6 +2,8 @@
 
 `ccky.exe certmgr` is a compatibility-focused subset of `certmgr.exe`.
 
+Reference specification: <https://learn.microsoft.com/en-us/dotnet/framework/tools/certmgr-exe-certificate-manager-tool>
+
 ## Currently supported invocation
 
 ```powershell

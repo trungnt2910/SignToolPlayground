@@ -2,10 +2,12 @@
 
 `ccky.exe` is a small compatibility-oriented Windows tooling playground that currently implements focused subsets of `signtool.exe` and `certmgr.exe` in modern C++ with CMake.
 
+The supported subcommands are implemented against the published Microsoft command-line specifications for `signtool.exe` and `certmgr.exe`.
+
 ## Supported commands
 
-- [`ccky.exe signtool`](docs/signtool/README.md)
-- [`ccky.exe certmgr`](docs/certmgr/README.md)
+- [`ccky.exe signtool`](src/app/signtool/README.md)
+- [`ccky.exe certmgr`](src/app/certmgr/README.md)
 
 ## Build requirements
 

@@ -2,6 +2,8 @@
 
 `ccky.exe signtool` is a compatibility-focused subset of `signtool.exe`.
 
+Reference specification: <https://learn.microsoft.com/en-us/dotnet/framework/tools/signtool-exe>
+
 ## Currently supported invocation
 
 ```powershell
