@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -111,22 +112,123 @@ std::wstring QuotePowerShellLiteral(const std::wstring& value)
     return quoted;
 }
 
+std::optional<std::filesystem::path> ResolvePowerShellExecutable()
+{
+    std::vector<std::filesystem::path> candidates;
+
+    std::wstring system_root(MAX_PATH, L'\0');
+    const DWORD system_root_length = GetEnvironmentVariableW(
+        L"SystemRoot",
+        system_root.data(),
+        static_cast<DWORD>(system_root.size()));
+    if (system_root_length > 0 && system_root_length < system_root.size()) {
+        system_root.resize(system_root_length);
+        candidates.emplace_back(
+            std::filesystem::path(system_root) / L"System32" / L"WindowsPowerShell" / L"v1.0" / L"powershell.exe");
+    }
+
+    candidates.emplace_back(L"powershell.exe");
+    candidates.emplace_back(L"pwsh.exe");
+
+    for (const auto& candidate : candidates) {
+        if (candidate.is_absolute()) {
+            if (std::filesystem::exists(candidate)) {
+                return candidate;
+            }
+            continue;
+        }
+
+        std::wstring resolved(MAX_PATH, L'\0');
+        const DWORD resolved_length = SearchPathW(
+            nullptr,
+            candidate.c_str(),
+            nullptr,
+            static_cast<DWORD>(resolved.size()),
+            resolved.data(),
+            nullptr);
+        if (resolved_length > 0 && resolved_length < resolved.size()) {
+            resolved.resize(resolved_length);
+            return std::filesystem::path(resolved);
+        }
+    }
+
+    return std::nullopt;
+}
+
 int RunPowerShellScript(const std::wstring& script)
 {
+    static const std::optional<std::filesystem::path> shell_path = ResolvePowerShellExecutable();
+    if (!shell_path.has_value()) {
+        return -1;
+    }
+
     const std::filesystem::path script_path = MakeUniqueTemporaryPath(L"ccky-test-script", L".ps1");
     std::ofstream stream(script_path);
     if (!stream.is_open()) {
         return -1;
     }
-    stream << WideToUtf8(script);
+    stream << WideToUtf8(
+        L"Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; "
+        L"if (-not (Get-PSDrive -Name Cert -ErrorAction SilentlyContinue)) { "
+        L"New-PSDrive -Name Cert -PSProvider Certificate -Root '\\' | Out-Null }; " +
+        script);
     stream.close();
 
-    const std::wstring command = L"powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
-                                 script_path.wstring() + L"\"";
-    const int exit_code = _wsystem(command.c_str());
+    std::wstring command_line = L"\"" + shell_path->wstring() +
+                                L"\" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" +
+                                script_path.wstring() + L"\"";
+
+    STARTUPINFOW startup_info{};
+    startup_info.cb = sizeof(startup_info);
+    PROCESS_INFORMATION process_information{};
+    int exit_code = -1;
+    if (CreateProcessW(
+            nullptr,
+            command_line.data(),
+            nullptr,
+            nullptr,
+            FALSE,
+            0,
+            nullptr,
+            nullptr,
+            &startup_info,
+            &process_information)) {
+        (void)WaitForSingleObject(process_information.hProcess, INFINITE);
+        DWORD process_exit_code = 1;
+        if (GetExitCodeProcess(process_information.hProcess, &process_exit_code) != 0) {
+            exit_code = static_cast<int>(process_exit_code);
+        }
+        CloseHandle(process_information.hThread);
+        CloseHandle(process_information.hProcess);
+    }
+
     std::error_code error;
     std::filesystem::remove(script_path, error);
     return exit_code;
+}
+
+bool HasPowerShellCertificateSupport()
+{
+    static const bool supported = [] {
+        const std::filesystem::path probe_path = MakeUniqueTemporaryPath(L"ccky-powershell-probe", L".txt");
+        const int exit_code = RunPowerShellScript(
+            L"Get-ChildItem Cert:\\CurrentUser\\My | Out-Null; "
+            L"Set-Content -LiteralPath " + QuotePowerShellLiteral(probe_path.wstring()) + L" -Value 'ok' -NoNewline");
+        if (exit_code != 0 || !std::filesystem::exists(probe_path)) {
+            std::error_code error;
+            std::filesystem::remove(probe_path, error);
+            return false;
+        }
+
+        std::wifstream stream(probe_path);
+        std::wstring value;
+        std::getline(stream, value);
+
+        std::error_code error;
+        std::filesystem::remove(probe_path, error);
+        return value == L"ok";
+    }();
+    return supported;
 }
 
 std::wstring ReadFileAsWideString(const std::filesystem::path& path)
@@ -254,6 +356,10 @@ std::wstring GetSubjectString(const CERT_CONTEXT* certificate)
 
 TEST(WindowsIntegrationTests, SigntoolSignsCheckedInPeFixture)
 {
+    if (!HasPowerShellCertificateSupport()) {
+        GTEST_SKIP() << "Windows integration tests require classic Windows PowerShell certificate provider support.";
+    }
+
     const std::filesystem::path unsigned_pe = GetFixturePath(L"minimal-x64.exe");
     const std::filesystem::path working_copy = std::filesystem::temp_directory_path() / L"ccky-signed.exe";
     std::filesystem::copy_file(unsigned_pe, working_copy, std::filesystem::copy_options::overwrite_existing);
@@ -291,6 +397,10 @@ TEST(WindowsIntegrationTests, SigntoolSignsCheckedInPeFixture)
 
 TEST(WindowsIntegrationTests, CertmgrExportsCertificateFromSignedPe)
 {
+    if (!HasPowerShellCertificateSupport()) {
+        GTEST_SKIP() << "Windows integration tests require classic Windows PowerShell certificate provider support.";
+    }
+
     const std::filesystem::path unsigned_pe = GetFixturePath(L"minimal-x64.exe");
     const std::filesystem::path working_copy = std::filesystem::temp_directory_path() / L"ccky-export-source.exe";
     const std::filesystem::path exported_certificate = std::filesystem::temp_directory_path() / L"ccky-exported.cer";
