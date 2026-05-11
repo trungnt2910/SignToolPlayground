@@ -46,12 +46,14 @@ std::wstring WidenArgument(const char* value)
         return WidenArgumentFallback(value);
     }
 
-    std::wstring wide(length, L'\0');
+    std::wstring wide(length + 1, L'\0');
     state = std::mbstate_t {};
     const char* source = value;
-    if (std::mbsrtowcs(wide.data(), &source, wide.size(), &state) == static_cast<size_t>(-1)) {
+    const size_t converted = std::mbsrtowcs(wide.data(), &source, wide.size(), &state);
+    if (converted == static_cast<size_t>(-1)) {
         return WidenArgumentFallback(value);
     }
+    wide.resize(converted);
     return wide;
 }
 
