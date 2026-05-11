@@ -157,15 +157,16 @@ public:
         exported_certificate_path_ = MakeUniqueTemporaryPath(L"ccky-exported", L".cer");
         thumbprint_path_ = MakeUniqueTemporaryPath(L"ccky-thumbprint", L".txt");
 
-        ASSERT_EQ(
-            RunPowerShellScript(
-                L"$cert = New-SelfSignedCertificate -Subject " + QuotePowerShellLiteral(subject_name_) +
-                L" -Type CodeSigningCert -CertStoreLocation Cert:\\CurrentUser\\My; "
-                L"Export-Certificate -Cert $cert -FilePath " + QuotePowerShellLiteral(exported_certificate_path_.wstring()) +
-                L" -Force | Out-Null; "
-                L"Set-Content -LiteralPath " + QuotePowerShellLiteral(thumbprint_path_.wstring()) +
-                L" -Value $cert.Thumbprint -NoNewline"),
-            0);
+        const int exit_code = RunPowerShellScript(
+            L"$cert = New-SelfSignedCertificate -Subject " + QuotePowerShellLiteral(subject_name_) +
+            L" -Type CodeSigningCert -CertStoreLocation Cert:\\CurrentUser\\My; "
+            L"Export-Certificate -Cert $cert -FilePath " + QuotePowerShellLiteral(exported_certificate_path_.wstring()) +
+            L" -Force | Out-Null; "
+            L"Set-Content -LiteralPath " + QuotePowerShellLiteral(thumbprint_path_.wstring()) +
+            L" -Value $cert.Thumbprint -NoNewline");
+        if (exit_code != 0) {
+            throw std::runtime_error("Failed to create a temporary code signing certificate.");
+        }
         thumbprint_ = ReadFileAsWideString(thumbprint_path_);
     }
 

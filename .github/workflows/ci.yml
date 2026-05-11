@@ -28,9 +28,8 @@ jobs:
         run: >-
           cmake -S $env:GITHUB_WORKSPACE -B $env:GITHUB_WORKSPACE\build
           -G "Ninja"
-          -DCMAKE_C_COMPILER=clang
-          -DCMAKE_CXX_COMPILER=clang++
-          -DCCKY_BUILD_FOR_HOST=ON
+          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-clang
+          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-clang++
 
       - name: Build
         shell: pwsh

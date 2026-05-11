@@ -63,6 +63,7 @@ if(WIN32)
     add_executable(ccky ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
     set_target_properties(ccky PROPERTIES OUTPUT_NAME ccky)
     target_link_libraries(ccky PRIVATE ccky::app ccky_platform_backend)
+    target_link_options(ccky PRIVATE -municode)
 endif()
 
 if(BUILD_TESTING)
