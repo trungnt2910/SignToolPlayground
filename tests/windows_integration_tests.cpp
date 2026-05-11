@@ -119,49 +119,22 @@ namespace
 
     std::optional<std::filesystem::path> ResolvePowerShellExecutable()
     {
-        std::vector<std::filesystem::path> candidates;
-
+        // Only use Windows PowerShell (Certificate provider requires it)
         std::wstring system_root(MAX_PATH, L'\0');
         const DWORD system_root_length = GetEnvironmentVariableW(
             L"SystemRoot", system_root.data(), static_cast<DWORD>(system_root.size()));
         if (system_root_length > 0 && system_root_length < system_root.size())
         {
             system_root.resize(system_root_length);
-            candidates.emplace_back(
-                std::filesystem::path(system_root) / L"System32" / L"WindowsPowerShell" / L"v1.0" /
-                L"powershell.exe");
-        }
-
-        candidates.emplace_back(L"powershell.exe");
-        candidates.emplace_back(L"pwsh.exe");
-
-        for (const auto& candidate : candidates)
-        {
-            if (candidate.is_absolute())
+            std::filesystem::path windows_ps = std::filesystem::path(system_root) / L"System32" /
+                                               L"WindowsPowerShell" / L"v1.0" / L"powershell.exe";
+            if (std::filesystem::exists(windows_ps))
             {
-                if (std::filesystem::exists(candidate))
-                {
-                    return candidate;
-                }
-                continue;
-            }
-
-            std::wstring resolved(MAX_PATH, L'\0');
-            const DWORD resolved_length = SearchPathW(
-                nullptr,
-                candidate.c_str(),
-                nullptr,
-                static_cast<DWORD>(resolved.size()),
-                resolved.data(),
-                nullptr);
-            if (resolved_length > 0 && resolved_length < resolved.size())
-            {
-                resolved.resize(resolved_length);
-                return std::filesystem::path(resolved);
+                return windows_ps;
             }
         }
 
-        return std::nullopt;
+        return std::nullopt; // Fail if we can't find Windows PowerShell
     }
 
     int RunPowerShellScript(const std::wstring& script)
