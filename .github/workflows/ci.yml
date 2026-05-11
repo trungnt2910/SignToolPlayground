@@ -39,3 +39,15 @@ jobs:
       - name: Test
         shell: pwsh
         run: ctest --test-dir $env:GITHUB_WORKSPACE\build --output-on-failure
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-artifacts
+          if-no-files-found: warn
+          path: |
+            ${{ github.workspace }}/build/ccky.exe
+            ${{ github.workspace }}/build/ccky_tests.exe
+            ${{ github.workspace }}/build/CMakeCache.txt
+            ${{ github.workspace }}/build/Testing/Temporary/**

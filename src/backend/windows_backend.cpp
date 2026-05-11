@@ -1,11 +1,10 @@
 #include <ccky/app/backend.h>
 
-#include <ncrypt.h>
 #include <windows.h>
+#include <ncrypt.h>
 #include <wincrypt.h>
 
 #include <wil/resource.h>
-#include <wil/scope_exit.h>
 
 #include <fstream>
 #include <memory>
@@ -236,9 +235,9 @@ UniqueCertContext FirstCertificateFromStore(const QueriedCertificateStore& queri
             reinterpret_cast<HCERTSTORE>(queried_store.store.get()),
             nullptr);
         if (first != nullptr) {
-            const auto duplicate = DuplicateCertificate(first);
+            auto duplicate = DuplicateCertificate(first);
             CertFreeCertificateContext(first);
-            return duplicate;
+            return std::move(duplicate);
         }
     }
 
@@ -320,12 +319,6 @@ public:
             nullptr,
         };
         SIGNER_CONTEXT* signer_context = nullptr;
-        const auto free_signer_context = wil::scope_exit([&]() {
-            if (signer_context != nullptr) {
-                (void)signer_free_context(signer_context);
-            }
-        });
-
         const HRESULT hr = signer_sign_ex(
             0,
             &subject_info,
@@ -336,6 +329,9 @@ public:
             nullptr,
             nullptr,
             &signer_context);
+        if (signer_context != nullptr) {
+            (void)signer_free_context(signer_context);
+        }
         if (FAILED(hr)) {
             ThrowHRESULT("Failed to sign the PE file", hr);
         }
