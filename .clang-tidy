@@ -1,0 +1,40 @@
+Checks:
+- clang-analyzer-*
+- clang-diagnostic-*
+- bugprone-*
+- concurrency-*
+- misc-*
+- performance-*
+- portability-*
+- readability-*
+- -bugprone-easily-swappable-parameters
+- -bugprone-inc-dec-in-conditions
+- -bugprone-reserved-identifier
+- -bugprone-string-literal-with-embedded-nul
+- -bugprone-unchecked-optional-access
+- -bugprone-use-after-move
+- -clang-analyzer-core.CallAndMessage
+- -clang-analyzer-cplusplus.Move
+- -clang-analyzer-cplusplus.NewDelete
+- -clang-analyzer-optin.core.EnumCastOutOfRange
+- -misc-const-correctness
+- -misc-definitions-in-headers
+- -misc-include-cleaner
+- -misc-misplaced-const
+- -misc-no-recursion
+- -misc-unused-parameters
+- -misc-use-anonymous-namespace
+- -performance-enum-size
+- -readability-convert-member-functions-to-static
+- -readability-function-cognitive-complexity
+- -readability-implicit-bool-conversion
+- -readability-magic-numbers
+- -readability-named-parameter
+- -readability-qualified-auto
+CheckOptions:
+  bugprone-empty-catch.IgnoreCatchWithKeywords: 'Fall through'
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
+  readability-identifier-length.IgnoredParameterNames: '^(fn|hr|x|y)$'
+  readability-identifier-length.IgnoredVariableNames: '^(fn|hr|i|id|op)$'
+  readability-simplify-boolean-expr.IgnoreMacros: true
+HeaderFilterRegex: '(include\\ccky|tests)\\[^\\/]*\.h$'

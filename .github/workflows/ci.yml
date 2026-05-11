@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download LLVM MinGW
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest
+          $asset = $release.assets | Where-Object { $_.name -eq 'llvm-mingw-' + $release.tag_name + '-ucrt-x86_64.zip' }
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile llvm-mingw.zip
+          Expand-Archive -Path llvm-mingw.zip -DestinationPath $env:RUNNER_TEMP
+          $toolchain = Get-ChildItem $env:RUNNER_TEMP -Directory | Where-Object { $_.Name -like 'llvm-mingw-*ucrt-x86_64' } | Select-Object -First 1
+          "${($toolchain.FullName)}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Configure
+        shell: pwsh
+        run: >-
+          cmake -S $env:GITHUB_WORKSPACE -B $env:GITHUB_WORKSPACE\build
+          -G "Ninja"
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCCKY_BUILD_FOR_HOST=ON
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build $env:GITHUB_WORKSPACE\build --parallel
+
+      - name: Test
+        shell: pwsh
+        run: ctest --test-dir $env:GITHUB_WORKSPACE\build --output-on-failure
