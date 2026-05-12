@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download LLVM MinGW
+        shell: powershell
+        run: |
+          $release = Invoke-RestMethod https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest
+          $asset = $release.assets | Where-Object { $_.name -eq 'llvm-mingw-' + $release.tag_name + '-ucrt-x86_64.zip' }
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile llvm-mingw.zip
+          Expand-Archive -Path llvm-mingw.zip -DestinationPath $env:RUNNER_TEMP
+          $toolchain = Get-ChildItem $env:RUNNER_TEMP -Directory | Where-Object { $_.Name -like 'llvm-mingw-*ucrt-x86_64' } | Select-Object -First 1
+          $toolchainBin = Join-Path $toolchain.FullName bin
+          $cCompiler = Join-Path $toolchainBin x86_64-w64-mingw32-clang.exe
+          $cxxCompiler = Join-Path $toolchainBin x86_64-w64-mingw32-clang++.exe
+          if (!(Test-Path $cCompiler) -or !(Test-Path $cxxCompiler)) {
+            throw "LLVM MinGW wrapper compilers were not found in $toolchainBin"
+          }
+          "CCKY_LLVM_MINGW_BIN=$toolchainBin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CCKY_C_COMPILER=$cCompiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CCKY_CXX_COMPILER=$cxxCompiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $toolchainBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Configure
+        shell: cmd
+        run: |
+          cmake -S ${{ github.workspace }} -B "${{ github.workspace }}\build" -G Ninja ^
+            "-DCMAKE_C_COMPILER=%CCKY_C_COMPILER%"                                     ^
+            "-DCMAKE_CXX_COMPILER=%CCKY_CXX_COMPILER%"
+
+      - name: Build
+        shell: cmd
+        run: cmake --build ${{ github.workspace }}\build --parallel
+
+      - name: Test
+        shell: cmd
+        run: ctest --test-dir ${{ github.workspace }}\build --output-on-failure
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-artifacts
+          if-no-files-found: warn
+          path: |
+            ${{ github.workspace }}/build/ccky.exe
+            ${{ github.workspace }}/build/ccky_tests.exe
+            ${{ github.workspace }}/build/CMakeCache.txt
+            ${{ github.workspace }}/build/Testing/Temporary/**
