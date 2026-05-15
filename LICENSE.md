@@ -1,3 +1,4 @@
+<!-- Copyright year and author. -->
 Copyright (C) 2026 Trung Nguyen
 
 Permission is hereby granted, free of charge, to any person obtaining
