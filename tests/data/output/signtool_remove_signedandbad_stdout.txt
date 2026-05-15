@@ -1,0 +1,4 @@
+
+Successfully committed changes to the file: test.exe
+
+Number of errors: 1

@@ -1,0 +1,26 @@
+# This is always based on the %PROCESSOR_ARCHITECTURE% environment variable.
+if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "AMD64")
+    set(CCKY_HOST_ARCH "x64")
+elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86")
+    set(CCKY_HOST_ARCH "x86")
+elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ARM64")
+    set(CCKY_HOST_ARCH "ARM64")
+elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ARM")
+    set(CCKY_HOST_ARCH "ARM")
+else()
+    # Safe fallback.
+    set(CCKY_HOST_ARCH "x86")
+endif()
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
+    set(CCKY_ARCH "x86_64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86")
+    set(CCKY_ARCH "i686")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64")
+    set(CCKY_ARCH "aarch64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM")
+    set(CCKY_ARCH "armv7")
+else()
+    # Safe fallback.
+    set(CCKY_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+endif()

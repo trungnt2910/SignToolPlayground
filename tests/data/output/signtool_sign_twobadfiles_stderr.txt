@@ -1,0 +1,2 @@
+SignTool Error: File not found: bad0.exe
+SignTool Error: File not found: bad1.exe

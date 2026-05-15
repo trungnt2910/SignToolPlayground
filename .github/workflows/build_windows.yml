@@ -1,0 +1,66 @@
+name: Build (Windows)
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x86_64, i686, aarch64, armv7]
+        include:
+          - arch: x86_64
+            target: x86_64-w64-mingw32
+            run_tests: true
+          - arch: i686
+            target: i686-w64-mingw32
+            run_tests: true
+          - arch: aarch64
+            target: aarch64-w64-mingw32
+            run_tests: false
+          - arch: armv7
+            target: armv7-w64-mingw32
+            run_tests: false
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download llvm-mingw
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release download --repo mstorsjo/llvm-mingw --pattern "llvm-mingw-*-ucrt-x86_64.zip"
+      shell: cmd
+
+    - name: Extract llvm-mingw
+      run: |
+        powershell.exe -Command "Get-ChildItem -Filter llvm-mingw-*-ucrt-x86_64.zip | ForEach-Object { Expand-Archive -Path $_.FullName -DestinationPath . }"
+        powershell.exe -Command "Get-ChildItem -Directory -Filter llvm-mingw* | Rename-Item -NewName llvm-mingw"
+      shell: cmd
+
+    - name: Configure CMake
+      run: |
+        cmake -B build_${{ matrix.arch }} -S . -DCMAKE_CXX_COMPILER="${{ github.workspace }}\llvm-mingw\bin\${{ matrix.target }}-g++.exe" -DCMAKE_C_COMPILER="${{ github.workspace }}\llvm-mingw\bin\${{ matrix.target }}-gcc.exe" -DCMAKE_SYSTEM_NAME=Windows -G "MinGW Makefiles"
+      shell: cmd
+
+    - name: Build
+      run: |
+        cmake --build build_${{ matrix.arch }} --config Release
+      shell: cmd
+
+    - name: Run Tests
+      if: matrix.run_tests
+      run: |
+        ctest --test-dir build_${{ matrix.arch }} --output-on-failure -C Release
+      shell: cmd
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ccky-windows-${{ matrix.arch }}
+        path: build_${{ matrix.arch }}/src/ccky.exe

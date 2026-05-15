@@ -1,0 +1,6 @@
+
+Verifying: test.exe
+
+Number of files successfully Verified: 0
+Number of warnings: 0
+Number of errors: 1

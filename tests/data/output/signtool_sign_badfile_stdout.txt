@@ -1,0 +1,11 @@
+The following certificate was selected:
+    Issued to: ccky
+    Issued by: ccky
+    Expires:   Sat May 15 20:19:47 2027
+    SHA1 hash: 70CC11B9D1BFDFA1D5F629A8A78173B33B17BEE0
+
+Done Adding Additional Store
+
+Number of files successfully Signed: 0
+Number of warnings: 0
+Number of errors: 1
