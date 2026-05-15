@@ -1,0 +1,7 @@
+
+Removing signature on file: test.exe
+Successfully committed changes to the file: test.exe
+
+Number of files successfully processed: 1
+Number of warnings: 0
+Number of errors: 1

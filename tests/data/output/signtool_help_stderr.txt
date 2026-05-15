@@ -1,0 +1,24 @@
+Usage: signtool <command> [options] or signtool @<response file>
+
+  Valid commands:
+    sign       --  Sign files using an embedded signature.
+    timestamp  --  Timestamp previously-signed files.
+    verify     --  Verify embedded or catalog signatures.
+    catdb      --  Modify a catalog database.
+    remove     --  Remove embedded signature(s) or reduce the size of an
+                   embedded signed file.
+
+                   For help on a specific command, enter "signtool <command> /?"
+
+  Respsonse files should be formatted with one argument per line, with the first argument being the command. 
+  Multiple commands may be specified by separating with an empty line. For example, a file containing:
+  
+    sign
+    /n "My cert"
+    /fd SHA256
+    myfile.exe
+
+    verify
+    myfile.exe
+  
+  can be used to sign and verify myfile.exe by calling "signtool @responsefile".

@@ -1,0 +1,22 @@
+==============Certificate # 1 ==========
+Subject::
+  [0,0] 2.5.4.3 (CN) ccky
+Issuer::
+  [0,0] 2.5.4.3 (CN) ccky
+SerialNumber::
+   69 1F 6F 91 05 F0 D6 AE 40 5F 81 FA 4F 5B C7 67
+SHA1 Thumbprint:: 
+      70CC11B9 D1BFDFA1 D5F629A8 A78173B3 3B17BEE0 
+MD5 Thumbprint:: 
+      A6107B8E FC84AF6A 986CCBEF EEBD532B 
+Key MD5 Thumbprint:: 
+      394C27C3 AAD73C71 49833A75 27725686 
+Provider Type:: 0 Provider Name:: PfxProvider Container: PfxContainer
+NotBefore:: 
+  Fri May 15 19:59:47 2026
+NotAfter:: 
+  Sat May 15 20:19:47 2027
+==============No CTLs ==========
+==============No CRLs ==========
+==============================================
+CertMgr Succeeded

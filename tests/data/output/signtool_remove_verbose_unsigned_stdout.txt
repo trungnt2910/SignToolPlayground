@@ -1,0 +1,4 @@
+
+Number of files successfully processed: 0
+Number of warnings: 0
+Number of errors: 1

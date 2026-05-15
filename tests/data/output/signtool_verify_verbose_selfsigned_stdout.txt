@@ -1,0 +1,17 @@
+
+Verifying: test.exe
+
+Signature Index: 0 (Primary Signature)
+Hash of file (sha256): 414974B2E342C70208774E9E47E83382A6CFF5FF799DDB65F1DAD78673EA54D4
+
+Signing Certificate Chain:
+    Issued to: ccky
+    Issued by: ccky
+    Expires:   Sat May 15 20:19:47 2027
+    SHA1 hash: 70CC11B9D1BFDFA1D5F629A8A78173B33B17BEE0
+
+File is not timestamped.
+
+Number of files successfully Verified: 0
+Number of warnings: 0
+Number of errors: 1

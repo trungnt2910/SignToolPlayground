@@ -1,22 +1,26 @@
-# RealityTemplate <!-- Project title here. -->
+# SignToolPlayground
 
 [![Discord Invite][2]][1]
 
-<!-- Short project description. -->
+A playground for Project Reality's new open-source signing and certificate utilities.
 
-A template for Project Reality repositories.
+## Overview
+
+This tool (codename `ccky`) is designed to be the `busybox` for certificate utilities.
+
+It aims to be a cross-platform, drop-in replacement for signing-related components in the
+[.NET Framework tools](https://learn.microsoft.com/en-us/dotnet/framework/tools/), which are only
+available on Windows machines with the Windows SDK installed.
 
 ## Components
 
-- `README.md` with default notice sections and example structure.
-- `LICENSE.md` with MIT License.
-- `FUNDING.yml`.
-- Default branch.
+This project contains open-source re-implementations of:
+- `signtool.exe`
+- `certmgr.exe`
 
-## Instructions
-
-- Create a new repository, using this repository as a template.
-- Address the comments in this file and [`LICENSE.md`](LICENSE.md)
+`ccky` supports two backends:
+- A Windows-specific, fully-featured, and compatible Win32 API backend.
+- A cross-platform OpenSSL backend.
 
 ## Community
 
