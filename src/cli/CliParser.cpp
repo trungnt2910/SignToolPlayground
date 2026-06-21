@@ -78,7 +78,26 @@ ParsedArgs CliParser::parse(int argc, const char* const argv[], const CommandReg
     while (argIndex < argc)
     {
         std::string currentArg = argv[argIndex++];
-        if (!currentArg.empty() && (currentArg[0] == '/' || currentArg[0] == '-'))
+        bool isFlag = false;
+        if (!currentArg.empty())
+        {
+            if (currentArg[0] == '-')
+            {
+                isFlag = true;
+            }
+            else if (currentArg[0] == '/')
+            {
+                std::string flagName = currentArg.substr(1);
+                std::string lower = flagName;
+                std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+                if (lower == "?" || lower == "h" || lower == "help" || flagTypeMap.contains(lower))
+                {
+                    isFlag = true;
+                }
+            }
+        }
+
+        if (isFlag)
         {
             // It's a flag/switch. Strip leading / or - (and --)
             std::string flagName = currentArg.substr(1);
