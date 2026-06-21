@@ -1,12 +1,24 @@
+include(FetchContent)
+
 if(WIN32)
     set(CCKY_CRYPTO_BACKEND_DEPENDENCIES crypt32 wintrust ncrypt imagehlp)
 else()
     set(OPENSSL_USE_STATIC_LIBS ON)
+    set(ZLIB_USE_STATIC_LIBS ON)
+
     find_package(OpenSSL REQUIRED)
-    set(CCKY_CRYPTO_BACKEND_DEPENDENCIES OpenSSL::SSL OpenSSL::Crypto)
+    find_package(ZLIB REQUIRED)
+
+    FetchContent_Declare(
+      pugixml
+      GIT_REPOSITORY https://github.com/zeux/pugixml.git
+      GIT_TAG        v1.16
+    )
+    FetchContent_MakeAvailable(pugixml)
+
+    set(CCKY_CRYPTO_BACKEND_DEPENDENCIES OpenSSL::SSL OpenSSL::Crypto ZLIB::ZLIB pugixml)
 endif()
 
-include(FetchContent)
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git

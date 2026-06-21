@@ -1,10 +1,13 @@
 ccky_add_executable(ccky_tests
     Given_CliParser.cpp
     Given_PeStore.cpp
+    Given_AppxStore.cpp
     Given_CertMgr.cpp
     Given_SignTool.cpp
     Given_CckyHelp.cpp
     Given_CryptoFactory.cpp
+    Given_FileTypeDetector.cpp
+    Given_ZipArchive.cpp
 )
 
 target_link_libraries(ccky_tests PRIVATE

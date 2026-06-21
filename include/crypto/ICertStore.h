@@ -16,6 +16,7 @@ enum class StoreType
 {
     CerFile,
     PeFile,
+    AppxFile,
     PfxFile,
     WinSystem
 };

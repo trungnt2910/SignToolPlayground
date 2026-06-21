@@ -2,8 +2,10 @@
 #define CCKY_WIN_WRAPPER_H
 
 #include <memory>
-#include <wincrypt.h>
+
 #include <windows.h>
+
+#include <wincrypt.h>
 
 namespace ccky
 {

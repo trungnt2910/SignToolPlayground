@@ -12,6 +12,7 @@
 #include <wincrypt.h>
 #include <wintrust.h>
 
+#include "crypto/FileTypeDetector.h"
 #include "crypto/windows/WinCert.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WindowsException.h"
@@ -93,10 +94,39 @@ typedef struct _SIGNER_SIGNATURE_INFO
     PCRYPT_ATTRIBUTES psUnauthenticated;
 } SIGNER_SIGNATURE_INFO, *PSIGNER_SIGNATURE_INFO;
 
+typedef struct _SIGNER_SIGN_EX2_PARAMS
+{
+    DWORD dwFlags;
+    SIGNER_SUBJECT_INFO* pSubjectInfo;
+    SIGNER_CERT* pSigningCert;
+    SIGNER_SIGNATURE_INFO* pSignatureInfo;
+    LPVOID pProviderInfo;
+    DWORD dwTimestampFlags;
+    PCSTR pszAlgorithmOid;
+    LPCWSTR pwszTimestampURL;
+    PCRYPT_ATTRIBUTES pCryptAttrs;
+    LPVOID pSipData;
+    LPVOID ppSignerContext;
+    LPVOID pCryptoPolicy;
+    LPVOID pReserved;
+} SIGNER_SIGN_EX2_PARAMS, *PSIGNER_SIGN_EX2_PARAMS;
+
+typedef struct _APPX_SIP_CLIENT_DATA
+{
+    PSIGNER_SIGN_EX2_PARAMS pSignerParams;
+    IUnknown* pAppxSipState;
+} APPX_SIP_CLIENT_DATA, *PAPPX_SIP_CLIENT_DATA;
+
 typedef HRESULT(WINAPI* SignerSignEx_t)(DWORD dwFlags, SIGNER_SUBJECT_INFO* pSubjectInfo,
     SIGNER_CERT* pSignerCert, SIGNER_SIGNATURE_INFO* pSignatureInfo, LPVOID pProviderInfo,
     LPCWSTR pwszHttpTimeStamp, PCRYPT_ATTRIBUTES psRequest, LPVOID pSipData,
     LPVOID ppSignerContext);
+
+typedef HRESULT(WINAPI* SignerSignEx2_t)(DWORD dwFlags, SIGNER_SUBJECT_INFO* pSubjectInfo,
+    SIGNER_CERT* pSignerCert, SIGNER_SIGNATURE_INFO* pSignatureInfo, LPVOID pProviderInfo,
+    DWORD dwTimestampFlags, PCSTR pszAlgorithmOid, LPCWSTR pwszHttpTimeStamp,
+    PCRYPT_ATTRIBUTES psRequest, LPVOID pSipData, LPVOID ppSignerContext, LPVOID pCryptoPolicy,
+    LPVOID pReserved);
 
 typedef HRESULT(WINAPI* SignerTimeStampEx_t)(DWORD dwFlags, SIGNER_SUBJECT_INFO* pSubjectInfo,
     LPCWSTR pwszHttpTimeStamp, PCRYPT_ATTRIBUTES psRequest, LPVOID pSipData,
@@ -112,6 +142,7 @@ class MSSign32Loader
     }
 
     SignerSignEx_t SignerSignEx = nullptr;
+    SignerSignEx2_t SignerSignEx2 = nullptr;
     SignerTimeStampEx_t SignerTimeStampEx = nullptr;
 
   private:
@@ -121,6 +152,8 @@ class MSSign32Loader
         if (hMod)
         {
             SignerSignEx = reinterpret_cast<SignerSignEx_t>(GetProcAddress(hMod, "SignerSignEx"));
+            SignerSignEx2 =
+                reinterpret_cast<SignerSignEx2_t>(GetProcAddress(hMod, "SignerSignEx2"));
             SignerTimeStampEx =
                 reinterpret_cast<SignerTimeStampEx_t>(GetProcAddress(hMod, "SignerTimeStampEx"));
         }
@@ -128,10 +161,17 @@ class MSSign32Loader
 };
 
 void AuthenticodeSigner::sign(
-    CertificatePtr cert, const SignOptions& options, const std::string& peFilePath)
+    CertificatePtr cert, const SignOptions& options, const std::string& filePath)
 {
+    bool isAppx = (FileTypeDetector::detectFileType(filePath) == StoreType::AppxFile);
+
     auto& loader = MSSign32Loader::getInstance();
-    if (!loader.SignerSignEx)
+    if (isAppx && !loader.SignerSignEx2)
+    {
+        throw WindowsException(
+            "mssign32.dll or SignerSignEx2 is not available on this Windows system.", false);
+    }
+    if (!isAppx && !loader.SignerSignEx)
     {
         throw WindowsException(
             "mssign32.dll or SignerSignEx is not available on this Windows system.", false);
@@ -144,7 +184,7 @@ void AuthenticodeSigner::sign(
     }
     PCCERT_CONTEXT pCert = winCert->getInternal();
 
-    std::wstring wFileName = WinHelper::utf8ToWide(peFilePath);
+    std::wstring wFileName = WinHelper::utf8ToWide(filePath);
     std::wstring wTimestamp;
     if (!options.timestampUrl.empty())
     {
@@ -215,8 +255,47 @@ void AuthenticodeSigner::sign(
         .psUnauthenticated = nullptr,
     };
 
-    HRESULT hr = loader.SignerSignEx(0, &subjectInfo, &signerCert, &sigInfo, nullptr,
-        wTimestamp.empty() ? nullptr : wTimestamp.c_str(), nullptr, nullptr, nullptr);
+    HRESULT hr = S_OK;
+    if (isAppx)
+    {
+        SIGNER_SIGN_EX2_PARAMS ex2Params = {
+            .dwFlags = 0,
+            .pSubjectInfo = &subjectInfo,
+            .pSigningCert = &signerCert,
+            .pSignatureInfo = &sigInfo,
+            .pProviderInfo = nullptr,
+            .dwTimestampFlags = 0,
+            .pszAlgorithmOid = nullptr,
+            .pwszTimestampURL = wTimestamp.empty() ? nullptr : wTimestamp.c_str(),
+            .pCryptAttrs = nullptr,
+            .pSipData = nullptr,
+            .ppSignerContext = nullptr,
+            .pCryptoPolicy = nullptr,
+            .pReserved = nullptr,
+        };
+
+        APPX_SIP_CLIENT_DATA appxClientData = {
+            .pSignerParams = &ex2Params,
+            .pAppxSipState = nullptr,
+        };
+        ex2Params.pSipData = &appxClientData;
+
+        hr = loader.SignerSignEx2(ex2Params.dwFlags, ex2Params.pSubjectInfo, ex2Params.pSigningCert,
+            ex2Params.pSignatureInfo, ex2Params.pProviderInfo, ex2Params.dwTimestampFlags,
+            ex2Params.pszAlgorithmOid, ex2Params.pwszTimestampURL, ex2Params.pCryptAttrs,
+            ex2Params.pSipData, ex2Params.ppSignerContext, ex2Params.pCryptoPolicy,
+            ex2Params.pReserved);
+
+        if (appxClientData.pAppxSipState)
+        {
+            appxClientData.pAppxSipState->Release();
+        }
+    }
+    else
+    {
+        hr = loader.SignerSignEx(0, &subjectInfo, &signerCert, &sigInfo, nullptr,
+            wTimestamp.empty() ? nullptr : wTimestamp.c_str(), nullptr, nullptr, nullptr);
+    }
 
     if (hr != S_OK)
     {
@@ -224,9 +303,9 @@ void AuthenticodeSigner::sign(
     }
 }
 
-void AuthenticodeSigner::verify(const VerifyOptions& options, const std::string& peFilePath)
+void AuthenticodeSigner::verify(const VerifyOptions& options, const std::string& filePath)
 {
-    std::wstring wPath = WinHelper::utf8ToWide(peFilePath);
+    std::wstring wPath = WinHelper::utf8ToWide(filePath);
     WINTRUST_FILE_INFO fileInfo = {
         .cbStruct = sizeof(WINTRUST_FILE_INFO),
         .pcwszFilePath = wPath.c_str(),
@@ -303,11 +382,11 @@ void AuthenticodeSigner::verify(const VerifyOptions& options, const std::string&
     }
     else
     {
-        Win32Check::checkHr(res, "WinVerifyTrust failed on " + peFilePath);
+        Win32Check::checkHr(res, "WinVerifyTrust failed on " + filePath);
     }
 }
 
-void AuthenticodeSigner::timestamp(const TimestampOptions& options, const std::string& peFilePath)
+void AuthenticodeSigner::timestamp(const TimestampOptions& options, const std::string& filePath)
 {
     auto& loader = MSSign32Loader::getInstance();
     if (!loader.SignerTimeStampEx)
@@ -316,7 +395,7 @@ void AuthenticodeSigner::timestamp(const TimestampOptions& options, const std::s
             "mssign32.dll or SignerTimeStampEx is not available on this Windows system.", false);
     }
 
-    std::wstring wFileName = WinHelper::utf8ToWide(peFilePath);
+    std::wstring wFileName = WinHelper::utf8ToWide(filePath);
     std::wstring wTimestamp = WinHelper::utf8ToWide(options.timestampUrl);
 
     SIGNER_FILE_INFO fileInfo = {

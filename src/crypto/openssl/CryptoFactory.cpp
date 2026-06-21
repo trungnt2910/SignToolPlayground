@@ -1,9 +1,9 @@
 #include "crypto/CryptoFactory.h"
 
-#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 
+#include "crypto/FileTypeDetector.h"
 #include "crypto/openssl/OpenSslCert.h"
 #include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslStore.h"
@@ -29,45 +29,28 @@ std::shared_ptr<ICertStore> CryptoFactory::createStore(StoreType type, const std
     {
         return std::make_shared<OpenSslPeFileStore>();
     }
+    if (type == StoreType::AppxFile)
+    {
+        return std::make_shared<OpenSslAppxFileStore>();
+    }
     if (type == StoreType::PfxFile)
     {
         return std::make_shared<OpenSslPfxCertStore>();
     }
 
-    std::ifstream file(location, std::ios::binary);
-    if (file.is_open())
+    StoreType detected = FileTypeDetector::detectFileType(location);
+    if (detected == StoreType::PeFile)
     {
-        char mz[2];
-        if (file.read(mz, 2) && mz[0] == 'M' && mz[1] == 'Z')
-        {
-            file.seekg(0x3C, std::ios::beg);
-            uint32_t peOffset = 0;
-            if (file.read(reinterpret_cast<char*>(&peOffset), 4))
-            {
-                file.seekg(peOffset, std::ios::beg);
-                char pe[4];
-                if (file.read(pe, 4) && pe[0] == 'P' && pe[1] == 'E' && pe[2] == '\0' &&
-                    pe[3] == '\0')
-                {
-                    file.close();
-                    return std::make_shared<OpenSslPeFileStore>();
-                }
-            }
-        }
-        file.close();
+        return std::make_shared<OpenSslPeFileStore>();
     }
-
-    BIOPtr bio(BIO_new_file(location.c_str(), "rb"));
-    if (bio)
+    if (detected == StoreType::AppxFile)
     {
-        PKCS12* p12 = d2i_PKCS12_bio(bio.get(), nullptr);
-        if (p12)
-        {
-            PKCS12_free(p12);
-            return std::make_shared<OpenSslPfxCertStore>();
-        }
+        return std::make_shared<OpenSslAppxFileStore>();
     }
-
+    if (detected == StoreType::PfxFile)
+    {
+        return std::make_shared<OpenSslPfxCertStore>();
+    }
     return std::make_shared<OpenSslCerFileStore>();
 }
 

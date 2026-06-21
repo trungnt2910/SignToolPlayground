@@ -11,24 +11,18 @@ class Given_CryptoFactory : public CckyTest
 {
 };
 
-TEST_F(Given_CryptoFactory, When_CreateStoreAutoDetectsFileType)
+TEST_F(Given_CryptoFactory, When_CreateStoreWithCer_ReturnsCerStore)
 {
-    std::string origPePath = getTestDataPath("tests/data/test.exe");
-    std::string peDat = "test_pe.dat";
-    std::filesystem::copy_file(
-        origPePath, peDat, std::filesystem::copy_options::overwrite_existing);
-    auto peStore =
-        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, peDat);
-    EXPECT_EQ(peStore->getStoreType(), ccky::crypto::StoreType::PeFile);
-    std::filesystem::remove(peDat);
-
-    std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-    auto pfxStore =
-        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, pfxPath);
-    EXPECT_EQ(pfxStore->getStoreType(), ccky::crypto::StoreType::PfxFile);
-
     std::string cerPath = getTestDataPath("tests/data/lxmonika.cer");
-    auto cerStore =
+    auto store =
         ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, cerPath);
-    EXPECT_EQ(cerStore->getStoreType(), ccky::crypto::StoreType::CerFile);
+    EXPECT_NE(store, nullptr);
+    EXPECT_EQ(store->getStoreType(), ccky::crypto::StoreType::CerFile);
+}
+
+TEST_F(Given_CryptoFactory, When_CalculateSha256_ReturnsHash)
+{
+    std::string path = getTestDataPath("tests/data/test.exe");
+    std::string hash = ccky::crypto::CryptoFactory::calculateSha256(path);
+    EXPECT_EQ(hash, "592C1A2FA449F9617FF60AB3EDC3776ED5507A45616237EF472DCA839C0356CF");
 }

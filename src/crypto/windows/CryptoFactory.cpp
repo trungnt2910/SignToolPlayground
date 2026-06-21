@@ -1,7 +1,5 @@
 #include "crypto/CryptoFactory.h"
 
-#include <algorithm>
-#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -11,6 +9,7 @@
 
 #include <wincrypt.h>
 
+#include "crypto/FileTypeDetector.h"
 #include "crypto/windows/WinCert.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WinStore.h"
@@ -37,60 +36,28 @@ std::shared_ptr<ICertStore> CryptoFactory::createStore(StoreType type, const std
     {
         return std::make_shared<WinPeFileStore>();
     }
+    if (type == StoreType::AppxFile)
+    {
+        return std::make_shared<WinAppxFileStore>();
+    }
     if (type == StoreType::PfxFile)
     {
         return std::make_shared<WinPfxCertStore>();
     }
 
-    std::ifstream file(location, std::ios::binary);
-    if (file.is_open())
+    StoreType detected = FileTypeDetector::detectFileType(location);
+    if (detected == StoreType::PeFile)
     {
-        char mz[2];
-        if (file.read(mz, 2) && mz[0] == 'M' && mz[1] == 'Z')
-        {
-            file.seekg(0x3C, std::ios::beg);
-            uint32_t peOffset = 0;
-            if (file.read(reinterpret_cast<char*>(&peOffset), 4))
-            {
-                file.seekg(peOffset, std::ios::beg);
-                char pe[4];
-                if (file.read(pe, 4) && pe[0] == 'P' && pe[1] == 'E' && pe[2] == '\0' &&
-                    pe[3] == '\0')
-                {
-                    file.close();
-                    return std::make_shared<WinPeFileStore>();
-                }
-            }
-        }
-        file.close();
+        return std::make_shared<WinPeFileStore>();
     }
-
-    std::wstring wLocation = WinHelper::utf8ToWide(location);
-    DWORD dwEncoding = 0;
-    DWORD dwContentType = 0;
-    DWORD dwFormatType = 0;
-    HCERTSTORE hStore = nullptr;
-    HCRYPTMSG hMsg = nullptr;
-
-    if (CryptQueryObject(CERT_QUERY_OBJECT_FILE, wLocation.c_str(), CERT_QUERY_CONTENT_FLAG_ALL,
-            CERT_QUERY_FORMAT_FLAG_ALL, 0, &dwEncoding, &dwContentType, &dwFormatType, &hStore,
-            &hMsg, nullptr))
+    if (detected == StoreType::AppxFile)
     {
-        if (hStore)
-        {
-            CertCloseStore(hStore, 0);
-        }
-        if (hMsg)
-        {
-            CryptMsgClose(hMsg);
-        }
-
-        if (dwContentType == CERT_QUERY_CONTENT_PFX)
-        {
-            return std::make_shared<WinPfxCertStore>();
-        }
+        return std::make_shared<WinAppxFileStore>();
     }
-
+    if (detected == StoreType::PfxFile)
+    {
+        return std::make_shared<WinPfxCertStore>();
+    }
     return std::make_shared<WinCerFileStore>();
 }
 
