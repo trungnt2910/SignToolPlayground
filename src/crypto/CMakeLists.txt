@@ -1,6 +1,8 @@
 if(WIN32)
     ccky_add_library(ccky_crypto STATIC
         TimeFormatter.cpp
+        FileTypeDetector.cpp
+        windows/FileTypeDetector.cpp
         windows/CryptoFactory.cpp
         windows/WinCert.cpp
         windows/WinStore.cpp
@@ -11,12 +13,15 @@ if(WIN32)
 else()
     ccky_add_library(ccky_crypto STATIC
         TimeFormatter.cpp
+        FileTypeDetector.cpp
+        openssl/FileTypeDetector.cpp
         openssl/AuthenticodeSigner.cpp
         openssl/CryptoFactory.cpp
         openssl/OpenSslCert.cpp
         openssl/OpenSslStore.cpp
         openssl/OpenSslWrapper.cpp
         openssl/OpenSslException.cpp
+        openssl/ZipArchive.cpp
     )
 endif()
 

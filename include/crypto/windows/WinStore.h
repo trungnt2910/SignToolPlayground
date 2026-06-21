@@ -47,6 +47,8 @@ class Win32CommonStore : public ICertStore
   protected:
     virtual CertificatePtr createCert(PCCERT_CONTEXT pCert) const;
     void populateFromStore(HCERTSTORE hStore);
+    void loadSipFile(const std::string& location, const StoreOptions& options);
+    void saveSipFile(const std::string& location, const StoreOptions& options);
 
     std::string m_loadedLocation;
     std::vector<CertificatePtr> m_certs;
@@ -100,6 +102,14 @@ class WinPeFileStore : public Win32CommonStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::PeFile; }
+    void load(const std::string& location, const StoreOptions& options = {}) override;
+    void save(const std::string& location, const StoreOptions& options = {}) override;
+};
+
+class WinAppxFileStore : public Win32CommonStore
+{
+  public:
+    StoreType getStoreType() const override { return StoreType::AppxFile; }
     void load(const std::string& location, const StoreOptions& options = {}) override;
     void save(const std::string& location, const StoreOptions& options = {}) override;
 };

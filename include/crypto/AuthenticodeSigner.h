@@ -78,10 +78,9 @@ struct CatdbOptions
 class AuthenticodeSigner
 {
   public:
-    static void sign(
-        CertificatePtr cert, const SignOptions& options, const std::string& peFilePath);
-    static void verify(const VerifyOptions& options, const std::string& peFilePath);
-    static void timestamp(const TimestampOptions& options, const std::string& peFilePath);
+    static void sign(CertificatePtr cert, const SignOptions& options, const std::string& filePath);
+    static void verify(const VerifyOptions& options, const std::string& filePath);
+    static void timestamp(const TimestampOptions& options, const std::string& filePath);
     static void catdb(const CatdbOptions& options);
 };
 

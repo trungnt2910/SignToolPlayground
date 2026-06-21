@@ -518,8 +518,7 @@ void WinCerFileStore::save(const std::string& location, const StoreOptions& opti
     }
 }
 
-// WinPeFileStore
-void WinPeFileStore::load(const std::string& location, const StoreOptions& options)
+void Win32CommonStore::loadSipFile(const std::string& location, const StoreOptions& options)
 {
     m_certs.clear();
     m_crls.clear();
@@ -602,13 +601,12 @@ void WinPeFileStore::load(const std::string& location, const StoreOptions& optio
     }
 }
 
-void WinPeFileStore::save(const std::string& location, const StoreOptions& options)
+void Win32CommonStore::saveSipFile(const std::string& location, const StoreOptions& options)
 {
     if (location != m_loadedLocation && !m_loadedLocation.empty())
     {
-        std::ifstream src(m_loadedLocation, std::ios::binary);
-        std::ofstream dst(location, std::ios::binary);
-        dst << src.rdbuf();
+        std::filesystem::copy_file(
+            m_loadedLocation, location, std::filesystem::copy_options::overwrite_existing);
         m_loadedLocation = location;
     }
 
@@ -673,6 +671,28 @@ void WinPeFileStore::save(const std::string& location, const StoreOptions& optio
             }
         }
     }
+}
+
+// WinPeFileStore
+void WinPeFileStore::load(const std::string& location, const StoreOptions& options)
+{
+    loadSipFile(location, options);
+}
+
+void WinPeFileStore::save(const std::string& location, const StoreOptions& options)
+{
+    saveSipFile(location, options);
+}
+
+// WinAppxFileStore
+void WinAppxFileStore::load(const std::string& location, const StoreOptions& options)
+{
+    loadSipFile(location, options);
+}
+
+void WinAppxFileStore::save(const std::string& location, const StoreOptions& options)
+{
+    throw WindowsException("Direct save is unsupported on WinAppxFileStore", false);
 }
 
 // WinPfxCertStore

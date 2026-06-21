@@ -1,12 +1,11 @@
 #ifndef CCKY_WIN_CERT_H
 #define CCKY_WIN_CERT_H
 
-#include "crypto/Certificate.h"
-
 #include <windows.h>
 
 #include <wincrypt.h>
 
+#include "crypto/Certificate.h"
 #include "crypto/windows/WinWrapper.h"
 
 namespace ccky

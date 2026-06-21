@@ -376,5 +376,50 @@ std::string OpenSslHelper::getCertTime(const ASN1_TIME* time)
     return TimeFormatter::formatTime(tp);
 }
 
+const EVP_MD* OpenSslHelper::getDigestAlgorithm(const std::string& alg)
+{
+    std::string lower = alg;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower == "sha1")
+    {
+        return EVP_sha1();
+    }
+    if (lower == "sha256")
+    {
+        return EVP_sha256();
+    }
+    if (lower == "sha384")
+    {
+        return EVP_sha384();
+    }
+    if (lower == "sha512")
+    {
+        return EVP_sha512();
+    }
+    return EVP_sha1();
+}
+
+std::string OpenSslHelper::getDigestAlgorithmName(int nid)
+{
+    if (nid == NID_sha1)
+    {
+        return "sha1";
+    }
+    if (nid == NID_sha256)
+    {
+        return "sha256";
+    }
+    if (nid == NID_sha384)
+    {
+        return "sha384";
+    }
+    if (nid == NID_sha512)
+    {
+        return "sha512";
+    }
+    const char* sn = OBJ_nid2sn(nid);
+    return sn ? sn : "sha256";
+}
+
 } // namespace crypto
 } // namespace ccky

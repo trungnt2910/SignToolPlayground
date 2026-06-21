@@ -85,6 +85,43 @@ class OpenSslPeFileStore : public ICertStore
     std::string m_timestamp;
 };
 
+class OpenSslAppxFileStore : public ICertStore
+{
+  public:
+    StoreType getStoreType() const override { return StoreType::AppxFile; }
+    void load(const std::string& location, const StoreOptions& options = {}) override;
+    void save(const std::string& location, const StoreOptions& options = {}) override;
+
+    std::string getSigningAlgorithm() override { return m_signingAlgorithm; }
+    std::string getTimestamp() override { return m_timestamp.empty() ? "None" : m_timestamp; }
+
+    std::vector<CertificatePtr> getCertificates() override;
+    std::vector<CrlPtr> getCrls() override;
+    std::vector<CtlPtr> getCtls() override;
+
+    void addCertificate(CertificatePtr cert) override;
+    void addCrl(CrlPtr crl) override;
+    void addCtl(CtlPtr ctl) override;
+
+    void deleteCertificate(const std::string& commonName, const std::string& sha1Hash) override;
+    void deleteCrl(const std::string& sha1Hash) override;
+    void deleteCtl(const std::string& sha1Hash) override;
+
+    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
+    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
+
+    PKCS7Ptr getPkcs7();
+    bool setPkcs7(PKCS7* p7);
+
+  private:
+    std::vector<X509Ptr> m_certs;
+    std::vector<X509CRLPtr> m_crls;
+    std::vector<CtlPtr> m_ctls;
+    std::string m_loadedLocation;
+    std::string m_signingAlgorithm;
+    std::string m_timestamp;
+};
+
 class OpenSslWinSystemStore : public ICertStore
 {
   public:

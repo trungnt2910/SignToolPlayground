@@ -1,7 +1,8 @@
 #include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WindowsException.h"
 
 #include <windows.h>
+
+#include "crypto/windows/WindowsException.h"
 
 namespace ccky
 {

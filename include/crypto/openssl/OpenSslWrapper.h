@@ -72,6 +72,9 @@ class OpenSslHelper
     static std::string getCertThumbprint(X509* cert, const EVP_MD* md, bool spaceEvery8);
     static std::string getCertKeyMd5Thumbprint(X509* cert);
     static std::string getCertTime(const ASN1_TIME* time);
+
+    static const EVP_MD* getDigestAlgorithm(const std::string& alg);
+    static std::string getDigestAlgorithmName(int nid);
 };
 
 } // namespace crypto

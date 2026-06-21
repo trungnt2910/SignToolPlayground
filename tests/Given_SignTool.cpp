@@ -884,3 +884,98 @@ TEST_F(Given_SignTool, When_SignToolInvalidCommand_MatchesOutput)
                              "tests/data/output/signtool_invalidcommand_stderr.txt")));
     EXPECT_EQ(out.str(), "");
 }
+
+TEST_F(Given_SignTool, When_VerifySelfSignedAppx_MatchesOutput)
+{
+    std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
+    std::string origAppxPath = getTestDataPath("tests/data/test.appx");
+    std::string tempDir = getTempDir();
+    std::string signedAppx = tempDir + "/test.appx";
+    std::filesystem::copy_file(
+        origAppxPath, signedAppx, std::filesystem::copy_options::overwrite_existing);
+    std::stringstream out, err;
+
+    // Do not re-sign the APPX here. Windows does not allow CN mismatch between APPX and cert.
+    // The provided file is already signed by Project Reality.
+
+    auto verifyCmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    registry.registerCommand(verifyCmd);
+    const char* verifyArgv[] = {
+        "ccky",
+        "signtool",
+        "verify",
+        "/pa",
+        signedAppx.c_str(),
+    };
+    auto verifyArgs = ccky::cli::CliParser::parse(5, const_cast<char**>(verifyArgv), registry);
+    EXPECT_EQ(verifyCmd->execute(verifyArgs), 1);
+
+    EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
+                             "tests/data/output/signtool_verify_selfsignedappx_stderr.txt")));
+    EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
+                             "tests/data/output/signtool_verify_selfsignedappx_stdout.txt")));
+    std::filesystem::remove(signedAppx);
+}
+
+TEST_F(Given_SignTool, When_SignToolSignAppx_SignsSuccessfullyAndMatchesAuthority)
+{
+    // Use an APPX file whose CN matches the PFX. test.appx is published by "Project Reality".
+    std::string origAppxPath = getTestDataPath("tests/data/ccky.appx");
+    std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
+    std::string reSignedAppx = "re_signed.appx";
+    std::string reExtractedAppxCer = "re_extracted_appx.cer";
+
+    std::filesystem::copy_file(
+        origAppxPath, reSignedAppx, std::filesystem::copy_options::overwrite_existing);
+
+    const char* signArgv[] = {
+        "ccky",
+        "signtool",
+        "sign",
+        "/v",
+        "/fd",
+        "sha256",
+        "/f",
+        pfxPath.c_str(),
+        "/p",
+        "",
+        reSignedAppx.c_str(),
+    };
+    auto signArgs = ccky::cli::CliParser::parse(11, const_cast<char**>(signArgv), registry);
+    auto signCmd = registry.getCommand("signtool");
+    EXPECT_NE(signCmd, nullptr);
+    if (signCmd)
+    {
+        EXPECT_EQ(signCmd->execute(signArgs), 0);
+    }
+
+    const char* certArgv[] = {
+        "ccky",
+        "certmgr",
+        "/put",
+        "/c",
+        reSignedAppx.c_str(),
+        reExtractedAppxCer.c_str(),
+    };
+    auto certArgs = ccky::cli::CliParser::parse(6, const_cast<char**>(certArgv), registry);
+    auto certCmd = registry.getCommand("certmgr");
+    EXPECT_NE(certCmd, nullptr);
+    if (certCmd)
+    {
+        EXPECT_EQ(certCmd->execute(certArgs), 0);
+    }
+
+    auto cerStore = ccky::crypto::CryptoFactory::createStore(
+        ccky::crypto::StoreType::CerFile, reExtractedAppxCer);
+    EXPECT_NO_THROW(cerStore->load(reExtractedAppxCer));
+    auto certs = cerStore->getCertificates();
+    EXPECT_GT(certs.size(), 0);
+    if (!certs.empty())
+    {
+        auto cert = certs[0];
+        EXPECT_EQ(cert->getCommonName(), "ccky");
+    }
+
+    std::filesystem::remove(reSignedAppx);
+    std::filesystem::remove(reExtractedAppxCer);
+}

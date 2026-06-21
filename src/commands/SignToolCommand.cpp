@@ -757,7 +757,7 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
         {
             std::string filePath = fileToVerify;
 
-            auto peStore = crypto::CryptoFactory::createStore(crypto::StoreType::PeFile, filePath);
+            auto peStore = crypto::CryptoFactory::createStore(crypto::StoreType::CerFile, filePath);
             crypto::StoreOptions opts;
             peStore->load(filePath, opts);
 
@@ -985,7 +985,7 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
             try
             {
                 auto peStore =
-                    crypto::CryptoFactory::createStore(crypto::StoreType::PeFile, fileToProcess);
+                    crypto::CryptoFactory::createStore(crypto::StoreType::CerFile, fileToProcess);
                 crypto::StoreOptions opts;
                 peStore->load(fileToProcess, opts);
                 if (peStore->getCertificates().empty())
