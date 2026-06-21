@@ -77,3 +77,22 @@ TEST_F(Given_CliParser, When_CaseInsensitiveFlags_MatchedCorrectly)
     EXPECT_TRUE(args.hasFlag("crl"));
     EXPECT_EQ(args.getFlagValue("SHA1"), "123456");
 }
+
+TEST_F(Given_CliParser, When_AbsoluteUnixPath_ParsedAsPositional)
+{
+    const char* argv[] = {
+        "ccky",
+        "signtool",
+        "sign",
+        "/f",
+        "/absolute/path/to/cert.pfx",
+        "/absolute/path/to/app.exe",
+    };
+    auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
+
+    EXPECT_EQ(args.command, "signtool");
+    EXPECT_EQ(args.subcommand, "sign");
+    EXPECT_EQ(args.getFlagValue("f"), "/absolute/path/to/cert.pfx");
+    ASSERT_EQ(args.positional.size(), 1);
+    EXPECT_EQ(args.positional[0], "/absolute/path/to/app.exe");
+}
