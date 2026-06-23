@@ -10,9 +10,10 @@ else()
     find_package(ZLIB REQUIRED)
 
     FetchContent_Declare(
-      pugixml
-      GIT_REPOSITORY https://github.com/zeux/pugixml.git
-      GIT_TAG        v1.16
+        pugixml
+        GIT_REPOSITORY https://github.com/zeux/pugixml.git
+        GIT_TAG        v1.16
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(pugixml)
 
@@ -20,9 +21,10 @@ else()
 endif()
 
 FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        v1.14.0
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.14.0
+    EXCLUDE_FROM_ALL
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
