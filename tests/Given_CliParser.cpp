@@ -20,6 +20,7 @@ TEST_F(Given_CliParser, When_CertMgrAddCommand_ParsedCorrectly)
         "myFile.ext",
         "newFile.ext",
     };
+
     auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
 
     EXPECT_EQ(args.command, "certmgr");
@@ -48,6 +49,7 @@ TEST_F(Given_CliParser, When_SignToolSignCommand_ParsedCorrectly)
         "SHA256",
         "MyFile.exe",
     };
+
     auto args = ccky::cli::CliParser::parse(10, const_cast<char**>(argv), registry);
 
     EXPECT_EQ(args.command, "signtool");
@@ -72,6 +74,7 @@ TEST_F(Given_CliParser, When_CaseInsensitiveFlags_MatchedCorrectly)
         "123456",
         "store.cer",
     };
+
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
 
     EXPECT_TRUE(args.hasFlag("crl"));
@@ -88,6 +91,7 @@ TEST_F(Given_CliParser, When_AbsoluteUnixPath_ParsedAsPositional)
         "/absolute/path/to/cert.pfx",
         "/absolute/path/to/app.exe",
     };
+
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
 
     EXPECT_EQ(args.command, "signtool");

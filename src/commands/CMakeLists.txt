@@ -1,5 +1,7 @@
 ccky_add_library(ccky_commands STATIC
     CertMgrCommand.cpp
+    MakeCertCommand.cpp
+    Pvk2PfxCommand.cpp
     SignToolCommand.cpp
 )
 

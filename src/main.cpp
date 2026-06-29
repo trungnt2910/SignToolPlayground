@@ -4,6 +4,8 @@
 #include "cli/CliParser.h"
 #include "cli/CommandRegistry.h"
 #include "commands/CertMgrCommand.h"
+#include "commands/MakeCertCommand.h"
+#include "commands/Pvk2PfxCommand.h"
 #include "commands/SignToolCommand.h"
 
 int main(int argc, char* argv[])
@@ -11,10 +13,14 @@ int main(int argc, char* argv[])
     ccky::cli::CommandRegistry registry;
     registry.registerCommandUsage("ccky", "", "Usage: ccky <command> [options]\n", "",
         {{"certmgr", "Manages certificates, CTLs, and CRLs."},
+            {"makecert", "Creates an X.509 certificate."},
+            {"pvk2pfx", "Copies public key and private key information to a .pfx file."},
             {"signtool", "Digitally signs, verifies, and timestamps files."}},
         {});
 
     registry.registerCommand(std::make_shared<ccky::commands::CertMgrCommand>());
+    registry.registerCommand(std::make_shared<ccky::commands::MakeCertCommand>());
+    registry.registerCommand(std::make_shared<ccky::commands::Pvk2PfxCommand>());
     registry.registerCommand(std::make_shared<ccky::commands::SignToolCommand>());
 
     auto args = ccky::cli::CliParser::parse(argc, argv, registry);

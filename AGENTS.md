@@ -4,7 +4,9 @@
 
 - The frontend (src/commands):
   + MUST NOT contain any OS-specific or third-party library call.
-  + MUST handle all invalid parameters and error out before passing to the backend.
+  + MUST handle invalid parameters messages and error out before passing to the backend.
+    - For errors that causes the backend to fail with a generic/unknown error message,
+    you should let the backend handle instead.
 - The backend (src/crypto):
   + MUST NOT refer to any frontend tool.
   + MUST communicate errors via exceptions.
@@ -14,6 +16,21 @@
 ## ccky Tests
 
 - You MUST NOT hard code any test-specific data or conditions in the application code.
+- All new tests MUST follow the Arrange/Act/Assert pattern.
+  + Arrange/Act/Assert blocks MUST stay together, with one newline between blocks.
+  + If there are mutiple act/assert groups, you MUST split it into two tests instead.
+  + The blocks MUST be clear based on only the spacing. DO NOT add comments like `// Arrange`.
+  + Command line parameters or other preparation MUST be in the Arrange block.
+  + Reloading of output files MUST be in the Act block, not the Assert block.
+- Tests must not be guarded by macros. Macro-guarded skips MUST be in the test body instead.
+- Tool-level integration tests MUST NOT make backend-specific assumptions.
+  + Only skipping commands unsupported by a specific backend is allowed.
+- Always check if there is already a helper in CckyTest.h. You MUST use those helpers for
+common scenarios, including:
+  + Registering temporary system resources (files, certificates, etc.) for cleanup.
+  + Loading and comparing test files.
+- For readability, split command-line args array into multiple lines, each argument one line.
+- Avoid having a clean block. Instead, try to use the resource register functions in `CckyTest.h`.
 
 ## ccky Structure
 
@@ -55,3 +72,4 @@ why.
 Instead, throw the exception directly. A similar rule applies to the OpenSSL backend.
 - You must properly convert std::string to std::wstring and vice-versa using WinHelper helpers. You
 MUST NOT do a byte-wise widening or narrowing loop.
+- You MUST NOT detect errors by looking at the exception string.

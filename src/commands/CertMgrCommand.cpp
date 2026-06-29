@@ -29,20 +29,15 @@ std::vector<cli::FlagDef> CertMgrCommand::getFlagDefs(const std::string& subcomm
     return {{"add", cli::FlagType::Boolean,
                 "Add certificates/CRLs/CTLs to a storeFile or a system store", "", ""},
         {"del", cli::FlagType::Boolean,
-            "Delete certificates/CRLs/CTLs from a storeFile or \n                    a system "
-            "store",
-            "", ""},
+            "Delete certificates/CRLs/CTLs from a storeFile or \na system store", "", ""},
         {"put", cli::FlagType::Boolean,
-            "Put an encoded certificate/CRL/CTL from a storeFile or\n                    a system "
-            "store to a file.  The file will be saved in X.509\n                    format. -7 can "
-            "be "
-            "used to save the file in PKCS #7 format",
+            "Put an encoded certificate/CRL/CTL from a storeFile or\na system store to a file.  "
+            "The file will be saved in X.509\nformat. -7 can be used to save the file in PKCS #7 "
+            "format",
             "", ""},
         {"s", cli::FlagType::Boolean, "Indicate the store is a system store ", "", ""},
         {"r", cli::FlagType::Value,
-            "The system store location \n                        <currentUser|localMachine> "
-            "Default "
-            "to 'currentUser' ",
+            "The system store location \n    <currentUser|localMachine> Default to 'currentUser' ",
             "<location>", ""},
         {"c", cli::FlagType::Boolean, "Certificates in the store", "", ""},
         {"crl", cli::FlagType::Boolean, "Certificates revocation lists(CRLs) in the store", "", ""},
@@ -54,12 +49,11 @@ std::vector<cli::FlagDef> CertMgrCommand::getFlagDefs(const std::string& subcomm
             "<thumbPrint>", ""},
         {"7", cli::FlagType::Boolean, "Save the destination store in PKCS #7 format", "", ""},
         {"e", cli::FlagType::Value,
-            "Certificate/CRL/CTL encoding type.  \n                    Default to "
-            "X509_ASN_ENCODING",
-            "<encode>", ""},
+            "Certificate/CRL/CTL encoding type.  \nDefault to X509_ASN_ENCODING", "<encode>", ""},
         {"f", cli::FlagType::Value, "CertStore open flags.  Meaningful only if -y is set", "<flag>",
             ""},
-        {"y", cli::FlagType::Value, "CertStore provider name", "<provider>", ""}};
+        {"y", cli::FlagType::Value, "CertStore provider name", "<provider>", ""},
+        {"?", cli::FlagType::Boolean, "Displays help.", "", "", 0, "*", true}};
 }
 
 std::shared_ptr<crypto::ICertStore> CertMgrCommand::getStore(
@@ -79,15 +73,18 @@ void CertMgrCommand::registerUsage(cli::CommandRegistry* registry)
 {
     if (registry)
     {
+        cli::UsageBehavior behavior;
+        behavior.useDashPrefix = true;
+        behavior.basePadWidth = 20;
+        behavior.noCategoryBlankLines = true;
+        behavior.alignValueAtCol = 7;
+        behavior.noInitialBlankLine = true;
+
         registry->registerCommandUsage("certmgr", "",
             "Usage: CertMgr [options][-s [-r <location>][SourceStoreName]\n"
             "                        [-s [-r <location>][DestinationStoreName]\n"
             "Options: \n",
-            "", {}, getFlagDefs(""),
-            cli::UsageBehaviorFlags::UseDashPrefix | cli::UsageBehaviorFlags::WideBasePad |
-                cli::UsageBehaviorFlags::NoCategoryBlankLines |
-                cli::UsageBehaviorFlags::AlignValueAtCol7 |
-                cli::UsageBehaviorFlags::NoInitialBlankLine);
+            "", {}, getFlagDefs(""), behavior);
     }
 }
 
@@ -119,12 +116,6 @@ void CertMgrCommand::displayError(const std::string& msg)
 
 int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
 {
-    if (args.hasFlag("h") || args.hasFlag("help") || args.hasFlag("?"))
-    {
-        printHelp();
-        return 0;
-    }
-
     crypto::StoreOptions opts;
     opts.registryLocation = args.getFlagValue("r", "currentUser");
     opts.providerName = args.getFlagValue("y");

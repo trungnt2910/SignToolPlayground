@@ -223,6 +223,14 @@ std::vector<cli::FlagDef> SignToolCommand::getFlagDefs(const std::string& subcom
     }
     else if (lower == "verify")
     {
+        constexpr const char* catalogCategory =
+            "Catalogs are used by Microsoft and others to sign many files very efficiently.\n"
+            "Catalog options:";
+        constexpr const char* policyCategory =
+            "SignTool uses the \"Windows Driver\" Verification Policy by default. The options\n"
+            "below allow you to use alternate Policies.\n"
+            "Verification Policy options:";
+
         return {
             {"a", cli::FlagType::Boolean,
                 "Automatically attempt to verify the file using all methods. First\n"
@@ -231,31 +239,31 @@ std::vector<cli::FlagDef> SignToolCommand::getFlagDefs(const std::string& subcom
                 "            signature. When verifying files that may or may not be signed in a\n"
                 "            catalog, such as Windows files and drivers, this option is the\n"
                 "            easiest way to ensure that the signature is found.",
-                "", "Catalog options:"},
+                "", catalogCategory},
             {"ad", cli::FlagType::Boolean,
                 "Find the catalog automatically using the default catalog database.", "",
-                "Catalog options:"},
+                catalogCategory},
             {"as", cli::FlagType::Boolean,
                 "Find the catalog automatically using the system component (driver)\n"
                 "            catalog database.",
-                "", "Catalog options:"},
+                "", catalogCategory},
             {"ag", cli::FlagType::Value,
                 "Find the catalog automatically in the specified catalog database.\n"
                 "            Catalog databases are identified by GUID.\n"
                 "            Example GUID: {F750E6C3-38EE-11D1-85E5-00C04FC295EE}",
-                "<GUID>", "Catalog options:"},
-            {"c", cli::FlagType::Value, "Specify the catalog file.", "<file>", "Catalog options:"},
+                "<GUID>", catalogCategory},
+            {"c", cli::FlagType::Value, "Specify the catalog file.", "<file>", catalogCategory},
             {"o", cli::FlagType::Value,
                 "When verifying a file that is in a signed catalog, verify that the\n"
                 "            file is valid for the specified platform.\n"
                 "            Parameter format is: PlatformID:VerMajor.VerMinor.BuildNumber",
-                "<ver>", "Catalog options:"},
+                "<ver>", catalogCategory},
             {"hash", cli::FlagType::Value,
                 "Optional hash algorithm to use when searching for\n"
                 "            a file in a catalog.",
-                "<SHA1 | SHA256>", "Catalog options:", 22},
+                "<SHA1 | SHA256>", catalogCategory, 22},
             {"pa", cli::FlagType::Boolean, "Use the \"Default Authenticode\" Verification Policy.",
-                "", "Verification Policy options:"},
+                "", policyCategory},
             {"pg", cli::FlagType::Value,
                 "Specify the verification policy by GUID (also called ActionID). Supported "
                 "ActionIDs "
@@ -264,7 +272,7 @@ std::vector<cli::FlagDef> SignToolCommand::getFlagDefs(const std::string& subcom
                 "            {00AAC56B-CD44-11d0-8CC2-00C04FC295EE} "
                 "WINTRUST_ACTION_GENERIC_VERIFY_V2\n"
                 "            {6078065B-8F22-4B13-BD9B-5B762776F386} CONFIG_CI_ACTION_VERIFY",
-                "<GUID>", "Verification Policy options:"},
+                "<GUID>", policyCategory},
             {"ca", cli::FlagType::Value,
                 "Verify that the file is signed with an intermediate CA cert with\n"
                 "            the specified hash. This option may be specified multiple times;\n"
@@ -377,29 +385,43 @@ std::vector<cli::FlagDef> SignToolCommand::getFlagDefs(const std::string& subcom
     }
     else if (lower == "catdb")
     {
-        return {{"d", cli::FlagType::Boolean,
-                    "Operate on the default catalog database instead of the system\n"
-                    "            component (driver) catalog database.",
-                    "", "Catalog Database options:"},
+        constexpr const char* dbCategory =
+            "Catalog Database options allow you to select which catalog database to operate\n"
+            "on. If you do not specify a catalog database, SignTool operates on the system\n"
+            "component (driver) database.\n"
+            "Catalog Database options:";
+        constexpr const char* otherCategory =
+            "Other options specify what to do with the selected catalog database, and other\n"
+            "behavior. If you do not specify any other options, SignTool will add the\n"
+            "specified catalogs to the catalog database, replacing any existing catalog\n"
+            "which has the same name.\n"
+            "Other options:";
+
+        return {
+            {"d", cli::FlagType::Boolean,
+                "Operate on the default catalog database instead of the system\n"
+                "            component (driver) catalog database.",
+                "", dbCategory},
             {"g", cli::FlagType::Value, "Operate on the specified catalog database.", "<GUID>",
-                "Catalog Database options:"},
+                dbCategory},
             {"q", cli::FlagType::Boolean,
                 "No output on success and minimal output on failure. As always, \n"
                 "            SignTool returns 0 on success and 1 on failure.",
-                "", "Other options:"},
+                "", otherCategory},
             {"r", cli::FlagType::Boolean,
-                "Remove the specified catalogs from the catalog database.", "", "Other options:"},
+                "Remove the specified catalogs from the catalog database.", "", otherCategory},
             {"u", cli::FlagType::Boolean,
                 "Automatically generate a unique name for the added catalogs. The\n"
                 "            catalog files will be renamed if necessary to prevent name\n"
                 "            conflicts with existing catalog files.",
-                "", "Other options:"},
+                "", otherCategory},
             {"v", cli::FlagType::Boolean,
                 "Print verbose success and status messages. This may also provide\n"
                 "            slightly more information on error.",
-                "", "Other options:"},
+                "", otherCategory},
             {"debug", cli::FlagType::Boolean, "Display additional debug information.", "",
-                "Other options:"}};
+                otherCategory},
+        };
     }
     else if (lower == "remove")
     {
@@ -436,6 +458,9 @@ void SignToolCommand::registerUsage(cli::CommandRegistry* registry)
 {
     if (registry)
     {
+        cli::UsageBehavior behavior;
+        behavior.autoAlignDescriptions = false;
+
         registry->registerCommandUsage("signtool", "",
             "Usage: signtool <command> [options] or signtool @<response file>\n",
             "  Respsonse files should be formatted with one argument per line, with the first "
@@ -459,7 +484,7 @@ void SignToolCommand::registerUsage(cli::CommandRegistry* registry)
                 {"catdb", "Modify a catalog database."},
                 {"remove", "Remove embedded signature(s) or reduce the size of an\n"
                            "embedded signed file."}},
-            {});
+            {}, behavior);
 
         registry->registerCommandUsage("signtool", "sign",
             "Usage: signtool sign [options] <filename(s)>\n",
@@ -467,7 +492,7 @@ void SignToolCommand::registerUsage(cli::CommandRegistry* registry)
             "protects a file from tampering, and allows users to verify the signer (you)\n"
             "based on a signing certificate. The options below allow you to specify signing\n"
             "parameters and to select the signing certificate you wish to use.",
-            {}, getFlagDefs("sign"));
+            {}, getFlagDefs("sign"), behavior);
 
         registry->registerCommandUsage("signtool", "verify",
             "Usage: signtool verify [options] <filename(s)>\n",
@@ -475,33 +500,30 @@ void SignToolCommand::registerUsage(cli::CommandRegistry* registry)
             "Verification determines if the signing certificate was issued by a trusted\n"
             "party, whether that certificate has been revoked, and whether the certificate\n"
             "is valid under a specific policy. Options allow you to specify requirements\n"
-            "that must be met and to specify how to find the catalog, if appropriate.\n\n"
-            "Catalogs are used by Microsoft and others to sign many files very efficiently.",
-            {}, getFlagDefs("verify"));
+            "that must be met and to specify how to find the catalog, if appropriate.",
+            {}, getFlagDefs("verify"), behavior);
 
         registry->registerCommandUsage("signtool", "timestamp",
             "Usage: signtool timestamp [options] <filename(s)>\n",
             "Use the \"timestamp\" command to add a timestamp to a previously-signed file.\n"
             "The \"/t\" option is required.",
-            {}, getFlagDefs("timestamp"));
+            {}, getFlagDefs("timestamp"), behavior);
 
         registry->registerCommandUsage("signtool", "catdb",
             "Usage: signtool catdb [options] <filename(s)>\n",
             "Use the \"catdb\" command to add or remove catalog files to or from a catalog\n"
             "database. Catalog databases are used for automatic lookup of catalog files,\n"
-            "and are identified by GUID.\n\n"
-            "Catalog Database options allow you to select which catalog database to operate\n"
-            "on. If you do not specify a catalog database, SignTool operates on the system\n"
-            "component (driver) database.",
-            {}, getFlagDefs("catdb"));
+            "and are identified by GUID.",
+            {}, getFlagDefs("catdb"), behavior);
 
         registry->registerCommandUsage("signtool", "remove",
             "Usage: signtool remove [options] <filename(s)>\n",
             "Use the \"remove\" command to remove the embedded signature(s) or sections of\n"
             "the embedded signature on a PE/COFF file.\n\n"
             "WARNING: This command will modify the file on the disk. Please create a backup\n"
-            "copy if you want to preserve the original file.",
-            {}, getFlagDefs("remove"));
+            "copy if you want to preserve the original file.\n\n"
+            "The option \"/c\" and/or \"/u\", or \"/s\" is required.",
+            {}, getFlagDefs("remove"), behavior);
     }
 }
 

@@ -9,6 +9,7 @@
 
 #include <wincrypt.h>
 
+#include "crypto/CckyException.h"
 #include "crypto/FileTypeDetector.h"
 #include "crypto/windows/WinCert.h"
 #include "crypto/windows/WinHelper.h"
@@ -63,41 +64,35 @@ std::shared_ptr<ICertStore> CryptoFactory::createStore(StoreType type, const std
 
 CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t>& derBytes)
 {
-    PCCERT_CONTEXT pCert = CertCreateCertificateContext(
-        X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size());
-    if (!pCert)
+    CertContextPtr certPtr(CertCreateCertificateContext(
+        X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size()));
+    if (!certPtr)
     {
         return nullptr;
     }
-    auto res = std::make_shared<WinCert>(pCert);
-    CertFreeCertificateContext(pCert);
-    return res;
+    return std::make_shared<WinCert>(certPtr.get());
 }
 
 CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
 {
-    PCCRL_CONTEXT pCrl = CertCreateCRLContext(
-        X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size());
-    if (!pCrl)
+    CrlContextPtr crlPtr(CertCreateCRLContext(
+        X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size()));
+    if (!crlPtr)
     {
         return nullptr;
     }
-    auto res = std::make_shared<WinCrl>(pCrl);
-    CertFreeCRLContext(pCrl);
-    return res;
+    return std::make_shared<WinCrl>(crlPtr.get());
 }
 
 CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
 {
-    PCCTL_CONTEXT pCtl = CertCreateCTLContext(
-        X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size());
-    if (!pCtl)
+    CtlContextPtr ctlPtr(CertCreateCTLContext(
+        X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size()));
+    if (!ctlPtr)
     {
         return nullptr;
     }
-    auto res = std::make_shared<WinCtl>(pCtl);
-    CertFreeCTLContext(pCtl);
-    return res;
+    return std::make_shared<WinCtl>(ctlPtr.get());
 }
 
 bool CryptoFactory::acquireContext(const std::string& container, const std::string& provider)
@@ -113,6 +108,17 @@ bool CryptoFactory::acquireContext(const std::string& container, const std::stri
         return true;
     }
     return false;
+}
+
+void CryptoFactory::deleteKeyContainer(
+    const std::string& name, const std::string& provider, uint32_t providerType)
+{
+    std::wstring wName = WinHelper::utf8ToWide(name);
+    std::wstring wProvider = WinHelper::utf8ToWide(provider);
+    HCRYPTPROV hProv = 0;
+    CryptAcquireContextW(&hProv, wName.empty() ? nullptr : wName.c_str(),
+        wProvider.empty() ? nullptr : wProvider.c_str(),
+        providerType == 0 ? PROV_RSA_FULL : providerType, CRYPT_DELETEKEYSET);
 }
 
 std::string CryptoFactory::calculateSha256(const std::string& filePath)
@@ -155,6 +161,93 @@ std::string CryptoFactory::calculateSha256(const std::string& filePath)
         }
     }
     return "";
+}
+
+std::vector<uint8_t> CryptoFactory::calculateSha1Bytes(const std::vector<uint8_t>& data)
+{
+    HCRYPTPROV rawProv = 0;
+    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    {
+        throw CckyException("Failed to acquire crypt context for SHA1");
+    }
+    CryptProvPtr hProv(rawProv);
+
+    HCRYPTHASH rawHash = 0;
+    if (!CryptCreateHash(hProv.get(), CALG_SHA1, 0, 0, &rawHash))
+    {
+        throw CckyException("Failed to create SHA1 hash");
+    }
+    CryptHashPtr hHash(rawHash);
+
+    if (!CryptHashData(hHash.get(), data.data(), static_cast<DWORD>(data.size()), 0))
+    {
+        throw CckyException("Failed to hash data");
+    }
+
+    BYTE hash[20];
+    DWORD len = sizeof(hash);
+    if (!CryptGetHashParam(hHash.get(), HP_HASHVAL, hash, &len, 0))
+    {
+        throw CckyException("Failed to get hash value");
+    }
+
+    return std::vector<uint8_t>(hash, hash + 20);
+}
+
+std::vector<uint8_t> CryptoFactory::encryptRc4Bytes(
+    const std::vector<uint8_t>& key, const std::vector<uint8_t>& data)
+{
+    HCRYPTPROV rawProv = 0;
+    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    {
+        throw CckyException("Failed to acquire crypt context for RC4");
+    }
+    CryptProvPtr hProv(rawProv);
+
+    // Prepare PLAINTEXTKEYBLOB
+    std::vector<uint8_t> blobBuf(sizeof(BLOBHEADER) + sizeof(DWORD) + key.size());
+    BLOBHEADER* hdr = reinterpret_cast<BLOBHEADER*>(blobBuf.data());
+    hdr->bType = PLAINTEXTKEYBLOB;
+    hdr->bVersion = CUR_BLOB_VERSION;
+    hdr->reserved = 0;
+    hdr->aiKeyAlg = CALG_RC4;
+
+    DWORD* keySize = reinterpret_cast<DWORD*>(blobBuf.data() + sizeof(BLOBHEADER));
+    *keySize = static_cast<DWORD>(key.size());
+
+    std::copy(key.begin(), key.end(), blobBuf.begin() + sizeof(BLOBHEADER) + sizeof(DWORD));
+
+    HCRYPTKEY rawKey = 0;
+    if (!CryptImportKey(
+            hProv.get(), blobBuf.data(), static_cast<DWORD>(blobBuf.size()), 0, 0, &rawKey))
+    {
+        throw CckyException("Failed to import RC4 key");
+    }
+    CryptKeyPtr hKey(rawKey);
+
+    std::vector<uint8_t> out = data;
+    DWORD dataLen = static_cast<DWORD>(out.size());
+    DWORD bufLen = dataLen;
+    if (!CryptEncrypt(hKey.get(), 0, TRUE, 0, out.data(), &dataLen, bufLen))
+    {
+        throw CckyException("Failed to encrypt/decrypt with RC4");
+    }
+    return out;
+}
+
+void CryptoFactory::getRandomBytes(void* buf, size_t len)
+{
+    HCRYPTPROV rawProv = 0;
+    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    {
+        throw CckyException("Failed to acquire crypt context for random bytes");
+    }
+    CryptProvPtr hProv(rawProv);
+
+    if (!CryptGenRandom(hProv.get(), static_cast<DWORD>(len), static_cast<BYTE*>(buf)))
+    {
+        throw CckyException("Failed to generate random bytes");
+    }
 }
 
 } // namespace crypto

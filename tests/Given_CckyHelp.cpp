@@ -33,14 +33,14 @@ TEST_F(Given_CckyHelp, When_CertMgrHelp_MatchesStderr)
     };
     auto args = ccky::cli::CliParser::parse(3, const_cast<char**>(argv), registry);
     auto cmd = registry.getCommand("certmgr");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(args), 0);
-        std::string expected =
-            getTestTextContent(getTestDataPath("tests/data/output/certmgr_help_stderr.txt"));
-        EXPECT_EQ(err.str(), expected);
-    }
+    ASSERT_NE(cmd, nullptr);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/certmgr_help_stderr.txt"));
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(err.str(), expected);
 }
 
 TEST_F(Given_CckyHelp, When_SignToolHelp_MatchesStderr)
@@ -52,14 +52,14 @@ TEST_F(Given_CckyHelp, When_SignToolHelp_MatchesStderr)
     };
     auto args = ccky::cli::CliParser::parse(3, const_cast<char**>(argv), registry);
     auto cmd = registry.getCommand("signtool");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(args), 0);
-        std::string expected =
-            getTestTextContent(getTestDataPath("tests/data/output/signtool_help_stderr.txt"));
-        EXPECT_EQ(err.str(), expected);
-    }
+    ASSERT_NE(cmd, nullptr);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/signtool_help_stderr.txt"));
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(err.str(), expected);
 }
 
 TEST_F(Given_CckyHelp, When_SignToolSignHelp_MatchesStderr)
@@ -72,12 +72,12 @@ TEST_F(Given_CckyHelp, When_SignToolSignHelp_MatchesStderr)
     };
     auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), registry);
     auto cmd = registry.getCommand("signtool");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(args), 0);
-        std::string expected =
-            getTestTextContent(getTestDataPath("tests/data/output/signtool_sign_help_stderr.txt"));
-        EXPECT_EQ(err.str(), expected);
-    }
+    ASSERT_NE(cmd, nullptr);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/signtool_sign_help_stderr.txt"));
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(err.str(), expected);
 }

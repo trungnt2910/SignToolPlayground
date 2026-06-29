@@ -9,6 +9,7 @@
 
 #include "crypto/CryptoFactory.h"
 #include "crypto/openssl/OpenSslException.h"
+#include "crypto/openssl/OpenSslHelper.h"
 #include "crypto/openssl/OpenSslStore.h"
 #include "crypto/openssl/ZipArchive.h"
 

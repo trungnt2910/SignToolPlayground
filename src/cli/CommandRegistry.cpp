@@ -47,7 +47,7 @@ std::vector<std::shared_ptr<Command>> CommandRegistry::getAllCommands() const
 void CommandRegistry::registerCommandUsage(const std::string& command,
     const std::string& subcommand, const std::string& usageHeader,
     const std::string& cmdDescription, const std::vector<SubcommandInfo>& subcommands,
-    const std::vector<FlagDef>& flags, UsageBehaviorFlags behavior)
+    const std::vector<FlagDef>& flags, UsageBehavior behavior)
 {
     std::string lowerCmd = command;
     std::transform(lowerCmd.begin(), lowerCmd.end(), lowerCmd.begin(), ::tolower);
@@ -57,8 +57,8 @@ void CommandRegistry::registerCommandUsage(const std::string& command,
         usageHeader, cmdDescription, subcommands, flags, behavior};
 }
 
-std::string CommandRegistry::getUsage(
-    const std::string& command, const std::string& subcommand) const
+std::string CommandRegistry::getUsage(const std::string& command, const std::string& subcommand,
+    const std::string& categoryFilter) const
 {
     std::string lowerCmd = command;
     std::transform(lowerCmd.begin(), lowerCmd.end(), lowerCmd.begin(), ::tolower);
@@ -74,33 +74,39 @@ std::string CommandRegistry::getUsage(
     const auto& info = it->second;
     std::stringstream ss;
 
-    bool useDashPrefix = (static_cast<uint32_t>(info.behavior) &
-                             static_cast<uint32_t>(UsageBehaviorFlags::UseDashPrefix)) != 0;
-    bool wideBasePad = (static_cast<uint32_t>(info.behavior) &
-                           static_cast<uint32_t>(UsageBehaviorFlags::WideBasePad)) != 0;
-    bool noCatBlankLines =
-        (static_cast<uint32_t>(info.behavior) &
-            static_cast<uint32_t>(UsageBehaviorFlags::NoCategoryBlankLines)) != 0;
-    bool alignCol7 = (static_cast<uint32_t>(info.behavior) &
-                         static_cast<uint32_t>(UsageBehaviorFlags::AlignValueAtCol7)) != 0;
-    bool noInitBlankLine = (static_cast<uint32_t>(info.behavior) &
-                               static_cast<uint32_t>(UsageBehaviorFlags::NoInitialBlankLine)) != 0;
+    bool useDashPrefix = info.behavior.useDashPrefix;
+    bool noCatBlankLines = info.behavior.noCategoryBlankLines;
+    bool noInitBlankLine = info.behavior.noInitialBlankLine;
 
-    if (!info.usageHeader.empty())
+    std::vector<FlagDef> filteredFlags;
+    for (const auto& f : info.flags)
+    {
+        if (f.hidden)
+        {
+            continue;
+        }
+        if (categoryFilter.empty() || std::find(f.categories.begin(), f.categories.end(),
+                                          categoryFilter) != f.categories.end())
+        {
+            filteredFlags.push_back(f);
+        }
+    }
+
+    if (!info.usageHeader.empty() && (categoryFilter.empty() || !filteredFlags.empty()))
     {
         ss << info.usageHeader;
-        if (info.subcommands.empty() && info.flags.empty() && !info.description.empty())
+        if (info.subcommands.empty() && filteredFlags.empty() && !info.description.empty())
         {
             ss << "\n" << info.description << "\n";
             return ss.str();
         }
-        if (!info.flags.empty() && !noInitBlankLine)
+        if (!filteredFlags.empty() && !noInitBlankLine)
         {
             ss << "\n";
         }
     }
 
-    if (!info.subcommands.empty())
+    if (!info.subcommands.empty() && categoryFilter.empty())
     {
         ss << "\n  Valid commands:\n";
         for (const auto& sub : info.subcommands)
@@ -156,30 +162,54 @@ std::string CommandRegistry::getUsage(
         return ss.str();
     }
 
-    if (!info.description.empty())
+    bool noCatHeaders = info.behavior.noCategoryHeaders;
+    bool dashSeparator = info.behavior.dashSeparator;
+    bool descAfterFlags = info.behavior.descriptionAfterFlags;
+
+    if (!info.description.empty() && categoryFilter.empty() && !descAfterFlags)
     {
         ss << info.description << "\n\n";
     }
 
-    std::string prefix = useDashPrefix ? " -" : "/";
-    size_t basePadWidth = wideBasePad ? 20 : 12;
+    size_t spaces = info.behavior.flagPrefixSpaces;
+    if (spaces == 1 && !useDashPrefix)
+    {
+        spaces = 0;
+    }
+    std::string prefix = std::string(spaces, ' ') + (useDashPrefix ? "-" : "/");
+
+    size_t basePadWidth = info.behavior.basePadWidth;
 
     std::vector<std::string> categories;
     std::map<std::string, std::vector<FlagDef>> catMap;
-    for (const auto& f : info.flags)
+    for (const auto& f : filteredFlags)
     {
-        std::string cat = f.category;
-        if (catMap.find(cat) == catMap.end())
+        for (const auto& cat : f.categories)
         {
-            categories.push_back(cat);
+            if (categoryFilter.empty() || cat == categoryFilter)
+            {
+                if (catMap.find(cat) == catMap.end())
+                {
+                    categories.push_back(cat);
+                }
+                catMap[cat].push_back(f);
+            }
         }
-        catMap[cat].push_back(f);
+        if (f.categories.empty())
+        {
+            std::string cat = "";
+            if (catMap.find(cat) == catMap.end())
+            {
+                categories.push_back(cat);
+            }
+            catMap[cat].push_back(f);
+        }
     }
 
     for (size_t cIdx = 0; cIdx < categories.size(); ++cIdx)
     {
         std::string cat = categories[cIdx];
-        if (!cat.empty())
+        if (!cat.empty() && !noCatHeaders)
         {
             ss << cat << "\n";
         }
@@ -187,12 +217,13 @@ std::string CommandRegistry::getUsage(
         for (const auto& f : catMap[cat])
         {
             size_t pw = (f.padWidth > 0) ? f.padWidth : basePadWidth;
+
             std::string flagPart = prefix + f.name;
             if (!f.valueName.empty())
             {
-                if (alignCol7)
+                if (info.behavior.alignValueAtCol > 0)
                 {
-                    size_t targetCol = 7;
+                    size_t targetCol = info.behavior.alignValueAtCol;
                     if (flagPart.size() < targetCol)
                     {
                         flagPart += std::string(targetCol - flagPart.size(), ' ') + f.valueName;
@@ -221,7 +252,38 @@ std::string CommandRegistry::getUsage(
                 ss << " ";
             }
 
-            ss << f.description << "\n";
+            if (dashSeparator)
+            {
+                ss << "- ";
+            }
+
+            if (info.behavior.autoAlignDescriptions)
+            {
+                size_t indentCol = pw + (dashSeparator ? 2 : 0);
+                std::vector<std::string> descLines;
+                {
+                    std::stringstream dss(f.description);
+                    std::string line;
+                    while (std::getline(dss, line, '\n'))
+                    {
+                        descLines.push_back(line);
+                    }
+                }
+
+                for (size_t i = 0; i < descLines.size(); ++i)
+                {
+                    std::string line = descLines[i];
+                    if (i > 0)
+                    {
+                        ss << std::string(indentCol, ' ');
+                    }
+                    ss << line << "\n";
+                }
+            }
+            else
+            {
+                ss << f.description << "\n";
+            }
         }
         if (!noCatBlankLines && cIdx + 1 < categories.size())
         {
@@ -229,7 +291,23 @@ std::string CommandRegistry::getUsage(
         }
     }
 
+    if (!info.description.empty() && categoryFilter.empty() && descAfterFlags)
+    {
+        ss << "\n" << info.description << "\n";
+    }
+
     return ss.str();
+}
+
+const UsageBehavior* CommandRegistry::getBehavior(
+    const std::string& command, const std::string& subcommand) const
+{
+    auto it = m_usageRegistry.find({command, subcommand});
+    if (it != m_usageRegistry.end())
+    {
+        return &it->second.behavior;
+    }
+    return nullptr;
 }
 
 } // namespace cli
