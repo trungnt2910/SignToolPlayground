@@ -16,49 +16,15 @@
 class Given_SignTool : public CckyTest
 {
   protected:
-    std::string tempDir;
-
     void SetUp() override
     {
         CckyTest::SetUp();
-        cleanupSystemStore();
+        cleanupSystemStore("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     }
     void TearDown() override
     {
-        if (!tempDir.empty())
-        {
-            std::filesystem::remove_all(tempDir);
-        }
-        cleanupSystemStore();
+        cleanupSystemStore("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
         CckyTest::TearDown();
-    }
-
-    std::string getTempDir()
-    {
-        if (tempDir.empty())
-        {
-            tempDir = "temp_signtool_test";
-            std::filesystem::create_directories(tempDir);
-        }
-        return tempDir;
-    }
-
-    void cleanupSystemStore()
-    {
-        if (ccky::crypto::CryptoFactory::getBackendType() == "windows")
-        {
-            try
-            {
-                auto store = ccky::crypto::CryptoFactory::createStore(
-                    ccky::crypto::StoreType::WinSystem, "my");
-                store->load("my");
-                store->deletePrivateKey("", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
-            }
-            catch (const std::exception& e)
-            {
-                GTEST_LOG_(WARNING) << "Failed to delete private key during cleanup: " << e.what();
-            }
-        }
     }
 };
 
@@ -70,13 +36,12 @@ TEST_F(Given_SignTool, When_HelpRequested_ReturnsZero)
         "/?",
     };
     auto args = ccky::cli::CliParser::parse(3, const_cast<char**>(argv), registry);
-
     auto cmd = registry.getCommand("signtool");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(args), 0);
-    }
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
 }
 
 TEST_F(Given_SignTool, When_VerifyMissingFile_ReturnsError)
@@ -88,13 +53,12 @@ TEST_F(Given_SignTool, When_VerifyMissingFile_ReturnsError)
         "nonexistent.exe",
     };
     auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), registry);
-
     auto cmd = registry.getCommand("signtool");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(args), 1); // Failed
-    }
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1); // Failed
 }
 
 TEST_F(Given_SignTool, When_CatdbRequested_ReturnsStubError)
@@ -107,13 +71,12 @@ TEST_F(Given_SignTool, When_CatdbRequested_ReturnsStubError)
         "MyCatalog.cat",
     };
     auto args = ccky::cli::CliParser::parse(5, const_cast<char**>(argv), registry);
-
     auto cmd = registry.getCommand("signtool");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(args), 1); // Failed due to stubbed Windows catalog API
-    }
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1); // Failed due to stubbed Windows catalog API
 }
 
 TEST_F(Given_SignTool, When_SignToolSign_SignsSuccessfullyAndMatchesAuthority)
@@ -122,10 +85,10 @@ TEST_F(Given_SignTool, When_SignToolSign_SignsSuccessfullyAndMatchesAuthority)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string reSignedSys = "re_signed.sys";
     std::string reExtractedCer = "re_extracted.cer";
-
+    registerTemporaryFile(reSignedSys);
+    registerTemporaryFile(reExtractedCer);
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
-
     const char* signArgv[] = {
         "ccky",
         "signtool",
@@ -141,12 +104,7 @@ TEST_F(Given_SignTool, When_SignToolSign_SignsSuccessfullyAndMatchesAuthority)
     };
     auto signArgs = ccky::cli::CliParser::parse(11, const_cast<char**>(signArgv), registry);
     auto signCmd = registry.getCommand("signtool");
-    EXPECT_NE(signCmd, nullptr);
-    if (signCmd)
-    {
-        EXPECT_EQ(signCmd->execute(signArgs), 0);
-    }
-
+    ASSERT_NE(signCmd, nullptr);
     const char* certArgv[] = {
         "ccky",
         "certmgr",
@@ -157,25 +115,19 @@ TEST_F(Given_SignTool, When_SignToolSign_SignsSuccessfullyAndMatchesAuthority)
     };
     auto certArgs = ccky::cli::CliParser::parse(6, const_cast<char**>(certArgv), registry);
     auto certCmd = registry.getCommand("certmgr");
-    EXPECT_NE(certCmd, nullptr);
-    if (certCmd)
-    {
-        EXPECT_EQ(certCmd->execute(certArgs), 0);
-    }
+    ASSERT_NE(certCmd, nullptr);
 
+    int signResult = signCmd->execute(signArgs);
+    int certResult = certCmd->execute(certArgs);
     auto cerStore =
         ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, reExtractedCer);
-    EXPECT_NO_THROW(cerStore->load(reExtractedCer));
+    cerStore->load(reExtractedCer);
     auto certs = cerStore->getCertificates();
-    EXPECT_GT(certs.size(), 0);
-    if (!certs.empty())
-    {
-        auto cert = certs[0];
-        EXPECT_EQ(cert->getCommonName(), "ccky");
-    }
 
-    std::filesystem::remove(reSignedSys);
-    std::filesystem::remove(reExtractedCer);
+    EXPECT_EQ(signResult, 0);
+    EXPECT_EQ(certResult, 0);
+    ASSERT_GT(certs.size(), 0);
+    EXPECT_EQ(certs[0]->getCommonName(), "ccky");
 }
 
 TEST_F(Given_SignTool, When_SignToolSignUnsignedExecutable)
@@ -184,10 +136,10 @@ TEST_F(Given_SignTool, When_SignToolSignUnsignedExecutable)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string reSignedSys = "re_signed_test.exe";
     std::string reExtractedCer = "re_extracted_test.cer";
-
+    registerTemporaryFile(reSignedSys);
+    registerTemporaryFile(reExtractedCer);
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
-
     const char* signArgv[] = {
         "ccky",
         "signtool",
@@ -203,12 +155,7 @@ TEST_F(Given_SignTool, When_SignToolSignUnsignedExecutable)
     };
     auto signArgs = ccky::cli::CliParser::parse(11, const_cast<char**>(signArgv), registry);
     auto signCmd = registry.getCommand("signtool");
-    EXPECT_NE(signCmd, nullptr);
-    if (signCmd)
-    {
-        EXPECT_EQ(signCmd->execute(signArgs), 0);
-    }
-
+    ASSERT_NE(signCmd, nullptr);
     const char* certArgv[] = {
         "ccky",
         "certmgr",
@@ -219,31 +166,27 @@ TEST_F(Given_SignTool, When_SignToolSignUnsignedExecutable)
     };
     auto certArgs = ccky::cli::CliParser::parse(6, const_cast<char**>(certArgv), registry);
     auto certCmd = registry.getCommand("certmgr");
-    EXPECT_NE(certCmd, nullptr);
-    if (certCmd)
-    {
-        EXPECT_EQ(certCmd->execute(certArgs), 0);
-    }
+    ASSERT_NE(certCmd, nullptr);
 
+    int signResult = signCmd->execute(signArgs);
+    int certResult = certCmd->execute(certArgs);
     auto cerStore =
         ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, reExtractedCer);
-    EXPECT_NO_THROW(cerStore->load(reExtractedCer));
+    cerStore->load(reExtractedCer);
     auto certs = cerStore->getCertificates();
-    EXPECT_GT(certs.size(), 0);
-    if (!certs.empty())
-    {
-        auto cert = certs[0];
-        EXPECT_EQ(cert->getCommonName(), "ccky");
-    }
 
-    std::filesystem::remove(reSignedSys);
-    std::filesystem::remove(reExtractedCer);
+    EXPECT_EQ(signResult, 0);
+    EXPECT_EQ(certResult, 0);
+    ASSERT_GT(certs.size(), 0);
+    EXPECT_EQ(certs[0]->getCommonName(), "ccky");
 }
 
 TEST_F(Given_SignTool, When_SignBadAlgo_MatchesOutput)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    ASSERT_NE(cmd, nullptr);
+    cmd->setRegistry(&registry);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     const char* argv[] = {
         "ccky",
@@ -256,7 +199,10 @@ TEST_F(Given_SignTool, When_SignBadAlgo_MatchesOutput)
         "test.exe",
     };
     auto args = ccky::cli::CliParser::parse(8, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(),
         getTestTextContent(getTestDataPath("tests/data/output/signtool_sign_badalgo_stderr.txt")));
 }
@@ -265,6 +211,8 @@ TEST_F(Given_SignTool, When_SignBadCert_MatchesOutput)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    ASSERT_NE(cmd, nullptr);
+    cmd->setRegistry(&registry);
     const char* argv[] = {
         "ccky",
         "signtool",
@@ -276,7 +224,10 @@ TEST_F(Given_SignTool, When_SignBadCert_MatchesOutput)
         "test.exe",
     };
     auto args = ccky::cli::CliParser::parse(8, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(),
         getTestTextContent(getTestDataPath("tests/data/output/signtool_sign_badcert_stderr.txt")));
 }
@@ -285,6 +236,8 @@ TEST_F(Given_SignTool, When_SignMissingParam_MatchesOutput)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    ASSERT_NE(cmd, nullptr);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -292,7 +245,10 @@ TEST_F(Given_SignTool, When_SignMissingParam_MatchesOutput)
         "sign",
     };
     auto args = ccky::cli::CliParser::parse(3, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_sign_missingparam_stderr.txt")));
 }
@@ -301,6 +257,8 @@ TEST_F(Given_SignTool, When_SignBadFile_MatchesOutput)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    ASSERT_NE(cmd, nullptr);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     const char* argv[] = {
@@ -314,10 +272,12 @@ TEST_F(Given_SignTool, When_SignBadFile_MatchesOutput)
         "bad.exe",
     };
     auto args = ccky::cli::CliParser::parse(8, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(),
         getTestTextContent(getTestDataPath("tests/data/output/signtool_sign_badfile_stderr.txt")));
-
     EXPECT_EQ(out.str(),
         getTestTextContent(getTestDataPath("tests/data/output/signtool_sign_badfile_stdout.txt")));
 }
@@ -326,6 +286,8 @@ TEST_F(Given_SignTool, When_SignTwoBadFiles_MatchesOutput)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    ASSERT_NE(cmd, nullptr);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     const char* argv[] = {
@@ -340,10 +302,12 @@ TEST_F(Given_SignTool, When_SignTwoBadFiles_MatchesOutput)
         "bad1.exe",
     };
     auto args = ccky::cli::CliParser::parse(9, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_sign_twobadfiles_stderr.txt")));
-
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_sign_twobadfiles_stdout.txt")));
 }
@@ -352,10 +316,12 @@ TEST_F(Given_SignTool, When_SignGoodAndBadFiles_MatchesOutput)
 {
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string reSignedSys = "test.exe";
+    registerTemporaryFile(reSignedSys);
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     const char* argv[] = {
@@ -370,23 +336,27 @@ TEST_F(Given_SignTool, When_SignGoodAndBadFiles_MatchesOutput)
         "bad.exe",
     };
     auto args = ccky::cli::CliParser::parse(9, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_sign_goodandbadfiles_stderr.txt")));
-
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_sign_goodandbadfiles_stdout.txt")));
-    std::filesystem::remove(reSignedSys);
 }
 
 TEST_F(Given_SignTool, When_SignGoodFile_MatchesOutput)
 {
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string reSignedSys = "test.exe";
+    registerTemporaryFile(reSignedSys);
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     const char* argv[] = {
@@ -400,12 +370,14 @@ TEST_F(Given_SignTool, When_SignGoodFile_MatchesOutput)
         "test.exe",
     };
     auto args = ccky::cli::CliParser::parse(8, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 0);
-    EXPECT_EQ(err.str(), "");
+    ASSERT_NE(cmd, nullptr);
 
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
+    EXPECT_EQ(err.str(), "");
     EXPECT_EQ(out.str(),
         getTestTextContent(getTestDataPath("tests/data/output/signtool_sign_stdout.txt")));
-    std::filesystem::remove(reSignedSys);
 }
 
 TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_MatchesOutput)
@@ -418,20 +390,19 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_MatchesOutput)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string reSignedSys = "test.exe";
-
+    registerTemporaryFile(reSignedSys);
+    registerSystemStoreCert("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
-
     // 1. store->addPrivateKey(pfxPath, "")
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
     store->load("my");
-    EXPECT_NO_THROW(store->addPrivateKey(pfxPath, ""));
-
+    store->addPrivateKey(pfxPath, "");
     // 2. signtool sign /n "ccky" /fd SHA256 test.exe
     std::stringstream out, err;
     auto signCmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    ASSERT_NE(signCmd, nullptr);
     registry.registerCommand(signCmd);
-
     const char* signArgv[] = {
         "ccky",
         "signtool",
@@ -443,11 +414,12 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_MatchesOutput)
         reSignedSys.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    EXPECT_EQ(signCmd->execute(signArgs), 0);
+
+    int exitCode = signCmd->execute(signArgs);
+
+    EXPECT_EQ(exitCode, 0);
     EXPECT_EQ(err.str(), "");
     EXPECT_EQ(out.str(), getTestTextContent("tests/data/output/signtool_sign_stdout.txt"));
-
-    std::filesystem::remove(reSignedSys);
 }
 
 TEST_F(Given_SignTool, When_RemoveSignedAndBad_MatchesOutput)
@@ -455,6 +427,7 @@ TEST_F(Given_SignTool, When_RemoveSignedAndBad_MatchesOutput)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string signedPe = "test.exe";
+    registerTemporaryFile(signedPe);
     std::filesystem::copy_file(
         origPePath, signedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
@@ -471,11 +444,12 @@ TEST_F(Given_SignTool, When_RemoveSignedAndBad_MatchesOutput)
         signedPe.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    EXPECT_EQ(signCmd->execute(signArgs), 0);
-
+    ASSERT_NE(signCmd, nullptr);
+    ASSERT_EQ(signCmd->execute(signArgs), 0);
     out.str("");
     err.str("");
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -486,12 +460,15 @@ TEST_F(Given_SignTool, When_RemoveSignedAndBad_MatchesOutput)
         "bad.exe",
     };
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_signedandbad_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_signedandbad_stdout.txt")));
-    std::filesystem::remove(signedPe);
 }
 
 TEST_F(Given_SignTool, When_RemoveSigned_MatchesOutput)
@@ -499,6 +476,7 @@ TEST_F(Given_SignTool, When_RemoveSigned_MatchesOutput)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string signedPe = "test.exe";
+    registerTemporaryFile(signedPe);
     std::filesystem::copy_file(
         origPePath, signedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
@@ -515,11 +493,12 @@ TEST_F(Given_SignTool, When_RemoveSigned_MatchesOutput)
         signedPe.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    EXPECT_EQ(signCmd->execute(signArgs), 0);
-
+    ASSERT_NE(signCmd, nullptr);
+    ASSERT_EQ(signCmd->execute(signArgs), 0);
     out.str("");
     err.str("");
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -529,20 +508,25 @@ TEST_F(Given_SignTool, When_RemoveSigned_MatchesOutput)
         "test.exe",
     };
     auto args = ccky::cli::CliParser::parse(5, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 0);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
     EXPECT_EQ(out.str(),
         getTestTextContent(getTestDataPath("tests/data/output/signtool_remove_signed_stdout.txt")));
-    std::filesystem::remove(signedPe);
 }
 
 TEST_F(Given_SignTool, When_RemoveUnsigned_MatchesOutput)
 {
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string unsignedPe = "unsigned.exe";
+    registerTemporaryFile(unsignedPe);
     std::filesystem::copy_file(
         origPePath, unsignedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -552,12 +536,15 @@ TEST_F(Given_SignTool, When_RemoveUnsigned_MatchesOutput)
         "unsigned.exe",
     };
     auto args = ccky::cli::CliParser::parse(5, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_unsigned_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_unsigned_stdout.txt")));
-    std::filesystem::remove(unsignedPe);
 }
 
 TEST_F(Given_SignTool, When_RemoveVerboseSignedAndBad_MatchesOutput)
@@ -565,6 +552,7 @@ TEST_F(Given_SignTool, When_RemoveVerboseSignedAndBad_MatchesOutput)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string signedPe = "test.exe";
+    registerTemporaryFile(signedPe);
     std::filesystem::copy_file(
         origPePath, signedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
@@ -581,11 +569,12 @@ TEST_F(Given_SignTool, When_RemoveVerboseSignedAndBad_MatchesOutput)
         signedPe.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    EXPECT_EQ(signCmd->execute(signArgs), 0);
-
+    ASSERT_NE(signCmd, nullptr);
+    ASSERT_EQ(signCmd->execute(signArgs), 0);
     out.str("");
     err.str("");
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -597,12 +586,15 @@ TEST_F(Given_SignTool, When_RemoveVerboseSignedAndBad_MatchesOutput)
         "bad.exe",
     };
     auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_verbose_signedandbad_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_verbose_signedandbad_stdout.txt")));
-    std::filesystem::remove(signedPe);
 }
 
 TEST_F(Given_SignTool, When_RemoveVerboseSigned_MatchesOutput)
@@ -610,6 +602,7 @@ TEST_F(Given_SignTool, When_RemoveVerboseSigned_MatchesOutput)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string signedPe = "test.exe";
+    registerTemporaryFile(signedPe);
     std::filesystem::copy_file(
         origPePath, signedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
@@ -626,11 +619,12 @@ TEST_F(Given_SignTool, When_RemoveVerboseSigned_MatchesOutput)
         signedPe.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    EXPECT_EQ(signCmd->execute(signArgs), 0);
-
+    ASSERT_NE(signCmd, nullptr);
+    ASSERT_EQ(signCmd->execute(signArgs), 0);
     out.str("");
     err.str("");
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -638,23 +632,28 @@ TEST_F(Given_SignTool, When_RemoveVerboseSigned_MatchesOutput)
         "remove",
         "/s",
         "/v",
-        "test.exe",
+        signedPe.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 0);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_verbose_signed_stdout.txt")));
-    std::filesystem::remove(signedPe);
 }
 
 TEST_F(Given_SignTool, When_RemoveVerboseUnsigned_MatchesOutput)
 {
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string unsignedPe = "unsigned.exe";
+    registerTemporaryFile(unsignedPe);
     std::filesystem::copy_file(
         origPePath, unsignedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -662,23 +661,26 @@ TEST_F(Given_SignTool, When_RemoveVerboseUnsigned_MatchesOutput)
         "remove",
         "/s",
         "/v",
-        "unsigned.exe",
+        unsignedPe.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_verbose_unsigned_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_remove_verbose_unsigned_stdout.txt")));
-    std::filesystem::remove(unsignedPe);
 }
 
 TEST_F(Given_SignTool, When_VerifySelfSigned_MatchesOutput)
 {
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
-    std::string tempDir = getTempDir();
-    std::string signedPe = tempDir + "/test.exe";
+    std::string signedPe = "test.exe";
+    registerTemporaryFile(signedPe);
     std::filesystem::copy_file(
         origPePath, signedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
@@ -695,8 +697,8 @@ TEST_F(Given_SignTool, When_VerifySelfSigned_MatchesOutput)
         signedPe.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    EXPECT_EQ(signCmd->execute(signArgs), 0);
-
+    ASSERT_NE(signCmd, nullptr);
+    ASSERT_EQ(signCmd->execute(signArgs), 0);
     out.str("");
     err.str("");
     auto verifyCmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
@@ -708,24 +710,27 @@ TEST_F(Given_SignTool, When_VerifySelfSigned_MatchesOutput)
         signedPe.c_str(),
     };
     auto verifyArgs = ccky::cli::CliParser::parse(4, const_cast<char**>(verifyArgv), registry);
-    EXPECT_EQ(verifyCmd->execute(verifyArgs), 1);
+    ASSERT_NE(verifyCmd, nullptr);
 
+    int exitCode = verifyCmd->execute(verifyArgs);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_selfsigned_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_selfsigned_stdout.txt")));
-    std::filesystem::remove(signedPe);
 }
 
 TEST_F(Given_SignTool, When_VerifyUnsigned_MatchesOutput)
 {
     std::string origPePath = getTestDataPath("tests/data/test.exe");
-    std::string tempDir = getTempDir();
-    std::string unsignedPe = tempDir + "/test.exe";
+    std::string unsignedPe = "test.exe";
+    registerTemporaryFile(unsignedPe);
     std::filesystem::copy_file(
         origPePath, unsignedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -734,20 +739,23 @@ TEST_F(Given_SignTool, When_VerifyUnsigned_MatchesOutput)
         unsignedPe.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_unsigned_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_unsigned_stdout.txt")));
-    std::filesystem::remove(unsignedPe);
 }
 
 TEST_F(Given_SignTool, When_VerifyVerboseSelfSigned_MatchesOutput)
 {
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
-    std::string tempDir = getTempDir();
-    std::string signedPe = tempDir + "/test.exe";
+    std::string signedPe = "test.exe";
+    registerTemporaryFile(signedPe);
     std::filesystem::copy_file(
         origPePath, signedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
@@ -764,8 +772,8 @@ TEST_F(Given_SignTool, When_VerifyVerboseSelfSigned_MatchesOutput)
         signedPe.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    EXPECT_EQ(signCmd->execute(signArgs), 0);
-
+    ASSERT_NE(signCmd, nullptr);
+    ASSERT_EQ(signCmd->execute(signArgs), 0);
     out.str("");
     err.str("");
     auto verifyCmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
@@ -778,11 +786,9 @@ TEST_F(Given_SignTool, When_VerifyVerboseSelfSigned_MatchesOutput)
         signedPe.c_str(),
     };
     auto verifyArgs = ccky::cli::CliParser::parse(5, const_cast<char**>(verifyArgv), registry);
-    EXPECT_EQ(verifyCmd->execute(verifyArgs), 1);
+    ASSERT_NE(verifyCmd, nullptr);
 
-    EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
-                             "tests/data/output/signtool_verify_verbose_selfsigned_stderr.txt")));
-
+    int exitCode = verifyCmd->execute(verifyArgs);
     std::string expectedOut = getTestTextContent(
         getTestDataPath("tests/data/output/signtool_verify_verbose_selfsigned_stdout.txt"));
     // Per Microsoft Authenticode specification, signtool injects a dynamic signingTime
@@ -797,19 +803,22 @@ TEST_F(Given_SignTool, When_VerifyVerboseSelfSigned_MatchesOutput)
         expectedOut.replace(pos, 64, actualHash);
     }
 
+    EXPECT_EQ(exitCode, 1);
+    EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
+                             "tests/data/output/signtool_verify_verbose_selfsigned_stderr.txt")));
     EXPECT_EQ(out.str(), expectedOut);
-    std::filesystem::remove(signedPe);
 }
 
 TEST_F(Given_SignTool, When_VerifyVerboseUnsigned_MatchesOutput)
 {
     std::string origPePath = getTestDataPath("tests/data/test.exe");
-    std::string tempDir = getTempDir();
-    std::string unsignedPe = tempDir + "/test.exe";
+    std::string unsignedPe = "test.exe";
+    registerTemporaryFile(unsignedPe);
     std::filesystem::copy_file(
         origPePath, unsignedPe, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -819,12 +828,15 @@ TEST_F(Given_SignTool, When_VerifyVerboseUnsigned_MatchesOutput)
         unsignedPe.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(5, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_verbose_unsigned_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_verbose_unsigned_stdout.txt")));
-    std::filesystem::remove(unsignedPe);
 }
 
 TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_SucceedsOnWindows)
@@ -837,16 +849,17 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_SucceedsOnWindows)
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string reSignedSys = "re_signed_system_test.exe";
-
+    registerTemporaryFile(reSignedSys);
+    registerSystemStoreCert("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
-
     // 1. store->addPrivateKey(pfxPath, "")
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
     store->load("my");
-    EXPECT_NO_THROW(store->addPrivateKey(pfxPath, ""));
-
+    store->addPrivateKey(pfxPath, "");
     // 2. signtool sign /n "ccky" /fd SHA256 re_signed_system_test.exe
+    auto signCmd = registry.getCommand("signtool");
+    ASSERT_NE(signCmd, nullptr);
     const char* signArgv[] = {
         "ccky",
         "signtool",
@@ -858,20 +871,17 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_SucceedsOnWindows)
         reSignedSys.c_str(),
     };
     auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
-    auto signCmd = registry.getCommand("signtool");
-    EXPECT_NE(signCmd, nullptr);
-    if (signCmd)
-    {
-        EXPECT_EQ(signCmd->execute(signArgs), 0);
-    }
 
-    std::filesystem::remove(reSignedSys);
+    int exitCode = signCmd->execute(signArgs);
+
+    EXPECT_EQ(exitCode, 0);
 }
 
 TEST_F(Given_SignTool, When_SignToolInvalidCommand_MatchesOutput)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -879,7 +889,11 @@ TEST_F(Given_SignTool, When_SignToolInvalidCommand_MatchesOutput)
         "bad",
     };
     auto args = ccky::cli::CliParser::parse(3, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+    ASSERT_NE(cmd, nullptr);
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_invalidcommand_stderr.txt")));
     EXPECT_EQ(out.str(), "");
@@ -889,16 +903,15 @@ TEST_F(Given_SignTool, When_VerifySelfSignedAppx_MatchesOutput)
 {
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string origAppxPath = getTestDataPath("tests/data/test.appx");
-    std::string tempDir = getTempDir();
-    std::string signedAppx = tempDir + "/test.appx";
+    std::string signedAppx = "test.appx";
+    registerTemporaryFile(signedAppx);
     std::filesystem::copy_file(
         origAppxPath, signedAppx, std::filesystem::copy_options::overwrite_existing);
     std::stringstream out, err;
-
     // Do not re-sign the APPX here. Windows does not allow CN mismatch between APPX and cert.
     // The provided file is already signed by Project Reality.
-
     auto verifyCmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
+    ASSERT_NE(verifyCmd, nullptr);
     registry.registerCommand(verifyCmd);
     const char* verifyArgv[] = {
         "ccky",
@@ -908,13 +921,14 @@ TEST_F(Given_SignTool, When_VerifySelfSignedAppx_MatchesOutput)
         signedAppx.c_str(),
     };
     auto verifyArgs = ccky::cli::CliParser::parse(5, const_cast<char**>(verifyArgv), registry);
-    EXPECT_EQ(verifyCmd->execute(verifyArgs), 1);
 
+    int exitCode = verifyCmd->execute(verifyArgs);
+
+    EXPECT_EQ(exitCode, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_selfsignedappx_stderr.txt")));
     EXPECT_EQ(out.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/signtool_verify_selfsignedappx_stdout.txt")));
-    std::filesystem::remove(signedAppx);
 }
 
 TEST_F(Given_SignTool, When_SignToolSignAppx_SignsSuccessfullyAndMatchesAuthority)
@@ -924,10 +938,10 @@ TEST_F(Given_SignTool, When_SignToolSignAppx_SignsSuccessfullyAndMatchesAuthorit
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string reSignedAppx = "re_signed.appx";
     std::string reExtractedAppxCer = "re_extracted_appx.cer";
-
+    registerTemporaryFile(reSignedAppx);
+    registerTemporaryFile(reExtractedAppxCer);
     std::filesystem::copy_file(
         origAppxPath, reSignedAppx, std::filesystem::copy_options::overwrite_existing);
-
     const char* signArgv[] = {
         "ccky",
         "signtool",
@@ -943,12 +957,7 @@ TEST_F(Given_SignTool, When_SignToolSignAppx_SignsSuccessfullyAndMatchesAuthorit
     };
     auto signArgs = ccky::cli::CliParser::parse(11, const_cast<char**>(signArgv), registry);
     auto signCmd = registry.getCommand("signtool");
-    EXPECT_NE(signCmd, nullptr);
-    if (signCmd)
-    {
-        EXPECT_EQ(signCmd->execute(signArgs), 0);
-    }
-
+    ASSERT_NE(signCmd, nullptr);
     const char* certArgv[] = {
         "ccky",
         "certmgr",
@@ -959,23 +968,117 @@ TEST_F(Given_SignTool, When_SignToolSignAppx_SignsSuccessfullyAndMatchesAuthorit
     };
     auto certArgs = ccky::cli::CliParser::parse(6, const_cast<char**>(certArgv), registry);
     auto certCmd = registry.getCommand("certmgr");
-    EXPECT_NE(certCmd, nullptr);
-    if (certCmd)
-    {
-        EXPECT_EQ(certCmd->execute(certArgs), 0);
-    }
+    ASSERT_NE(certCmd, nullptr);
 
+    int signResult = signCmd->execute(signArgs);
+    int certResult = certCmd->execute(certArgs);
     auto cerStore = ccky::crypto::CryptoFactory::createStore(
         ccky::crypto::StoreType::CerFile, reExtractedAppxCer);
-    EXPECT_NO_THROW(cerStore->load(reExtractedAppxCer));
+    cerStore->load(reExtractedAppxCer);
     auto certs = cerStore->getCertificates();
-    EXPECT_GT(certs.size(), 0);
-    if (!certs.empty())
-    {
-        auto cert = certs[0];
-        EXPECT_EQ(cert->getCommonName(), "ccky");
-    }
 
-    std::filesystem::remove(reSignedAppx);
-    std::filesystem::remove(reExtractedAppxCer);
+    EXPECT_EQ(signResult, 0);
+    EXPECT_EQ(certResult, 0);
+    ASSERT_GT(certs.size(), 0);
+    EXPECT_EQ(certs[0]->getCommonName(), "ccky");
+}
+
+TEST_F(Given_SignTool, When_CatdbHelpRequested_MatchesOutput)
+{
+    std::stringstream out, err;
+    ccky::cli::CommandRegistry localRegistry;
+    localRegistry.registerCommand(
+        std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err));
+    const char* argv[] = {
+        "ccky",
+        "signtool",
+        "catdb",
+        "/?",
+    };
+    auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), localRegistry);
+    auto cmd = localRegistry.getCommand("signtool");
+    ASSERT_NE(cmd, nullptr);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/signtool_catdb_help_stderr.txt"));
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
+    EXPECT_EQ(err.str(), expected);
+}
+
+TEST_F(Given_SignTool, When_RemoveHelpRequested_MatchesOutput)
+{
+    std::stringstream out, err;
+    ccky::cli::CommandRegistry localRegistry;
+    localRegistry.registerCommand(
+        std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err));
+    const char* argv[] = {
+        "ccky",
+        "signtool",
+        "remove",
+        "/?",
+    };
+    auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), localRegistry);
+    auto cmd = localRegistry.getCommand("signtool");
+    ASSERT_NE(cmd, nullptr);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/signtool_remove_help_stderr.txt"));
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
+    EXPECT_EQ(err.str(), expected);
+}
+
+TEST_F(Given_SignTool, When_TimestampHelpRequested_MatchesOutput)
+{
+    std::stringstream out, err;
+    ccky::cli::CommandRegistry localRegistry;
+    localRegistry.registerCommand(
+        std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err));
+    const char* argv[] = {
+        "ccky",
+        "signtool",
+        "timestamp",
+        "/?",
+    };
+    auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), localRegistry);
+    auto cmd = localRegistry.getCommand("signtool");
+    ASSERT_NE(cmd, nullptr);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/signtool_timestamp_help_stderr.txt"));
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
+    EXPECT_EQ(err.str(), expected);
+}
+
+TEST_F(Given_SignTool, When_VerifyHelpRequested_MatchesOutput)
+{
+    std::stringstream out, err;
+    ccky::cli::CommandRegistry localRegistry;
+    localRegistry.registerCommand(
+        std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err));
+    const char* argv[] = {
+        "ccky",
+        "signtool",
+        "verify",
+        "/?",
+    };
+    auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), localRegistry);
+    auto cmd = localRegistry.getCommand("signtool");
+    ASSERT_NE(cmd, nullptr);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/signtool_verify_help_stderr.txt"));
+    // The original Windows signtool verify help output is missing a trailing newline
+    // due to a bug in the original tool. We manually append it here to match our
+    // generator's output which correctly ends with a newline.
+    expected += "\n";
+
+    int exitCode = cmd->execute(args);
+
+    EXPECT_EQ(exitCode, 0);
+    EXPECT_EQ(err.str(), expected);
 }

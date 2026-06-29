@@ -1,8 +1,11 @@
 #include "crypto/windows/WinCert.h"
+#include "crypto/windows/WinHelper.h"
 
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+
+#include <wintrust.h>
 
 #include "crypto/TimeFormatter.h"
 
@@ -112,8 +115,7 @@ std::string WinCert::getNameDisplay(const CERT_NAME_BLOB* pNameBlob) const
                     CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY, pAttr->pszObjId, 0);
                 if (pOidInfo && pOidInfo->pwszName)
                 {
-                    std::wstring wName(pOidInfo->pwszName);
-                    ss << " (" << std::string(wName.begin(), wName.end()) << ")";
+                    ss << " (" << WinHelper::wideToUtf8(pOidInfo->pwszName) << ")";
                 }
             }
             DWORD cch = CertRDNValueToStrA(pAttr->dwValueType, &pAttr->Value, nullptr, 0);
@@ -141,6 +143,7 @@ std::string WinCert::getSubjectDisplay() const
     }
     return getNameDisplay(&m_cert->pCertInfo->Subject);
 }
+
 std::string WinCert::getIssuerDisplay() const
 {
     if (!m_cert || !m_cert->pCertInfo)
@@ -148,6 +151,44 @@ std::string WinCert::getIssuerDisplay() const
         return "";
     }
     return getNameDisplay(&m_cert->pCertInfo->Issuer);
+}
+
+std::string WinCert::getNameDN(const CERT_NAME_BLOB* pNameBlob) const
+{
+    if (!pNameBlob || !pNameBlob->pbData || pNameBlob->cbData == 0)
+    {
+        return "";
+    }
+
+    DWORD cch = CertNameToStrA(
+        X509_ASN_ENCODING, const_cast<PCERT_NAME_BLOB>(pNameBlob), CERT_X500_NAME_STR, nullptr, 0);
+    if (cch <= 1)
+    {
+        return "";
+    }
+
+    std::vector<char> buf(cch);
+    CertNameToStrA(X509_ASN_ENCODING, const_cast<PCERT_NAME_BLOB>(pNameBlob), CERT_X500_NAME_STR,
+        buf.data(), cch);
+    return std::string(buf.data());
+}
+
+std::string WinCert::getSubjectDN() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return "";
+    }
+    return getNameDN(&m_cert->pCertInfo->Subject);
+}
+
+std::string WinCert::getIssuerDN() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return "";
+    }
+    return getNameDN(&m_cert->pCertInfo->Issuer);
 }
 std::string WinCert::getSerialNumber() const
 {
@@ -304,8 +345,7 @@ std::string WinCert::getProviderName() const
             auto* info = reinterpret_cast<PCRYPT_KEY_PROV_INFO>(buf.data());
             if (info->pwszProvName)
             {
-                std::wstring wstr(info->pwszProvName);
-                return std::string(wstr.begin(), wstr.end());
+                return WinHelper::wideToUtf8(info->pwszProvName);
             }
         }
     }
@@ -327,8 +367,7 @@ std::string WinCert::getContainerName() const
             auto* info = reinterpret_cast<PCRYPT_KEY_PROV_INFO>(buf.data());
             if (info->pwszContainerName)
             {
-                std::wstring wstr(info->pwszContainerName);
-                return std::string(wstr.begin(), wstr.end());
+                return WinHelper::wideToUtf8(info->pwszContainerName);
             }
         }
     }
@@ -358,6 +397,258 @@ std::string WinCert::getNotAfter() const
     time_t time = static_cast<time_t>((intervals / 10000000ULL) - 11644473600ULL);
     auto tp = std::chrono::system_clock::from_time_t(time);
     return TimeFormatter::formatTime(tp);
+}
+
+bool WinCert::isCA() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return false;
+    }
+    PCERT_EXTENSION ext = CertFindExtension(
+        szOID_BASIC_CONSTRAINTS2, m_cert->pCertInfo->cExtension, m_cert->pCertInfo->rgExtension);
+    if (!ext)
+    {
+        return false;
+    }
+    CERT_BASIC_CONSTRAINTS2_INFO bcInfo;
+    DWORD cbInfo = sizeof(bcInfo);
+    if (!CryptDecodeObject(X509_ASN_ENCODING, szOID_BASIC_CONSTRAINTS2, ext->Value.pbData,
+            ext->Value.cbData, 0, &bcInfo, &cbInfo))
+    {
+        return false;
+    }
+    return bcInfo.fCA == TRUE;
+}
+
+int WinCert::getPathLenConstraint() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return -1;
+    }
+    PCERT_EXTENSION ext = CertFindExtension(
+        szOID_BASIC_CONSTRAINTS2, m_cert->pCertInfo->cExtension, m_cert->pCertInfo->rgExtension);
+    if (!ext)
+    {
+        return -1;
+    }
+    CERT_BASIC_CONSTRAINTS2_INFO bcInfo;
+    DWORD cbInfo = sizeof(bcInfo);
+    if (!CryptDecodeObject(X509_ASN_ENCODING, szOID_BASIC_CONSTRAINTS2, ext->Value.pbData,
+            ext->Value.cbData, 0, &bcInfo, &cbInfo))
+    {
+        return -1;
+    }
+    if (!bcInfo.fPathLenConstraint)
+    {
+        return -1;
+    }
+    return static_cast<int>(bcInfo.dwPathLenConstraint);
+}
+
+int WinCert::getKeyLength() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return 0;
+    }
+    return CertGetPublicKeyLength(X509_ASN_ENCODING, &m_cert->pCertInfo->SubjectPublicKeyInfo);
+}
+
+std::vector<std::string> WinCert::getEnhancedKeyUsage() const
+{
+    std::vector<std::string> res;
+    if (!m_cert)
+    {
+        return res;
+    }
+    DWORD cbUsage = 0;
+    if (!CertGetEnhancedKeyUsage(m_cert.get(), 0, nullptr, &cbUsage))
+    {
+        return res;
+    }
+    std::vector<BYTE> usageBuf(cbUsage);
+    PCERT_ENHKEY_USAGE pUsage = reinterpret_cast<PCERT_ENHKEY_USAGE>(usageBuf.data());
+    if (!CertGetEnhancedKeyUsage(m_cert.get(), 0, pUsage, &cbUsage))
+    {
+        return res;
+    }
+    for (DWORD i = 0; i < pUsage->cUsageIdentifier; ++i)
+    {
+        res.push_back(pUsage->rgpszUsageIdentifier[i]);
+    }
+    return res;
+}
+
+std::string WinCert::getSignatureAlgorithm() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return "";
+    }
+    return m_cert->pCertInfo->SignatureAlgorithm.pszObjId;
+}
+
+uint32_t WinCert::getNetscapeCertType() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return 0;
+    }
+    PCERT_EXTENSION pExt = CertFindExtension(
+        szOID_NETSCAPE_CERT_TYPE, m_cert->pCertInfo->cExtension, m_cert->pCertInfo->rgExtension);
+    if (!pExt)
+    {
+        return 0;
+    }
+    DWORD cbBits = 0;
+    if (!CryptDecodeObject(X509_ASN_ENCODING, X509_BITS, pExt->Value.pbData, pExt->Value.cbData, 0,
+            nullptr, &cbBits))
+    {
+        return 0;
+    }
+    std::vector<BYTE> bitsBuf(cbBits);
+    PCRYPT_BIT_BLOB pBits = reinterpret_cast<PCRYPT_BIT_BLOB>(bitsBuf.data());
+    if (!CryptDecodeObject(X509_ASN_ENCODING, X509_BITS, pExt->Value.pbData, pExt->Value.cbData, 0,
+            pBits, &cbBits))
+    {
+        return 0;
+    }
+    if (pBits->cbData > 0)
+    {
+        return pBits->pbData[0];
+    }
+    return 0;
+}
+
+std::string WinCert::getKeySha256Thumbprint() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return "";
+    }
+    DWORD cbEncoded = 0;
+    if (!CryptEncodeObject(X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO,
+            &m_cert->pCertInfo->SubjectPublicKeyInfo, nullptr, &cbEncoded))
+    {
+        return "";
+    }
+    std::vector<BYTE> encodedBuf(cbEncoded);
+    if (!CryptEncodeObject(X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO,
+            &m_cert->pCertInfo->SubjectPublicKeyInfo, encodedBuf.data(), &cbEncoded))
+    {
+        return "";
+    }
+
+    HCRYPTPROV rawProv = 0;
+    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    {
+        return "";
+    }
+    CryptProvPtr hProv(rawProv);
+    HCRYPTHASH rawHash = 0;
+    if (!CryptCreateHash(hProv.get(), CALG_SHA_256, 0, 0, &rawHash))
+    {
+        return "";
+    }
+    CryptHashPtr hHash(rawHash);
+    if (!CryptHashData(hHash.get(), encodedBuf.data(), encodedBuf.size(), 0))
+    {
+        return "";
+    }
+    BYTE hash[32];
+    DWORD len = sizeof(hash);
+    if (!CryptGetHashParam(hHash.get(), HP_HASHVAL, hash, &len, 0))
+    {
+        return "";
+    }
+    std::stringstream ss;
+    for (DWORD i = 0; i < len; ++i)
+    {
+        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+           << static_cast<int>(hash[i]);
+    }
+    return ss.str();
+}
+
+bool WinCert::isPrivateKeyExportable() const
+{
+    if (!m_cert)
+    {
+        return false;
+    }
+    DWORD size = 0;
+    if (!CertGetCertificateContextProperty(
+            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, nullptr, &size))
+    {
+        return false;
+    }
+    std::vector<uint8_t> buf(size);
+    if (!CertGetCertificateContextProperty(
+            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, buf.data(), &size))
+    {
+        return false;
+    }
+    auto* info = reinterpret_cast<PCRYPT_KEY_PROV_INFO>(buf.data());
+    HCRYPTPROV rawProv = 0;
+    if (!CryptAcquireContextW(
+            &rawProv, info->pwszContainerName, info->pwszProvName, info->dwProvType, 0))
+    {
+        return false;
+    }
+    CryptProvPtr hProv(rawProv);
+    HCRYPTKEY rawKey = 0;
+    DWORD keySpec = info->dwKeySpec;
+    if (!CryptGetUserKey(hProv.get(), keySpec, &rawKey))
+    {
+        if (!CryptGetUserKey(hProv.get(), AT_KEYEXCHANGE, &rawKey))
+        {
+            if (!CryptGetUserKey(hProv.get(), AT_SIGNATURE, &rawKey))
+            {
+                return false;
+            }
+        }
+    }
+    CryptKeyPtr hKey(rawKey);
+    DWORD exportSize = 0;
+    if (CryptExportKey(hKey.get(), 0, PRIVATEKEYBLOB, 0, nullptr, &exportSize))
+    {
+        return true;
+    }
+    return false;
+}
+
+std::string WinCert::getPolicyLink() const
+{
+    if (!m_cert || !m_cert->pCertInfo)
+    {
+        return "";
+    }
+    PCERT_EXTENSION pExt = CertFindExtension(
+        SPC_SP_AGENCY_INFO_OBJID, m_cert->pCertInfo->cExtension, m_cert->pCertInfo->rgExtension);
+    if (!pExt)
+    {
+        return "";
+    }
+    DWORD cbInfo = 0;
+    if (!CryptDecodeObject(X509_ASN_ENCODING, SPC_SP_AGENCY_INFO_STRUCT, pExt->Value.pbData,
+            pExt->Value.cbData, 0, nullptr, &cbInfo))
+    {
+        return "";
+    }
+    std::vector<BYTE> infoBuf(cbInfo);
+    PSPC_SP_AGENCY_INFO pInfo = reinterpret_cast<PSPC_SP_AGENCY_INFO>(infoBuf.data());
+    if (!CryptDecodeObject(X509_ASN_ENCODING, SPC_SP_AGENCY_INFO_STRUCT, pExt->Value.pbData,
+            pExt->Value.cbData, 0, pInfo, &cbInfo))
+    {
+        return "";
+    }
+    if (pInfo->pPolicyInformation && pInfo->pPolicyInformation->dwLinkChoice == SPC_URL_LINK_CHOICE)
+    {
+        return WinHelper::wideToUtf8(pInfo->pPolicyInformation->pwszUrl);
+    }
+    return "";
 }
 
 WinPfxCert::WinPfxCert(PCCERT_CONTEXT cert) : WinCert(cert) {}

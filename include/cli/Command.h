@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "crypto/CckyException.h"
@@ -29,28 +30,43 @@ struct FlagDef
     FlagType type;
     std::string description;
     std::string valueName;
-    std::string category;
+    std::vector<std::string> categories;
+    std::string triggersHelpCategory;
     size_t padWidth = 0;
+    bool hidden = false;
+
+    // For backward compatibility and ease of definition
+    FlagDef(std::string name, FlagType type, std::string description, std::string valueName,
+        std::string category, size_t pad = 0, std::string triggersHelp = "", bool hide = false)
+        : name(std::move(name)), type(type), description(std::move(description)),
+          valueName(std::move(valueName)), categories({std::move(category)}),
+          triggersHelpCategory(std::move(triggersHelp)), padWidth(pad), hidden(hide)
+    {
+    }
+
+    FlagDef(std::string name, FlagType type, std::string description, std::string valueName,
+        std::vector<std::string> categories, size_t pad = 0, std::string triggersHelp = "",
+        bool hide = false)
+        : name(std::move(name)), type(type), description(std::move(description)),
+          valueName(std::move(valueName)), categories(std::move(categories)),
+          triggersHelpCategory(std::move(triggersHelp)), padWidth(pad), hidden(hide)
+    {
+    }
 };
 
-enum class UsageBehaviorFlags : uint32_t
+struct UsageBehavior
 {
-    None = 0,
-    UseDashPrefix = 1 << 0,        // ' -' prefix instead of '/'
-    WideBasePad = 1 << 1,          // basePadWidth 20 instead of 12
-    NoCategoryBlankLines = 1 << 2, // no ss << "\n" between categories
-    AlignValueAtCol7 = 1 << 3,     // align valueName at col 7
-    NoInitialBlankLine = 1 << 4    // no initial ss << "\n" after usageHeader
+    bool useDashPrefix = false;
+    bool noCategoryBlankLines = false;
+    bool noInitialBlankLine = false;
+    bool noCategoryHeaders = false;
+    bool dashSeparator = false;
+    bool descriptionAfterFlags = false;
+    size_t basePadWidth = 12;
+    size_t flagPrefixSpaces = 1;
+    size_t alignValueAtCol = 0; // 0 means default/no special alignment, 7 means align at column 7
+    bool autoAlignDescriptions = true;
 };
-
-inline UsageBehaviorFlags operator|(UsageBehaviorFlags a, UsageBehaviorFlags b)
-{
-    return static_cast<UsageBehaviorFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
-}
-inline UsageBehaviorFlags operator&(UsageBehaviorFlags a, UsageBehaviorFlags b)
-{
-    return static_cast<UsageBehaviorFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
-}
 
 struct SubcommandInfo
 {
@@ -64,7 +80,7 @@ struct UsageInfo
     std::string description;
     std::vector<SubcommandInfo> subcommands;
     std::vector<FlagDef> flags;
-    UsageBehaviorFlags behavior = UsageBehaviorFlags::None;
+    UsageBehavior behavior = UsageBehavior{};
 };
 
 struct ParsedArgs
@@ -128,32 +144,7 @@ class Command
     virtual bool isSubcommand(const std::string& arg) const = 0;
     virtual std::vector<FlagDef> getFlagDefs(const std::string& subcommand) const = 0;
 
-    int execute(const ParsedArgs& args)
-    {
-        try
-        {
-            return executeImpl(args);
-        }
-        catch (const crypto::CckyException& e)
-        {
-            displayError(e);
-            if (e.shouldPrintHelp())
-            {
-                printHelp();
-            }
-            return 1;
-        }
-        catch (const std::exception& e)
-        {
-            displayError(e);
-            return 1;
-        }
-        catch (...)
-        {
-            displayError("Unknown error occurred.");
-            return 1;
-        }
-    }
+    int execute(const ParsedArgs& args);
 
     virtual void printHelp() = 0;
 

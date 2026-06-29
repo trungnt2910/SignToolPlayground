@@ -24,6 +24,9 @@ class SignToolCommand : public cli::Command
     void registerUsage(cli::CommandRegistry* registry) override;
     void printHelp() override;
 
+  private:
+    std::vector<cli::FlagDef> getFlagDefsInternal(const std::string& subcommand) const;
+
   protected:
     int executeImpl(const cli::ParsedArgs& args) override;
     void displayError(const std::exception& e) override;

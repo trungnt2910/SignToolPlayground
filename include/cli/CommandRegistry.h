@@ -23,8 +23,11 @@ class CommandRegistry
     void registerCommandUsage(const std::string& command, const std::string& subcommand,
         const std::string& usageHeader, const std::string& cmdDescription,
         const std::vector<SubcommandInfo>& subcommands, const std::vector<FlagDef>& flags,
-        UsageBehaviorFlags behavior = UsageBehaviorFlags::None);
-    std::string getUsage(const std::string& command, const std::string& subcommand) const;
+        UsageBehavior behavior = UsageBehavior{});
+    std::string getUsage(const std::string& command, const std::string& subcommand,
+        const std::string& categoryFilter = "") const;
+    const UsageBehavior* getBehavior(
+        const std::string& command, const std::string& subcommand = "") const;
 
   private:
     std::map<std::string, std::shared_ptr<Command>> m_commands;

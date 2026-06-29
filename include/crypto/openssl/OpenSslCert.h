@@ -22,6 +22,8 @@ class OpenSslCert : public Certificate
 
     std::string getSubjectDisplay() const override;
     std::string getIssuerDisplay() const override;
+    std::string getSubjectDN() const override;
+    std::string getIssuerDN() const override;
     std::string getSerialNumber() const override;
     std::string getSha1Thumbprint() const override;
     std::string getMd5Thumbprint() const override;
@@ -31,6 +33,15 @@ class OpenSslCert : public Certificate
     std::string getContainerName() const override;
     std::string getNotBefore() const override;
     std::string getNotAfter() const override;
+    bool isCA() const override;
+    int getPathLenConstraint() const override;
+    int getKeyLength() const override;
+    std::vector<std::string> getEnhancedKeyUsage() const override;
+    std::string getSignatureAlgorithm() const override;
+    uint32_t getNetscapeCertType() const override;
+    std::string getKeySha256Thumbprint() const override;
+    bool isPrivateKeyExportable() const override;
+    std::string getPolicyLink() const override;
 
     X509* getInternal() const { return m_cert.get(); }
     EVP_PKEY* getPrivateKey() const { return m_pkey.get(); }

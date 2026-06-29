@@ -31,6 +31,24 @@ class CckyCryptoException : public CckyException
     }
 };
 
+class FileNotFoundException : public CckyException
+{
+  public:
+    explicit FileNotFoundException(const std::string& what_arg) : CckyException(what_arg) {}
+};
+
+class OutputFileExistsException : public CckyException
+{
+  public:
+    explicit OutputFileExistsException(const std::string& what_arg) : CckyException(what_arg) {}
+};
+
+class KeyMismatchException : public CckyException
+{
+  public:
+    explicit KeyMismatchException(const std::string& what_arg) : CckyException(what_arg) {}
+};
+
 } // namespace crypto
 } // namespace ccky
 

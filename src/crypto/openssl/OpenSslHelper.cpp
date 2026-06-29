@@ -1,10 +1,12 @@
-#include "crypto/openssl/OpenSslWrapper.h"
+#include "crypto/openssl/OpenSslHelper.h"
 
 #include <chrono>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 
 #include "crypto/TimeFormatter.h"
+#include "crypto/openssl/OpenSslWrapper.h"
 
 namespace ccky
 {
@@ -49,14 +51,14 @@ std::string OpenSslHelper::getCertCommonName(X509* cert)
     {
         return "";
     }
-    unsigned char* utf8 = nullptr;
-    int len = ASN1_STRING_to_UTF8(&utf8, data);
-    if (len < 0 || !utf8)
+    unsigned char* raw_utf8 = nullptr;
+    int len = ASN1_STRING_to_UTF8(&raw_utf8, data);
+    if (len < 0 || !raw_utf8)
     {
         return "";
     }
-    std::string res(reinterpret_cast<char*>(utf8), len);
-    OPENSSL_free(utf8);
+    OpenSslBufferPtr utf8(raw_utf8);
+    std::string res(reinterpret_cast<char*>(utf8.get()), len);
     return res;
 }
 
@@ -86,14 +88,14 @@ std::string OpenSslHelper::getCertIssuerName(X509* cert)
     {
         return "";
     }
-    unsigned char* utf8 = nullptr;
-    int len = ASN1_STRING_to_UTF8(&utf8, data);
-    if (len < 0 || !utf8)
+    unsigned char* raw_utf8 = nullptr;
+    int len = ASN1_STRING_to_UTF8(&raw_utf8, data);
+    if (len < 0 || !raw_utf8)
     {
         return "";
     }
-    std::string res(reinterpret_cast<char*>(utf8), len);
-    OPENSSL_free(utf8);
+    OpenSslBufferPtr utf8(raw_utf8);
+    std::string res(reinterpret_cast<char*>(utf8.get()), len);
     return res;
 }
 
@@ -154,12 +156,12 @@ std::string OpenSslHelper::getNameDisplay(X509_NAME* name)
         ASN1_STRING* data = X509_NAME_ENTRY_get_data(entry);
         if (data)
         {
-            unsigned char* utf8 = nullptr;
-            int len = ASN1_STRING_to_UTF8(&utf8, data);
-            if (len > 0 && utf8)
+            unsigned char* raw_utf8 = nullptr;
+            int len = ASN1_STRING_to_UTF8(&raw_utf8, data);
+            if (len > 0 && raw_utf8)
             {
-                ss << " " << std::string(reinterpret_cast<char*>(utf8), len);
-                OPENSSL_free(utf8);
+                OpenSslBufferPtr utf8(raw_utf8);
+                ss << " " << std::string(reinterpret_cast<char*>(utf8.get()), len);
             }
         }
 
@@ -170,6 +172,26 @@ std::string OpenSslHelper::getNameDisplay(X509_NAME* name)
     }
 
     return ss.str();
+}
+
+std::string OpenSslHelper::getNameDN(X509_NAME* name)
+{
+    if (!name)
+    {
+        return "";
+    }
+    BIOPtr bio(BIO_new(BIO_s_mem()));
+    if (!bio)
+    {
+        return "";
+    }
+    X509_NAME_print_ex(
+        bio.get(), name, 0, (XN_FLAG_ONELINE & ~XN_FLAG_SPC_EQ) & ~ASN1_STRFLGS_ESC_MSB);
+
+    char* data = nullptr;
+    long len = BIO_get_mem_data(bio.get(), &data);
+    std::string res(data, len);
+    return res;
 }
 
 std::string OpenSslHelper::getCertSha1(X509* cert)
@@ -331,14 +353,14 @@ std::string OpenSslHelper::getCertKeyMd5Thumbprint(X509* cert)
     {
         return "";
     }
+    OpenSslBufferPtr derPtr(der);
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int mdLen = 0;
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
     if (ctx && EVP_DigestInit_ex(ctx.get(), EVP_md5(), nullptr) == 1 &&
-        EVP_DigestUpdate(ctx.get(), der, len) == 1 &&
+        EVP_DigestUpdate(ctx.get(), derPtr.get(), len) == 1 &&
         EVP_DigestFinal_ex(ctx.get(), md, &mdLen) == 1)
     {
-        OPENSSL_free(der);
         std::stringstream ss;
         for (unsigned int i = 0; i < mdLen; ++i)
         {
@@ -351,7 +373,42 @@ std::string OpenSslHelper::getCertKeyMd5Thumbprint(X509* cert)
         }
         return ss.str();
     }
-    OPENSSL_free(der);
+    return "";
+}
+
+std::string OpenSslHelper::getCertKeySha256Thumbprint(X509* cert)
+{
+    if (!cert)
+    {
+        return "";
+    }
+    EVP_PKEY* pkey = X509_get0_pubkey(cert);
+    if (!pkey)
+    {
+        return "";
+    }
+    unsigned char* der = nullptr;
+    int len = i2d_PUBKEY(pkey, &der);
+    if (len <= 0 || !der)
+    {
+        return "";
+    }
+    OpenSslBufferPtr derPtr(der);
+    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned int mdLen = 0;
+    EVPMDCtxPtr ctx(EVP_MD_CTX_new());
+    if (ctx && EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) == 1 &&
+        EVP_DigestUpdate(ctx.get(), derPtr.get(), len) == 1 &&
+        EVP_DigestFinal_ex(ctx.get(), md, &mdLen) == 1)
+    {
+        std::stringstream ss;
+        for (unsigned int i = 0; i < mdLen; ++i)
+        {
+            ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+               << static_cast<int>(md[i]);
+        }
+        return ss.str();
+    }
     return "";
 }
 

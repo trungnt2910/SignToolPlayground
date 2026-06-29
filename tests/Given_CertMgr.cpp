@@ -14,6 +14,21 @@
 
 class Given_CertMgr : public CckyTest
 {
+  protected:
+    bool hasSystemCertificate(const std::string& storeName, const std::string& commonName)
+    {
+        auto store =
+            ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, storeName);
+        store->load(storeName);
+        for (const auto& c : store->getCertificates())
+        {
+            if (c->getCommonName() == commonName)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 TEST_F(Given_CertMgr, When_HelpRequested_ReturnsZero)
@@ -24,17 +39,26 @@ TEST_F(Given_CertMgr, When_HelpRequested_ReturnsZero)
         "/?",
     };
     auto args = ccky::cli::CliParser::parse(3, const_cast<char**>(argv), registry);
-
     auto cmd = registry.getCommand("certmgr");
-    EXPECT_NE(cmd, nullptr);
+
+    int result = -1;
     if (cmd)
     {
-        EXPECT_EQ(cmd->execute(args), 0);
+        result = cmd->execute(args);
     }
+
+    EXPECT_NE(cmd, nullptr);
+    EXPECT_EQ(result, 0);
 }
 
 TEST_F(Given_CertMgr, When_SystemStoreRequested_ReturnsError)
 {
+    if (ccky::crypto::CryptoFactory::getBackendType() == "openssl")
+    {
+        GTEST_SKIP()
+            << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
+    }
+
     const char* argv[] = {
         "ccky",
         "certmgr",
@@ -43,20 +67,16 @@ TEST_F(Given_CertMgr, When_SystemStoreRequested_ReturnsError)
         "my",
     };
     auto args = ccky::cli::CliParser::parse(5, const_cast<char**>(argv), registry);
-
     auto cmd = registry.getCommand("certmgr");
-    EXPECT_NE(cmd, nullptr);
+
+    int result = -1;
     if (cmd)
     {
-        if (ccky::crypto::CryptoFactory::getBackendType() == "windows")
-        {
-            EXPECT_EQ(cmd->execute(args), 0);
-        }
-        else
-        {
-            EXPECT_EQ(cmd->execute(args), 1);
-        }
+        result = cmd->execute(args);
     }
+
+    EXPECT_NE(cmd, nullptr);
+    EXPECT_EQ(result, 0);
 }
 
 TEST_F(Given_CertMgr, When_CertMgrPut_MatchesCertificate)
@@ -64,7 +84,7 @@ TEST_F(Given_CertMgr, When_CertMgrPut_MatchesCertificate)
     std::string pePath = getTestDataPath("tests/data/lxmonika.sys");
     std::string expectedCerPath = getTestDataPath("tests/data/lxmonika.cer");
     std::string actualCerPath = "extracted_test.cer";
-
+    registerTemporaryFile(actualCerPath);
     const char* argv[] = {
         "ccky",
         "certmgr",
@@ -74,42 +94,24 @@ TEST_F(Given_CertMgr, When_CertMgrPut_MatchesCertificate)
         actualCerPath.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
-
     auto cmd = registry.getCommand("certmgr");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(args), 0);
+    ASSERT_NE(cmd, nullptr);
 
-        std::ifstream expectedFile(expectedCerPath, std::ios::binary);
-        std::ifstream actualFile(actualCerPath, std::ios::binary);
+    int result = cmd->execute(args);
 
-        EXPECT_TRUE(expectedFile.is_open());
-        EXPECT_TRUE(actualFile.is_open());
-
-        if (expectedFile.is_open() && actualFile.is_open())
-        {
-            std::vector<uint8_t> expectedBytes(
-                (std::istreambuf_iterator<char>(expectedFile)), std::istreambuf_iterator<char>());
-            std::vector<uint8_t> actualBytes(
-                (std::istreambuf_iterator<char>(actualFile)), std::istreambuf_iterator<char>());
-
-            EXPECT_EQ(expectedBytes, actualBytes);
-        }
-    }
-    std::filesystem::remove(actualCerPath);
+    EXPECT_EQ(result, 0);
+    expectFilesEqual(expectedCerPath, actualCerPath);
 }
 
-TEST_F(Given_CertMgr, When_CertMgrAddAndDelete_SucceedsOnWindows)
+TEST_F(Given_CertMgr, When_CertMgrAdd_SucceedsOnWindows)
 {
     if (ccky::crypto::CryptoFactory::getBackendType() == "openssl")
     {
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
+    registerSystemStoreCert("my", "ccky");
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-
-    // 1. certmgr /add /c tests/data/ccky.pfx /s my
     const char* addArgv[] = {
         "ccky",
         "certmgr",
@@ -121,27 +123,36 @@ TEST_F(Given_CertMgr, When_CertMgrAddAndDelete_SucceedsOnWindows)
     };
     auto addArgs = ccky::cli::CliParser::parse(7, const_cast<char**>(addArgv), registry);
     auto cmd = registry.getCommand("certmgr");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(addArgs), 0);
-    }
+    ASSERT_NE(cmd, nullptr);
 
-    // Check existence
-    auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
-    EXPECT_NO_THROW(store->load("my"));
-    bool found = false;
-    for (const auto& c : store->getCertificates())
-    {
-        if (c->getCommonName() == "ccky")
-        {
-            found = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(found);
+    int result = cmd->execute(addArgs);
 
-    // 2. certmgr /del /c /n ccky /s my
+    EXPECT_EQ(result, 0);
+    EXPECT_TRUE(hasSystemCertificate("my", "ccky"));
+}
+
+TEST_F(Given_CertMgr, When_CertMgrDel_SucceedsOnWindows)
+{
+    if (ccky::crypto::CryptoFactory::getBackendType() == "openssl")
+    {
+        GTEST_SKIP()
+            << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
+    }
+    registerSystemStoreCert("my", "ccky");
+    std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
+    const char* addArgv[] = {
+        "ccky",
+        "certmgr",
+        "/add",
+        "/c",
+        pfxPath.c_str(),
+        "/s",
+        "my",
+    };
+    auto addArgs = ccky::cli::CliParser::parse(7, const_cast<char**>(addArgv), registry);
+    auto cmd = registry.getCommand("certmgr");
+    ASSERT_NE(cmd, nullptr);
+    cmd->execute(addArgs);
     const char* delArgv[] = {
         "ccky",
         "certmgr",
@@ -153,22 +164,22 @@ TEST_F(Given_CertMgr, When_CertMgrAddAndDelete_SucceedsOnWindows)
         "my",
     };
     auto delArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(delArgv), registry);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(delArgs), 0);
-    }
+
+    int result = cmd->execute(delArgs);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_FALSE(hasSystemCertificate("my", "ccky"));
 }
 
-TEST_F(Given_CertMgr, When_CertMgrAddAndDeleteByHash_SucceedsOnWindows)
+TEST_F(Given_CertMgr, When_CertMgrDelByHash_SucceedsOnWindows)
 {
     if (ccky::crypto::CryptoFactory::getBackendType() == "openssl")
     {
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
+    registerSystemStoreCert("my", "ccky");
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-
-    // 1. certmgr /add /c tests/data/ccky.pfx /s my
     const char* addArgv[] = {
         "ccky",
         "certmgr",
@@ -180,15 +191,10 @@ TEST_F(Given_CertMgr, When_CertMgrAddAndDeleteByHash_SucceedsOnWindows)
     };
     auto addArgs = ccky::cli::CliParser::parse(7, const_cast<char**>(addArgv), registry);
     auto cmd = registry.getCommand("certmgr");
-    EXPECT_NE(cmd, nullptr);
-    if (cmd)
-    {
-        EXPECT_EQ(cmd->execute(addArgs), 0);
-    }
-
-    // 2. Get SHA1 hash dynamically
+    ASSERT_NE(cmd, nullptr);
+    cmd->execute(addArgs);
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
-    EXPECT_NO_THROW(store->load("my"));
+    ASSERT_NO_THROW(store->load("my"));
     std::string targetSha1;
     for (const auto& c : store->getCertificates())
     {
@@ -198,24 +204,22 @@ TEST_F(Given_CertMgr, When_CertMgrAddAndDeleteByHash_SucceedsOnWindows)
             break;
         }
     }
-    EXPECT_FALSE(targetSha1.empty());
+    ASSERT_FALSE(targetSha1.empty());
+    const char* delArgv[] = {
+        "ccky",
+        "certmgr",
+        "/del",
+        "/c",
+        "/sha1",
+        targetSha1.c_str(),
+        "/s",
+        "my",
+    };
+    auto delArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(delArgv), registry);
 
-    if (!targetSha1.empty() && cmd)
-    {
-        // 3. certmgr /del /c /sha1 <hash> /s my
-        const char* delArgv[] = {
-            "ccky",
-            "certmgr",
-            "/del",
-            "/c",
-            "/sha1",
-            targetSha1.c_str(),
-            "/s",
-            "my",
-        };
-        auto delArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(delArgv), registry);
-        EXPECT_EQ(cmd->execute(delArgs), 0);
-    }
+    int result = cmd->execute(delArgs);
+
+    EXPECT_EQ(result, 0);
 }
 
 TEST_F(Given_CertMgr, When_CertMgrSourceSystemAndDestFile_ParsedCorrectly)
@@ -229,7 +233,9 @@ TEST_F(Given_CertMgr, When_CertMgrSourceSystemAndDestFile_ParsedCorrectly)
         "my",
         "dest.cer",
     };
+
     auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
+
     EXPECT_EQ(args.positional.size(), 2);
     EXPECT_EQ(args.positionalFlags.size(), 2);
     EXPECT_TRUE(args.positionalFlags[0].find("s") != args.positionalFlags[0].end());
@@ -241,6 +247,7 @@ TEST_F(Given_CertMgr, When_CertMgrAddMissingDest_MatchesStderr)
     std::stringstream out;
     std::stringstream err;
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -250,9 +257,12 @@ TEST_F(Given_CertMgr, When_CertMgrAddMissingDest_MatchesStderr)
         "source.cer",
     };
     auto args = ccky::cli::CliParser::parse(5, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
     std::string expected = getTestTextContent(
         getTestDataPath("tests/data/output/certmgr_add_missingdestinationfilename_stderr.txt"));
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
     EXPECT_EQ(err.str(), expected);
 }
 
@@ -261,15 +271,19 @@ TEST_F(Given_CertMgr, When_CertMgrDisplayMissingSource_MatchesStderr)
     std::stringstream out;
     std::stringstream err;
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
         "certmgr",
     };
     auto args = ccky::cli::CliParser::parse(2, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
     std::string expected = getTestTextContent(
         getTestDataPath("tests/data/output/certmgr_display_missingsourcefilename_stderr.txt"));
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
     EXPECT_EQ(err.str(), expected);
 }
 
@@ -278,6 +292,7 @@ TEST_F(Given_CertMgr, When_CertMgrAddBadSource_MatchesStderr)
     std::stringstream out;
     std::stringstream err;
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -288,9 +303,12 @@ TEST_F(Given_CertMgr, When_CertMgrAddBadSource_MatchesStderr)
         "dest.cer",
     };
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
     std::string expected = getTestTextContent(
         getTestDataPath("tests/data/output/certmgr_add_badsourcestore_stderr.txt"));
+
+    auto result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
     EXPECT_EQ(err.str(), expected);
 }
 
@@ -298,6 +316,7 @@ TEST_F(Given_CertMgr, When_CertMgrDisplay_MatchesStdout)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     const char* argv[] = {
@@ -307,19 +326,24 @@ TEST_F(Given_CertMgr, When_CertMgrDisplay_MatchesStdout)
         pfxPath.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(4, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 0);
-    EXPECT_EQ(err.str(), "");
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/certmgr_display_stdout.txt"));
 
-    EXPECT_EQ(out.str(),
-        getTestTextContent(getTestDataPath("tests/data/output/certmgr_display_stdout.txt")));
+    auto result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(err.str(), "");
+    EXPECT_EQ(out.str(), expected);
 }
 
 TEST_F(Given_CertMgr, When_CertMgrAdd_MatchesStdout)
 {
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
     std::string destPath = "temp_dest.cer";
+    registerTemporaryFile(destPath);
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -330,16 +354,20 @@ TEST_F(Given_CertMgr, When_CertMgrAdd_MatchesStdout)
         destPath.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 0);
-    EXPECT_EQ(
-        out.str(), getTestTextContent(getTestDataPath("tests/data/output/certmgr_stdout.txt")));
-    std::filesystem::remove(destPath);
+    std::string expected =
+        getTestTextContent(getTestDataPath("tests/data/output/certmgr_stdout.txt"));
+
+    auto result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(out.str(), expected);
 }
 
 TEST_F(Given_CertMgr, When_CertMgrDelBadSha1_MatchesOutput)
 {
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -351,7 +379,10 @@ TEST_F(Given_CertMgr, When_CertMgrDelBadSha1_MatchesOutput)
         "source.cer",
     };
     auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
     EXPECT_EQ(err.str(),
         getTestTextContent(getTestDataPath("tests/data/output/certmgr_del_badsha1_stderr.txt")));
     EXPECT_EQ(out.str(), "");
@@ -362,6 +393,7 @@ TEST_F(Given_CertMgr, When_CertMgrDelNoMatchingSha1_MatchesOutput)
     std::string cerPath = getTestDataPath("tests/data/lxmonika.cer");
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
     const char* argv[] = {
         "ccky",
@@ -373,7 +405,10 @@ TEST_F(Given_CertMgr, When_CertMgrDelNoMatchingSha1_MatchesOutput)
         cerPath.c_str(),
     };
     auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
-    EXPECT_EQ(cmd->execute(args), 1);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/certmgr_del_nomatchingsha1_stderr.txt")));
     EXPECT_EQ(out.str(), "");

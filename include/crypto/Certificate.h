@@ -23,6 +23,8 @@ class Certificate
 
     virtual std::string getSubjectDisplay() const = 0;
     virtual std::string getIssuerDisplay() const = 0;
+    virtual std::string getSubjectDN() const = 0;
+    virtual std::string getIssuerDN() const = 0;
     virtual std::string getSerialNumber() const = 0;
     virtual std::string getSha1Thumbprint() const = 0;
     virtual std::string getMd5Thumbprint() const = 0;
@@ -32,6 +34,15 @@ class Certificate
     virtual std::string getContainerName() const = 0;
     virtual std::string getNotBefore() const = 0;
     virtual std::string getNotAfter() const = 0;
+    virtual bool isCA() const = 0;
+    virtual int getPathLenConstraint() const = 0;
+    virtual int getKeyLength() const = 0;
+    virtual std::vector<std::string> getEnhancedKeyUsage() const = 0;
+    virtual std::string getSignatureAlgorithm() const = 0;
+    virtual uint32_t getNetscapeCertType() const = 0;
+    virtual std::string getKeySha256Thumbprint() const = 0;
+    virtual bool isPrivateKeyExportable() const = 0;
+    virtual std::string getPolicyLink() const = 0;
 };
 
 using CertificatePtr = std::shared_ptr<Certificate>;

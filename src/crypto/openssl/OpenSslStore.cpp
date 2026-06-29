@@ -9,6 +9,7 @@
 
 #include "crypto/AuthenticodeSigner.h"
 #include "crypto/openssl/OpenSslException.h"
+#include "crypto/openssl/OpenSslHelper.h"
 #include "crypto/openssl/ZipArchive.h"
 
 namespace ccky
@@ -52,43 +53,38 @@ void OpenSslCerFileStore::load(const std::string& location, const StoreOptions& 
     if (m_certs.empty())
     {
         BIO_reset(bio.get());
-        PKCS12* p12 = d2i_PKCS12_bio(bio.get(), nullptr);
+        PKCS12Ptr p12(d2i_PKCS12_bio(bio.get(), nullptr));
         if (p12)
         {
             X509* c = nullptr;
             EVP_PKEY* k = nullptr;
             STACK_OF(X509)* ca = nullptr;
-            if (PKCS12_parse(p12, "", &k, &c, &ca) == 1)
+            if (PKCS12_parse(p12.get(), "", &k, &c, &ca) == 1)
             {
-                if (c)
+                X509Ptr cPtr(c);
+                EVPPKeyPtr kPtr(k);
+                X509StackPtr caPtr(ca);
+
+                if (cPtr)
                 {
-                    m_certs.push_back(X509Ptr(c));
-                }
-                if (k)
-                {
-                    EVP_PKEY_free(k);
-                }
-                if (ca)
-                {
-                    sk_X509_pop_free(ca, X509_free);
+                    m_certs.push_back(std::move(cPtr));
                 }
             }
-            PKCS12_free(p12);
         }
     }
 
     if (m_certs.empty())
     {
         BIO_reset(bio.get());
-        PKCS7* p7 = PEM_read_bio_PKCS7(bio.get(), nullptr, nullptr, nullptr);
+        PKCS7Ptr p7(PEM_read_bio_PKCS7(bio.get(), nullptr, nullptr, nullptr));
         if (!p7)
         {
             BIO_reset(bio.get());
-            p7 = d2i_PKCS7_bio(bio.get(), nullptr);
+            p7.reset(d2i_PKCS7_bio(bio.get(), nullptr));
         }
         if (p7)
         {
-            if (PKCS7_type_is_signed(p7) && p7->d.sign && p7->d.sign->cert)
+            if (PKCS7_type_is_signed(p7.get()) && p7->d.sign && p7->d.sign->cert)
             {
                 STACK_OF(X509)* sk = p7->d.sign->cert;
                 for (int i = 0; i < sk_X509_num(sk); ++i)
@@ -97,7 +93,6 @@ void OpenSslCerFileStore::load(const std::string& location, const StoreOptions& 
                     m_certs.push_back(X509Ptr(X509_dup(x)));
                 }
             }
-            PKCS7_free(p7);
         }
     }
 
@@ -153,21 +148,24 @@ bool OpenSslCerFileStore::saveAsPkcs7(const std::string& location)
         return false;
     }
 
-    PKCS7* p7 = PKCS7_new();
-    PKCS7_set_type(p7, NID_pkcs7_signed);
-    PKCS7_content_new(p7, NID_pkcs7_data);
+    PKCS7Ptr p7(PKCS7_new());
+    if (!p7)
+    {
+        return false;
+    }
+    PKCS7_set_type(p7.get(), NID_pkcs7_signed);
+    PKCS7_content_new(p7.get(), NID_pkcs7_data);
 
     for (const auto& cert : m_certs)
     {
-        PKCS7_add_certificate(p7, cert.get());
+        PKCS7_add_certificate(p7.get(), cert.get());
     }
     for (const auto& crl : m_crls)
     {
-        PKCS7_add_crl(p7, crl.get());
+        PKCS7_add_crl(p7.get(), crl.get());
     }
 
-    i2d_PKCS7_bio(bio.get(), p7);
-    PKCS7_free(p7);
+    i2d_PKCS7_bio(bio.get(), p7.get());
     return true;
 }
 
@@ -395,10 +393,10 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
         if (file.read(reinterpret_cast<char*>(buf.data()), pkcs7Len))
         {
             BIOPtr bio(BIO_new_mem_buf(buf.data(), pkcs7Len));
-            PKCS7* p7 = d2i_PKCS7_bio(bio.get(), nullptr);
+            PKCS7Ptr p7(d2i_PKCS7_bio(bio.get(), nullptr));
             if (p7)
             {
-                if (PKCS7_type_is_signed(p7) && p7->d.sign)
+                if (PKCS7_type_is_signed(p7.get()) && p7->d.sign)
                 {
                     STACK_OF(PKCS7_SIGNER_INFO)* siSk = p7->d.sign->signer_info;
                     if (siSk && sk_PKCS7_SIGNER_INFO_num(siSk) > 0)
@@ -446,7 +444,6 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
                         }
                     }
                 }
-                PKCS7_free(p7);
             }
         }
     }
@@ -564,21 +561,24 @@ void OpenSslPeFileStore::save(const std::string& location, const StoreOptions& o
         m_loadedLocation = location;
     }
 
-    PKCS7* p7 = PKCS7_new();
-    PKCS7_set_type(p7, NID_pkcs7_signed);
-    PKCS7_content_new(p7, NID_pkcs7_data);
+    PKCS7Ptr p7(PKCS7_new());
+    if (!p7)
+    {
+        throw OpenSslException("Failed to create PKCS7 structure", false);
+    }
+    PKCS7_set_type(p7.get(), NID_pkcs7_signed);
+    PKCS7_content_new(p7.get(), NID_pkcs7_data);
 
     for (const auto& c : m_certs)
     {
-        PKCS7_add_certificate(p7, c.get());
+        PKCS7_add_certificate(p7.get(), c.get());
     }
     for (const auto& c : m_crls)
     {
-        PKCS7_add_crl(p7, c.get());
+        PKCS7_add_crl(p7.get(), c.get());
     }
 
-    bool res = setPkcs7(p7);
-    PKCS7_free(p7);
+    bool res = setPkcs7(p7.get());
     if (!res)
     {
         throw OpenSslException("Failed to save the store", false);
@@ -737,10 +737,10 @@ void OpenSslAppxFileStore::load(const std::string& location, const StoreOptions&
             sigBuf[3] == 'X')
         {
             BIOPtr bio(BIO_new_mem_buf(sigBuf.data() + 4, sigBuf.size() - 4));
-            PKCS7* p7 = d2i_PKCS7_bio(bio.get(), nullptr);
+            PKCS7Ptr p7(d2i_PKCS7_bio(bio.get(), nullptr));
             if (p7)
             {
-                if (PKCS7_type_is_signed(p7) && p7->d.sign)
+                if (PKCS7_type_is_signed(p7.get()) && p7->d.sign)
                 {
                     STACK_OF(PKCS7_SIGNER_INFO)* siSk = p7->d.sign->signer_info;
                     if (siSk && sk_PKCS7_SIGNER_INFO_num(siSk) > 0)
@@ -788,7 +788,6 @@ void OpenSslAppxFileStore::load(const std::string& location, const StoreOptions&
                         }
                     }
                 }
-                PKCS7_free(p7);
             }
         }
     }
@@ -807,21 +806,24 @@ void OpenSslAppxFileStore::save(const std::string& location, const StoreOptions&
         m_loadedLocation = location;
     }
 
-    PKCS7* p7 = PKCS7_new();
-    PKCS7_set_type(p7, NID_pkcs7_signed);
-    PKCS7_content_new(p7, NID_pkcs7_data);
+    PKCS7Ptr p7(PKCS7_new());
+    if (!p7)
+    {
+        throw OpenSslException("Failed to create PKCS7 structure", false);
+    }
+    PKCS7_set_type(p7.get(), NID_pkcs7_signed);
+    PKCS7_content_new(p7.get(), NID_pkcs7_data);
 
     for (const auto& c : m_certs)
     {
-        PKCS7_add_certificate(p7, c.get());
+        PKCS7_add_certificate(p7.get(), c.get());
     }
     for (const auto& c : m_crls)
     {
-        PKCS7_add_crl(p7, c.get());
+        PKCS7_add_crl(p7.get(), c.get());
     }
 
-    bool res = setPkcs7(p7);
-    PKCS7_free(p7);
+    bool res = setPkcs7(p7.get());
     if (!res)
     {
         throw OpenSslException("Failed to save the store", false);
@@ -1108,13 +1110,13 @@ void OpenSslPfxCertStore::load(const std::string& location, const StoreOptions& 
         throw OpenSslException("Failed to open the store", false);
     }
 
-    PKCS12* p12 = d2i_PKCS12_bio(bio.get(), nullptr);
+    PKCS12Ptr p12(d2i_PKCS12_bio(bio.get(), nullptr));
     if (p12)
     {
         X509* c = nullptr;
         EVP_PKEY* k = nullptr;
         STACK_OF(X509)* ca = nullptr;
-        if (PKCS12_parse(p12, options.password.c_str(), &k, &c, &ca) == 1)
+        if (PKCS12_parse(p12.get(), options.password.c_str(), &k, &c, &ca) == 1)
         {
             if (c)
             {
@@ -1130,7 +1132,6 @@ void OpenSslPfxCertStore::load(const std::string& location, const StoreOptions& 
                 sk_X509_pop_free(ca, X509_free);
             }
         }
-        PKCS12_free(p12);
     }
     else
     {
