@@ -391,7 +391,8 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_MatchesOutput)
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string reSignedSys = "test.exe";
     registerTemporaryFile(reSignedSys);
-    registerSystemStoreCert("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
+    // TODO: Write a function to dynamically extract the test cert hash and register it for cleanup.
+    registerSystemStoreCert("my", "ccky", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
@@ -408,7 +409,7 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_MatchesOutput)
     auto signCmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
     ASSERT_NE(signCmd, nullptr);
     registry.registerCommand(signCmd);
-    const char* signArgv[] = {
+    std::array signArgv = {
         "ccky",
         "signtool",
         "sign",
@@ -418,7 +419,7 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_MatchesOutput)
         "SHA256",
         reSignedSys.c_str(),
     };
-    auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
+    auto signArgs = ccky::cli::CliParser::parse(signArgv.size(), signArgv.data(), registry);
 
     int exitCode = signCmd->execute(signArgs);
 
@@ -855,7 +856,7 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_SucceedsOnWindows)
     std::string origPePath = getTestDataPath("tests/data/test.exe");
     std::string reSignedSys = "re_signed_system_test.exe";
     registerTemporaryFile(reSignedSys);
-    registerSystemStoreCert("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
+    registerSystemStoreCert("my", "ccky", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
@@ -870,7 +871,7 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_SucceedsOnWindows)
     // 2. signtool sign /n "ccky" /fd SHA256 re_signed_system_test.exe
     auto signCmd = registry.getCommand("signtool");
     ASSERT_NE(signCmd, nullptr);
-    const char* signArgv[] = {
+    std::array signArgv = {
         "ccky",
         "signtool",
         "sign",
@@ -880,7 +881,7 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_SucceedsOnWindows)
         "SHA256",
         reSignedSys.c_str(),
     };
-    auto signArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(signArgv), registry);
+    auto signArgs = ccky::cli::CliParser::parse(signArgv.size(), signArgv.data(), registry);
 
     int exitCode = signCmd->execute(signArgs);
 

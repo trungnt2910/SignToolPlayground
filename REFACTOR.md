@@ -26,7 +26,7 @@ std::array argv = {
     "makecert",
     "/?",
 };
-auto args = ccky::cli::CliParser::parse(argv.size(), const_cast<char**>(argv.data()), registry);
+auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
 ```
 
 ## Backend Exceptions
