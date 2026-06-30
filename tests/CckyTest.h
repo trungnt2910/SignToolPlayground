@@ -120,13 +120,15 @@ class CckyTest : public ::testing::Test
         m_cleaners.push_back(std::make_unique<CckyKeyContainerCleaner>(name, provName, provType));
     }
 
-    void registerSystemStoreCert(const std::string& storeName, const std::string& thumbprint)
+    void registerSystemStoreCert(const std::string& storeName, const std::string& commonName,
+        const std::string& thumbprint = "")
     {
         class CckySystemStoreCertCleaner : public CckyCleaner
         {
           public:
-            CckySystemStoreCertCleaner(const std::string& s, const std::string& t)
-                : m_storeName(s), m_thumbprint(t)
+            CckySystemStoreCertCleaner(
+                const std::string& s, const std::string& c, const std::string& t)
+                : m_storeName(s), m_commonName(c), m_thumbprint(t)
             {
             }
             ~CckySystemStoreCertCleaner() override
@@ -138,7 +140,7 @@ class CckyTest : public ::testing::Test
                         auto store = ccky::crypto::CryptoFactory::createStore(
                             ccky::crypto::StoreType::WinSystem, m_storeName);
                         store->load(m_storeName);
-                        store->deleteCertificate("", m_thumbprint);
+                        store->deleteCertificate(m_commonName, m_thumbprint);
                     }
                     catch (const std::exception& e)
                     {
@@ -150,10 +152,12 @@ class CckyTest : public ::testing::Test
 
           private:
             std::string m_storeName;
+            std::string m_commonName;
             std::string m_thumbprint;
         };
 
-        m_cleaners.push_back(std::make_unique<CckySystemStoreCertCleaner>(storeName, thumbprint));
+        m_cleaners.push_back(
+            std::make_unique<CckySystemStoreCertCleaner>(storeName, commonName, thumbprint));
     }
 
     void cleanupSystemStore(const std::string& storeName, const std::string& thumbprint)

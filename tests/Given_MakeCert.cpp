@@ -148,7 +148,7 @@ class Given_MakeCert : public CckyTest
         {
             if (cert->getCommonName() == commonName)
             {
-                registerSystemStoreCert(storeName, cert->getSha1());
+                registerSystemStoreCert(storeName, commonName, cert->getSha1());
                 return cert;
             }
         }

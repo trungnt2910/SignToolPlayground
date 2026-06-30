@@ -110,9 +110,9 @@ TEST_F(Given_CertMgr, When_CertMgrAdd_SucceedsOnWindows)
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
-    registerSystemStoreCert("my", "ccky");
+    registerSystemStoreCert("my", "ccky", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-    const char* addArgv[] = {
+    std::array addArgv = {
         "ccky",
         "certmgr",
         "/add",
@@ -121,7 +121,7 @@ TEST_F(Given_CertMgr, When_CertMgrAdd_SucceedsOnWindows)
         "/s",
         "my",
     };
-    auto addArgs = ccky::cli::CliParser::parse(7, const_cast<char**>(addArgv), registry);
+    auto addArgs = ccky::cli::CliParser::parse(addArgv.size(), addArgv.data(), registry);
     auto cmd = registry.getCommand("certmgr");
     ASSERT_NE(cmd, nullptr);
 
@@ -138,9 +138,9 @@ TEST_F(Given_CertMgr, When_CertMgrDel_SucceedsOnWindows)
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
-    registerSystemStoreCert("my", "ccky");
+    registerSystemStoreCert("my", "ccky", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-    const char* addArgv[] = {
+    std::array addArgv = {
         "ccky",
         "certmgr",
         "/add",
@@ -149,11 +149,11 @@ TEST_F(Given_CertMgr, When_CertMgrDel_SucceedsOnWindows)
         "/s",
         "my",
     };
-    auto addArgs = ccky::cli::CliParser::parse(7, const_cast<char**>(addArgv), registry);
+    auto addArgs = ccky::cli::CliParser::parse(addArgv.size(), addArgv.data(), registry);
     auto cmd = registry.getCommand("certmgr");
     ASSERT_NE(cmd, nullptr);
     cmd->execute(addArgs);
-    const char* delArgv[] = {
+    std::array delArgv = {
         "ccky",
         "certmgr",
         "/del",
@@ -163,7 +163,7 @@ TEST_F(Given_CertMgr, When_CertMgrDel_SucceedsOnWindows)
         "/s",
         "my",
     };
-    auto delArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(delArgv), registry);
+    auto delArgs = ccky::cli::CliParser::parse(delArgv.size(), delArgv.data(), registry);
 
     int result = cmd->execute(delArgs);
 
@@ -178,9 +178,10 @@ TEST_F(Given_CertMgr, When_CertMgrDelByHash_SucceedsOnWindows)
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
-    registerSystemStoreCert("my", "ccky");
+    std::string cckySha1 = "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0";
+    registerSystemStoreCert("my", "ccky", cckySha1);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-    const char* addArgv[] = {
+    std::array addArgv = {
         "ccky",
         "certmgr",
         "/add",
@@ -189,33 +190,23 @@ TEST_F(Given_CertMgr, When_CertMgrDelByHash_SucceedsOnWindows)
         "/s",
         "my",
     };
-    auto addArgs = ccky::cli::CliParser::parse(7, const_cast<char**>(addArgv), registry);
+    auto addArgs = ccky::cli::CliParser::parse(addArgv.size(), addArgv.data(), registry);
     auto cmd = registry.getCommand("certmgr");
     ASSERT_NE(cmd, nullptr);
     cmd->execute(addArgs);
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
     ASSERT_NO_THROW(store->load("my"));
-    std::string targetSha1;
-    for (const auto& c : store->getCertificates())
-    {
-        if (c->getCommonName() == "ccky")
-        {
-            targetSha1 = c->getSha1();
-            break;
-        }
-    }
-    ASSERT_FALSE(targetSha1.empty());
-    const char* delArgv[] = {
+    std::array delArgv = {
         "ccky",
         "certmgr",
         "/del",
         "/c",
         "/sha1",
-        targetSha1.c_str(),
+        cckySha1.c_str(),
         "/s",
         "my",
     };
-    auto delArgs = ccky::cli::CliParser::parse(8, const_cast<char**>(delArgv), registry);
+    auto delArgs = ccky::cli::CliParser::parse(delArgv.size(), delArgv.data(), registry);
 
     int result = cmd->execute(delArgs);
 
