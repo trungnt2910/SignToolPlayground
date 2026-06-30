@@ -19,7 +19,7 @@ std::string Console::askPasswordStdin(const std::string& prompt)
     SetConsoleMode(hStdin, mode & ~ENABLE_ECHO_INPUT);
     std::getline(std::cin, password);
     SetConsoleMode(hStdin, mode);
-    std::cout << std::endl;
+    std::cout << std::flush;
     return password;
 }
 
