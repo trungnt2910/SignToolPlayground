@@ -97,3 +97,22 @@ catch (/* More Exceptions */)
     // Similar handling.
 }
 ```
+
+## snprintf
+
+DO NOT use snprintf. Use std::format instead.
+
+### DON'T
+
+```cpp
+char buf[32];
+std::snprintf(buf, sizeof(buf), "%04d%02d%02d000000Z", y, m, d);
+ASN1_TIME_set_string(notAfter, buf);
+```
+
+### DO
+
+```cpp
+std::string timeStr = std::format("{:04d}{:02d}{:02d}000000Z", y, m, d);
+ASN1_TIME_set_string(notAfter, timeStr.c_str());
+```

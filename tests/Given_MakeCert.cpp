@@ -1285,7 +1285,7 @@ TEST_F(Given_MakeCert, When_MonthsSpecified_CreatesCertWithValidityDuration)
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
     cmd->setRegistry(&registry);
-    const char* argv[] = {
+    std::array argv = {
         "ccky",
         "makecert",
         "-m",
@@ -1294,7 +1294,7 @@ TEST_F(Given_MakeCert, When_MonthsSpecified_CreatesCertWithValidityDuration)
         "CN=MonthsTest",
         certPath.c_str(),
     };
-    auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
 
     int ret = cmd->execute(args);
     auto store =
@@ -1305,6 +1305,70 @@ TEST_F(Given_MakeCert, When_MonthsSpecified_CreatesCertWithValidityDuration)
     EXPECT_EQ(ret, 0);
     ASSERT_EQ(certs.size(), 1);
     EXPECT_EQ(getMonthDifference(certs[0]->getNotBefore(), certs[0]->getNotAfter()), 6);
+}
+
+TEST_F(Given_MakeCert, When_Jan31PlusOneMonth_CreatesCertWithFeb28)
+{
+    std::string certPath = getTempDir() + "/jan31_test.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "01/31/2026",
+        "/m",
+        "1",
+        "/n",
+        "CN=Jan31Test",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), "Sat Jan 31 00:00:00 2026");
+    EXPECT_EQ(certs[0]->getNotAfter(), "Sat Feb 28 00:00:00 2026");
+}
+
+TEST_F(Given_MakeCert, When_Feb29LeapYearPlusTwelveMonths_CreatesCertWithFeb28NextYear)
+{
+    std::string certPath = getTempDir() + "/feb29_test.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "02/29/2024",
+        "/m",
+        "12",
+        "/n",
+        "CN=Feb29Test",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), "Thu Feb 29 00:00:00 2024");
+    EXPECT_EQ(certs[0]->getNotAfter(), "Fri Feb 28 00:00:00 2025");
 }
 
 TEST_F(Given_MakeCert, When_InvalidSky_Throws)

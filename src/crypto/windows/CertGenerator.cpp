@@ -1,6 +1,7 @@
 #include "crypto/CertGenerator.h"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
@@ -929,17 +930,28 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
     sigAlg.pszObjId = const_cast<LPSTR>(getSignatureAlgorithmOid(options.algo, pubKeyOid));
 
     // 10. Dates
+    std::chrono::year_month_day ymd_start;
     SYSTEMTIME stStartTime;
     GetSystemTime(&stStartTime); // Default to now
+    ymd_start = std::chrono::year_month_day{std::chrono::year{stStartTime.wYear},
+        std::chrono::month{stStartTime.wMonth}, std::chrono::day{stStartTime.wDay}};
+
     if (!options.startStr.empty())
     {
         int m, d, y;
         if (std::sscanf(options.startStr.c_str(), "%d/%d/%d", &m, &d, &y) == 3)
         {
             ZeroMemory(&stStartTime, sizeof(stStartTime));
-            stStartTime.wYear = y;
-            stStartTime.wMonth = m;
-            stStartTime.wDay = d;
+            ymd_start = std::chrono::year_month_day{std::chrono::year{y},
+                std::chrono::month{static_cast<unsigned>(m)},
+                std::chrono::day{static_cast<unsigned>(d)}};
+            if (!ymd_start.ok())
+            {
+                throw CckyException("Invalid start date", false);
+            }
+            stStartTime.wYear = static_cast<WORD>(static_cast<int>(ymd_start.year()));
+            stStartTime.wMonth = static_cast<WORD>(static_cast<unsigned>(ymd_start.month()));
+            stStartTime.wDay = static_cast<WORD>(static_cast<unsigned>(ymd_start.day()));
         }
     }
 
@@ -950,21 +962,31 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
         int m, d, y;
         if (std::sscanf(options.endStr.c_str(), "%d/%d/%d", &m, &d, &y) == 3)
         {
-            stEndTime.wYear = y;
-            stEndTime.wMonth = m;
-            stEndTime.wDay = d;
+            std::chrono::year_month_day ymd{std::chrono::year{y},
+                std::chrono::month{static_cast<unsigned>(m)},
+                std::chrono::day{static_cast<unsigned>(d)}};
+            if (!ymd.ok())
+            {
+                throw CckyException("Invalid end date", false);
+            }
+            stEndTime.wYear = static_cast<WORD>(static_cast<int>(ymd.year()));
+            stEndTime.wMonth = static_cast<WORD>(static_cast<unsigned>(ymd.month()));
+            stEndTime.wDay = static_cast<WORD>(static_cast<unsigned>(ymd.day()));
         }
     }
     else if (options.months > 0)
     {
         stEndTime = stStartTime;
-        int monthsToAdd = options.months;
-        stEndTime.wMonth += monthsToAdd;
-        while (stEndTime.wMonth > 12)
+        auto target_ym =
+            (ymd_start.year() / ymd_start.month()) + std::chrono::months(options.months);
+        std::chrono::year_month_day ymd_end = target_ym / ymd_start.day();
+        if (!ymd_end.ok())
         {
-            stEndTime.wMonth -= 12;
-            stEndTime.wYear += 1;
+            ymd_end = target_ym / std::chrono::last;
         }
+        stEndTime.wYear = static_cast<WORD>(static_cast<int>(ymd_end.year()));
+        stEndTime.wMonth = static_cast<WORD>(static_cast<unsigned>(ymd_end.month()));
+        stEndTime.wDay = static_cast<WORD>(static_cast<unsigned>(ymd_end.day()));
     }
     else
     {
