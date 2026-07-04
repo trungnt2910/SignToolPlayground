@@ -5,7 +5,10 @@
 
 #include <windows.h>
 
+#include <ncrypt.h>
 #include <wincrypt.h>
+
+#include "crypto/windows/KeySetDeleter.h"
 
 namespace ccky
 {
@@ -134,35 +137,6 @@ struct CryptKeyDeleter
     }
 };
 using CryptKeyPtr = std::unique_ptr<HCRYPTKEY, CryptKeyDeleter>;
-
-class KeySetDeleter
-{
-  public:
-    KeySetDeleter(std::wstring containerName, std::wstring providerName, DWORD providerType)
-        : m_containerName(std::move(containerName)), m_providerName(std::move(providerName)),
-          m_providerType(providerType), m_active(true)
-    {
-    }
-
-    ~KeySetDeleter()
-    {
-        if (m_active && !m_containerName.empty())
-        {
-            HCRYPTPROV hDel = 0;
-            CryptAcquireContextW(&hDel, m_containerName.c_str(),
-                m_providerName.empty() ? nullptr : m_providerName.c_str(), m_providerType,
-                CRYPT_DELETEKEYSET);
-        }
-    }
-
-    void dismiss() { m_active = false; }
-
-  private:
-    std::wstring m_containerName;
-    std::wstring m_providerName;
-    DWORD m_providerType;
-    bool m_active;
-};
 
 } // namespace crypto
 } // namespace ccky

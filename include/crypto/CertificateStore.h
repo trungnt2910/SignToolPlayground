@@ -1,5 +1,5 @@
-#ifndef CCKY_I_CERT_STORE_H
-#define CCKY_I_CERT_STORE_H
+#ifndef CCKY_CERTIFICATE_STORE_H
+#define CCKY_CERTIFICATE_STORE_H
 
 #include <memory>
 #include <string>
@@ -29,10 +29,10 @@ struct StoreOptions
     std::string password;         // /p
 };
 
-class ICertStore
+class CertificateStore
 {
   public:
-    virtual ~ICertStore() = default;
+    virtual ~CertificateStore() = default;
 
     virtual StoreType getStoreType() const = 0;
     virtual void load(const std::string& location, const StoreOptions& options = {}) = 0;
@@ -52,13 +52,11 @@ class ICertStore
     virtual void deleteCertificate(const std::string& commonName, const std::string& sha1Hash) = 0;
     virtual void deleteCrl(const std::string& sha1Hash) = 0;
     virtual void deleteCtl(const std::string& sha1Hash) = 0;
-
-    virtual void addPrivateKey(
-        const std::string& pfxFilePath, const std::string& password = "") = 0;
-    virtual void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) = 0;
 };
+
+using CertificateStorePtr = std::shared_ptr<CertificateStore>;
 
 } // namespace crypto
 } // namespace ccky
 
-#endif // CCKY_I_CERT_STORE_H
+#endif // CCKY_CERTIFICATE_STORE_H

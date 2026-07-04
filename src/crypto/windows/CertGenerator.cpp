@@ -15,8 +15,8 @@
 #include "crypto/CckyException.h"
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
+#include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WinPrivateKey.h"
 #include "crypto/windows/WinWrapper.h"
 #include "crypto/windows/WindowsException.h"
 
@@ -344,7 +344,7 @@ PrivateKeyPtr loadSubjectKeyFromPvk(const MakeCertOptions& options,
     }
     CryptKeyPtr hKey(rawKey);
 
-    return std::make_shared<WinPrivateKey>(std::move(hProv), std::move(hKey), containerName,
+    return std::make_shared<Win32PrivateKey>(std::move(hProv), std::move(hKey), containerName,
         providerName ? providerName : L"", providerType, options.keySpec, std::move(keysetDeleter));
 }
 
@@ -621,7 +621,7 @@ PCCERT_CONTEXT signCertificate(const CERT_PUBLIC_KEY_INFO* pSubjectPublicKeyInfo
 }
 
 void writeCertificate(
-    PCCERT_CONTEXT pCertContext, const MakeCertOptions& options, WinPrivateKey* subjectKey)
+    PCCERT_CONTEXT pCertContext, const MakeCertOptions& options, Win32PrivateKey* subjectKey)
 {
     if (!options.outputCertFile.empty())
     {
@@ -698,7 +698,7 @@ PrivateKeyPtr CertGenerator::loadSubjectKey(const MakeCertOptions& options)
     if (!options.subjectCertFile.empty())
     {
         auto pCert = loadSubjectCert(options);
-        return std::make_shared<WinPrivateKey>(std::move(pCert));
+        return std::make_shared<Win32PrivateKey>(std::move(pCert));
     }
     if (!options.pvkFile.empty())
     {
@@ -842,7 +842,7 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
         return loadSubjectKeyFromPvk(options, containerName, providerName, providerType);
     }
 
-    return std::make_shared<WinPrivateKey>(std::move(hProv), std::move(hKey), containerName,
+    return std::make_shared<Win32PrivateKey>(std::move(hProv), std::move(hKey), containerName,
         providerName ? providerName : L"", providerType, options.keySpec, std::move(keysetDeleter));
 }
 
@@ -856,7 +856,7 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
     // 1. Convert Subject Name
     std::wstring wSubjectName = WinHelper::utf8ToWide(options.subjectName);
 
-    auto winSubjectKey = std::dynamic_pointer_cast<WinPrivateKey>(subjectKey);
+    auto winSubjectKey = std::dynamic_pointer_cast<Win32PrivateKey>(subjectKey);
     if (!winSubjectKey)
     {
         throw CckyException("Invalid subject key type", false);

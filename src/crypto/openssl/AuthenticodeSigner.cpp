@@ -265,7 +265,7 @@ std::vector<uint8_t> calculateAppxHashInternal(const std::string& filePath, cons
 namespace
 {
 void signAppx(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::string& filePath,
-    ICertStore* store)
+    CertificateStore* store)
 {
     std::vector<uint8_t> appxHash = calculateAppxHashInternal(filePath, options.fileDigestAlg);
     if (appxHash.empty())
@@ -287,7 +287,7 @@ void signAppx(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::st
 }
 
 void signPe(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::string& filePath,
-    ICertStore* store)
+    CertificateStore* store)
 {
     std::vector<uint8_t> peHash = calculatePeHashInternal(filePath, options.fileDigestAlg);
     if (peHash.empty())
@@ -312,12 +312,12 @@ void AuthenticodeSigner::sign(
     CertificatePtr cert, const SignOptions& options, const std::string& filePath)
 {
     auto* sslCert = dynamic_cast<OpenSslCert*>(cert.get());
-    if (!sslCert || !sslCert->getInternal() || !sslCert->getPrivateKey())
+    if (!sslCert || !sslCert->getInternal() || !sslCert->getInternalKey())
     {
         throw OpenSslException("Invalid or missing signing certificate and private key.", false);
     }
     X509* x = sslCert->getInternal();
-    EVP_PKEY* pkey = sslCert->getPrivateKey();
+    EVP_PKEY* pkey = sslCert->getInternalKey();
 
     if (!options.timestampUrl.empty())
     {

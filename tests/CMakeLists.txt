@@ -16,8 +16,8 @@ ccky_add_executable(ccky_tests
 )
 
 target_link_libraries(ccky_tests PRIVATE
-    ccky_commands ccky_cli ccky_crypto
-    gtest_main gtest
+    ccky_cli ccky_commands ccky_crypto
+    gtest gtest_main
     ${CCKY_CRYPTO_BACKEND_DEPENDENCIES}
 )
 include(GoogleTest)

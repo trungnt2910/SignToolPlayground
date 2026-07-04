@@ -1,5 +1,5 @@
-#ifndef CCKY_WIN_CERT_H
-#define CCKY_WIN_CERT_H
+#ifndef CCKY_WIN32_CERT_H
+#define CCKY_WIN32_CERT_H
 
 #include <windows.h>
 
@@ -13,38 +13,54 @@ namespace ccky
 namespace crypto
 {
 
-class WinCert : public Certificate
+class Win32Cert : public Certificate
 {
   public:
-    explicit WinCert(PCCERT_CONTEXT cert);
-    ~WinCert() override = default;
+    explicit Win32Cert(PCCERT_CONTEXT cert);
+    ~Win32Cert() override = default;
 
-    std::string getCommonName() const override;
-    std::string getIssuerName() const override;
-    std::string getSha1() const override;
+    // Encoding, Hashes & Algorithms
     std::vector<uint8_t> getEncoded() const override;
-
-    std::string getSubjectDisplay() const override;
-    std::string getIssuerDisplay() const override;
-    std::string getSubjectDN() const override;
-    std::string getIssuerDN() const override;
     std::string getSerialNumber() const override;
+    std::string getSha1() const override;
     std::string getSha1Thumbprint() const override;
     std::string getMd5Thumbprint() const override;
+    std::string getSignatureAlgorithm() const override;
+
+    // Subject Information
+    std::string getCommonName() const override;
+    std::string getSubjectDisplay() const override;
+    std::string getSubjectDN() const override;
+
+    // Issuer Information
+    std::string getIssuerName() const override;
+    std::string getIssuerDisplay() const override;
+    std::string getIssuerDN() const override;
+
+    // Validity Period
+    std::string getNotBefore() const override;
+    std::string getNotAfter() const override;
+
+    // Key Information
+    int getKeyLength() const override;
     std::string getKeyMd5Thumbprint() const override;
+    std::string getKeySha256Thumbprint() const override;
+
+    // Private Key Information
+    bool hasPrivateKey() const override;
+    PrivateKeyPtr getPrivateKey() const override;
+    bool isPrivateKeyExportable() const override;
+
+    // Provider Information
     std::string getProviderType() const override;
     std::string getProviderName() const override;
     std::string getContainerName() const override;
-    std::string getNotBefore() const override;
-    std::string getNotAfter() const override;
+
+    // Extensions & Policy Attributes
     bool isCA() const override;
     int getPathLenConstraint() const override;
-    int getKeyLength() const override;
     std::vector<std::string> getEnhancedKeyUsage() const override;
-    std::string getSignatureAlgorithm() const override;
     uint32_t getNetscapeCertType() const override;
-    std::string getKeySha256Thumbprint() const override;
-    bool isPrivateKeyExportable() const override;
     std::string getPolicyLink() const override;
 
     PCCERT_CONTEXT getInternal() const { return m_cert.get(); }
@@ -55,22 +71,22 @@ class WinCert : public Certificate
     CertContextPtr m_cert;
 };
 
-class WinPfxCert : public WinCert
+class Win32PfxCert : public Win32Cert
 {
   public:
-    explicit WinPfxCert(PCCERT_CONTEXT cert);
-    ~WinPfxCert() override = default;
+    explicit Win32PfxCert(PCCERT_CONTEXT cert);
+    ~Win32PfxCert() override = default;
 
     std::string getProviderType() const override;
     std::string getProviderName() const override;
     std::string getContainerName() const override;
 };
 
-class WinCrl : public Crl
+class Win32Crl : public Crl
 {
   public:
-    explicit WinCrl(PCCRL_CONTEXT crl);
-    ~WinCrl() override = default;
+    explicit Win32Crl(PCCRL_CONTEXT crl);
+    ~Win32Crl() override = default;
 
     std::string getSha1() const override;
     std::vector<uint8_t> getEncoded() const override;
@@ -81,11 +97,11 @@ class WinCrl : public Crl
     CrlContextPtr m_crl;
 };
 
-class WinCtl : public Ctl
+class Win32Ctl : public Ctl
 {
   public:
-    explicit WinCtl(PCCTL_CONTEXT ctl);
-    ~WinCtl() override = default;
+    explicit Win32Ctl(PCCTL_CONTEXT ctl);
+    ~Win32Ctl() override = default;
 
     std::string getSha1() const override;
     std::vector<uint8_t> getEncoded() const override;
@@ -99,4 +115,4 @@ class WinCtl : public Ctl
 } // namespace crypto
 } // namespace ccky
 
-#endif // CCKY_WIN_CERT_H
+#endif // CCKY_WIN32_CERT_H

@@ -25,7 +25,7 @@ const std::string& CryptoFactory::getBackendType()
     return s_backend;
 }
 
-std::shared_ptr<ICertStore> CryptoFactory::createStore(StoreType type, const std::string& location)
+CertificateStorePtr CryptoFactory::createStore(StoreType type, const std::string& location)
 {
     if (type == StoreType::WinSystem)
     {

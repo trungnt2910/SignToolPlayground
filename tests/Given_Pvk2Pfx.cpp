@@ -12,8 +12,8 @@
 #include "cli/CliParser.h"
 #include "commands/Pvk2PfxCommand.h"
 #include "crypto/Bytes.h"
+#include "crypto/CertificateStore.h"
 #include "crypto/CryptoFactory.h"
-#include "crypto/ICertStore.h"
 #include "crypto/PvkKey.h"
 
 class Given_Pvk2Pfx : public CckyTest

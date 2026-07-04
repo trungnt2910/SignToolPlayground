@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "crypto/PrivateKey.h"
+
 namespace ccky
 {
 namespace crypto
@@ -16,32 +18,48 @@ class Certificate
   public:
     virtual ~Certificate() = default;
 
-    virtual std::string getCommonName() const = 0;
-    virtual std::string getIssuerName() const = 0;
-    virtual std::string getSha1() const = 0;
+    // Encoding, Hashes & Algorithms
     virtual std::vector<uint8_t> getEncoded() const = 0;
-
-    virtual std::string getSubjectDisplay() const = 0;
-    virtual std::string getIssuerDisplay() const = 0;
-    virtual std::string getSubjectDN() const = 0;
-    virtual std::string getIssuerDN() const = 0;
     virtual std::string getSerialNumber() const = 0;
+    virtual std::string getSha1() const = 0;
     virtual std::string getSha1Thumbprint() const = 0;
     virtual std::string getMd5Thumbprint() const = 0;
+    virtual std::string getSignatureAlgorithm() const = 0;
+
+    // Subject Information
+    virtual std::string getCommonName() const = 0;
+    virtual std::string getSubjectDisplay() const = 0;
+    virtual std::string getSubjectDN() const = 0;
+
+    // Issuer Information
+    virtual std::string getIssuerName() const = 0;
+    virtual std::string getIssuerDisplay() const = 0;
+    virtual std::string getIssuerDN() const = 0;
+
+    // Validity Period
+    virtual std::string getNotBefore() const = 0;
+    virtual std::string getNotAfter() const = 0;
+
+    // Key Information
+    virtual int getKeyLength() const = 0;
     virtual std::string getKeyMd5Thumbprint() const = 0;
+    virtual std::string getKeySha256Thumbprint() const = 0;
+
+    // Private Key Information
+    virtual bool hasPrivateKey() const = 0;
+    virtual PrivateKeyPtr getPrivateKey() const = 0;
+    virtual bool isPrivateKeyExportable() const = 0;
+
+    // Provider Information
     virtual std::string getProviderType() const = 0;
     virtual std::string getProviderName() const = 0;
     virtual std::string getContainerName() const = 0;
-    virtual std::string getNotBefore() const = 0;
-    virtual std::string getNotAfter() const = 0;
+
+    // Extensions & Policy Attributes
     virtual bool isCA() const = 0;
     virtual int getPathLenConstraint() const = 0;
-    virtual int getKeyLength() const = 0;
     virtual std::vector<std::string> getEnhancedKeyUsage() const = 0;
-    virtual std::string getSignatureAlgorithm() const = 0;
     virtual uint32_t getNetscapeCertType() const = 0;
-    virtual std::string getKeySha256Thumbprint() const = 0;
-    virtual bool isPrivateKeyExportable() const = 0;
     virtual std::string getPolicyLink() const = 0;
 };
 

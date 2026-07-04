@@ -4,7 +4,7 @@
 #include <memory>
 
 #include "cli/Command.h"
-#include "crypto/ICertStore.h"
+#include "crypto/CertificateStore.h"
 
 namespace ccky
 {
@@ -30,7 +30,7 @@ class CertMgrCommand : public cli::Command
     void displayError(const std::string& msg) override;
 
   private:
-    std::shared_ptr<crypto::ICertStore> getStore(const std::string& location, bool isSystemStore);
+    crypto::CertificateStorePtr getStore(const std::string& location, bool isSystemStore);
 };
 
 } // namespace commands
