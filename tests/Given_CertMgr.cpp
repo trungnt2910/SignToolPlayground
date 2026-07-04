@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -11,6 +12,7 @@
 #include "cli/CliParser.h"
 #include "crypto/AuthenticodeSigner.h"
 #include "crypto/CryptoFactory.h"
+#include "crypto/FileTypeDetector.h"
 
 class Given_CertMgr : public CckyTest
 {
@@ -101,6 +103,43 @@ TEST_F(Given_CertMgr, When_CertMgrPut_MatchesCertificate)
 
     EXPECT_EQ(result, 0);
     expectFilesEqual(expectedCerPath, actualCerPath);
+}
+
+TEST_F(Given_CertMgr, When_CertMgrPutWith7Flag_CreatesPkcs7Bundle)
+{
+    std::string pePath = getTestDataPath("tests/data/lxmonika.sys");
+    std::string expectedCerPath = getTestDataPath("tests/data/lxmonika.cer");
+    std::string actualP7bPath = "extracted_test.p7b";
+    registerTemporaryFile(actualP7bPath);
+    std::array argv = {
+        "ccky",
+        "certmgr",
+        "/put",
+        "/7",
+        "/c",
+        pePath.c_str(),
+        actualP7bPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+    auto cmd = registry.getCommand("certmgr");
+    ASSERT_NE(cmd, nullptr);
+
+    int result = cmd->execute(args);
+    auto expectedStore =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, expectedCerPath);
+    expectedStore->load(expectedCerPath);
+    auto actualStore =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, actualP7bPath);
+    actualStore->load(actualP7bPath);
+    auto actualFileType = ccky::crypto::FileTypeDetector::detectFileType(actualP7bPath);
+    auto expectedCerts = expectedStore->getCertificates();
+    auto actualCerts = actualStore->getCertificates();
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(actualFileType, ccky::crypto::StoreType::P7bFile);
+    ASSERT_EQ(actualCerts.size(), expectedCerts.size());
+    ASSERT_FALSE(actualCerts.empty());
+    EXPECT_EQ(actualCerts[0]->getSha1(), expectedCerts[0]->getSha1());
 }
 
 TEST_F(Given_CertMgr, When_CertMgrAdd_SucceedsOnWindows)

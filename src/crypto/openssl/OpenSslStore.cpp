@@ -120,6 +120,20 @@ void OpenSslCerFileStore::load(const std::string& location, const StoreOptions& 
 
 void OpenSslCerFileStore::save(const std::string& location, const StoreOptions& options)
 {
+    switch (options.format)
+    {
+    case StoreFormat::Pkcs7:
+        saveAsPkcs7(location);
+        break;
+    case StoreFormat::Der:
+    default:
+        saveAsDer(location);
+        break;
+    }
+}
+
+void OpenSslCerFileStore::saveAsDer(const std::string& location)
+{
     BIOPtr bio(BIO_new_file(location.c_str(), "wb"));
     if (!bio)
     {
@@ -141,18 +155,18 @@ void OpenSslCerFileStore::save(const std::string& location, const StoreOptions& 
     }
 }
 
-bool OpenSslCerFileStore::saveAsPkcs7(const std::string& location)
+void OpenSslCerFileStore::saveAsPkcs7(const std::string& location)
 {
     BIOPtr bio(BIO_new_file(location.c_str(), "wb"));
     if (!bio)
     {
-        return false;
+        throw OpenSslException("Failed to open file for PKCS#7 save", false);
     }
 
     PKCS7Ptr p7(PKCS7_new());
     if (!p7)
     {
-        return false;
+        throw OpenSslException("Failed to create PKCS#7 structure", false);
     }
     PKCS7_set_type(p7.get(), NID_pkcs7_signed);
     PKCS7_content_new(p7.get(), NID_pkcs7_data);
@@ -167,7 +181,6 @@ bool OpenSslCerFileStore::saveAsPkcs7(const std::string& location)
     }
 
     i2d_PKCS7_bio(bio.get(), p7.get());
-    return true;
 }
 
 std::vector<CertificatePtr> OpenSslCerFileStore::getCertificates()

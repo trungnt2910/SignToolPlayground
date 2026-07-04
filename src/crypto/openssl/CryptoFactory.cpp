@@ -27,37 +27,36 @@ const std::string& CryptoFactory::getBackendType()
 
 CertificateStorePtr CryptoFactory::createStore(StoreType type, const std::string& location)
 {
-    if (type == StoreType::WinSystem)
+    switch (type)
     {
+    case StoreType::WinSystem:
         return std::make_shared<OpenSslWinSystemStore>();
-    }
-    if (type == StoreType::PeFile)
-    {
+    case StoreType::PeFile:
         return std::make_shared<OpenSslPeFileStore>();
-    }
-    if (type == StoreType::AppxFile)
-    {
+    case StoreType::AppxFile:
         return std::make_shared<OpenSslAppxFileStore>();
-    }
-    if (type == StoreType::PfxFile)
-    {
+    case StoreType::PfxFile:
         return std::make_shared<OpenSslPfxCertStore>();
+    case StoreType::P7bFile:
+        return std::make_shared<OpenSslCerFileStore>();
+    case StoreType::CerFile:
+    default:
+        break;
     }
 
-    StoreType detected = FileTypeDetector::detectFileType(location);
-    if (detected == StoreType::PeFile)
+    switch (FileTypeDetector::detectFileType(location))
     {
+    case StoreType::PeFile:
         return std::make_shared<OpenSslPeFileStore>();
-    }
-    if (detected == StoreType::AppxFile)
-    {
+    case StoreType::AppxFile:
         return std::make_shared<OpenSslAppxFileStore>();
-    }
-    if (detected == StoreType::PfxFile)
-    {
+    case StoreType::PfxFile:
         return std::make_shared<OpenSslPfxCertStore>();
+    case StoreType::P7bFile:
+    case StoreType::CerFile:
+    default:
+        return std::make_shared<OpenSslCerFileStore>();
     }
-    return std::make_shared<OpenSslCerFileStore>();
 }
 
 CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t>& derBytes)

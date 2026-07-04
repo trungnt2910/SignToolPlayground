@@ -100,6 +100,10 @@ class Win32CerFileStore : public Win32FileStore
     StoreType getStoreType() const override { return StoreType::CerFile; }
     void load(const std::string& location, const StoreOptions& options = {}) override;
     void save(const std::string& location, const StoreOptions& options = {}) override;
+
+  private:
+    void saveAsDer(const std::string& location);
+    void saveAsPkcs7(const std::string& location);
 };
 
 class Win32PeFileStore : public Win32FileStore

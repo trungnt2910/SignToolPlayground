@@ -33,6 +33,15 @@ TEST_F(Given_FileTypeDetector, When_DetectFileTypeWithPfx_DetectsPfxFile)
     EXPECT_EQ(type, ccky::crypto::StoreType::PfxFile);
 }
 
+TEST_F(Given_FileTypeDetector, When_DetectFileTypeWithP7b_DetectsP7bFile)
+{
+    std::string p7bPath = getTestDataPath("tests/data/ccky.p7b");
+
+    auto type = ccky::crypto::FileTypeDetector::detectFileType(p7bPath);
+
+    EXPECT_EQ(type, ccky::crypto::StoreType::P7bFile);
+}
+
 TEST_F(Given_FileTypeDetector, When_DetectFileTypeWithCer_DetectsCerFile)
 {
     std::string cerPath = getTestDataPath("tests/data/lxmonika.cer");

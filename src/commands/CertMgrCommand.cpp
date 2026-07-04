@@ -273,6 +273,10 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
     }
     else if (args.subcommand == "/put" || args.subcommand == "-put")
     {
+        if (args.hasFlag("7"))
+        {
+            opts.format = crypto::StoreFormat::Pkcs7;
+        }
         if (args.positional.empty())
         {
             throw crypto::CckyException("Missing SourceStoreName", true);
@@ -313,17 +317,7 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
             destStore->addCertificate(c);
         }
 
-        // TODO: CertificateStore does not currently expose saveAsPkcs7 in its virtual interface,
-        // and the Windows backend lacks PKCS#7 serialization. Both branches fallback to standard
-        // save.
-        if (args.hasFlag("7"))
-        {
-            destStore->save(destLocation, opts);
-        }
-        else
-        {
-            destStore->save(destLocation, opts);
-        }
+        destStore->save(destLocation, opts);
         m_out << "CertMgr Succeeded\n";
         return 0;
     }
