@@ -1,0 +1,2 @@
+Error: You must specify -all, -c, -CTL, -CRL for add or delete
+CertMgr Failed
