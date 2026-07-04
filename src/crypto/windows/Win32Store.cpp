@@ -643,6 +643,20 @@ void Win32CerFileStore::load(const std::string& location, const StoreOptions& op
 
 void Win32CerFileStore::save(const std::string& location, const StoreOptions& options)
 {
+    switch (options.format)
+    {
+    case StoreFormat::Pkcs7:
+        saveAsPkcs7(location);
+        break;
+    case StoreFormat::Der:
+    default:
+        saveAsDer(location);
+        break;
+    }
+}
+
+void Win32CerFileStore::saveAsDer(const std::string& location)
+{
     std::ofstream file(location, std::ios::binary);
     if (!file.is_open())
     {
@@ -662,6 +676,41 @@ void Win32CerFileStore::save(const std::string& location, const StoreOptions& op
     {
         auto der = c->getEncoded();
         file.write(reinterpret_cast<const char*>(der.data()), der.size());
+    }
+}
+
+void Win32CerFileStore::saveAsPkcs7(const std::string& location)
+{
+    CertStorePtr hTempStore(
+        CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, CERT_STORE_CREATE_NEW_FLAG, nullptr));
+    if (!hTempStore)
+    {
+        throw WindowsException("Failed to create memory store for PKCS#7", false);
+    }
+    for (const auto& c : m_certs)
+    {
+        auto der = c->getEncoded();
+        CertAddEncodedCertificateToStore(hTempStore.get(), X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+            der.data(), static_cast<DWORD>(der.size()), CERT_STORE_ADD_REPLACE_EXISTING, nullptr);
+    }
+    for (const auto& c : m_crls)
+    {
+        auto der = c->getEncoded();
+        CertAddEncodedCRLToStore(hTempStore.get(), X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+            der.data(), static_cast<DWORD>(der.size()), CERT_STORE_ADD_REPLACE_EXISTING, nullptr);
+    }
+    for (const auto& c : m_ctls)
+    {
+        auto der = c->getEncoded();
+        CertAddEncodedCTLToStore(hTempStore.get(), X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+            der.data(), static_cast<DWORD>(der.size()), CERT_STORE_ADD_REPLACE_EXISTING, nullptr);
+    }
+    std::wstring wLoc = WinHelper::utf8ToWide(location);
+    if (!CertSaveStore(hTempStore.get(), X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+            CERT_STORE_SAVE_AS_PKCS7, CERT_STORE_SAVE_TO_FILENAME_W,
+            reinterpret_cast<void*>(const_cast<wchar_t*>(wLoc.c_str())), 0))
+    {
+        throw WindowsException("Failed to save store as PKCS#7", false);
     }
 }
 

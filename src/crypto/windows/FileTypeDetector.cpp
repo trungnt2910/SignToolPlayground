@@ -27,9 +27,16 @@ StoreType FileTypeDetector::detectCertType(const std::string& filePath)
     {
         CertStorePtr hStore(rawStore);
         CryptMsgPtr hMsg(rawMsg);
-        if (dwContentType == CERT_QUERY_CONTENT_PFX)
+        switch (dwContentType)
         {
+        case CERT_QUERY_CONTENT_PFX:
             return StoreType::PfxFile;
+        case CERT_QUERY_CONTENT_PKCS7_SIGNED:
+        case CERT_QUERY_CONTENT_PKCS7_UNSIGNED:
+        case CERT_QUERY_CONTENT_PKCS7_SIGNED_EMBED:
+            return StoreType::P7bFile;
+        default:
+            break;
         }
     }
 

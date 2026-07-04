@@ -31,9 +31,10 @@ class OpenSslCerFileStore : public CertificateStore
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
 
-    bool saveAsPkcs7(const std::string& location);
-
   private:
+    void saveAsDer(const std::string& location);
+    void saveAsPkcs7(const std::string& location);
+
     std::vector<X509Ptr> m_certs;
     std::vector<X509CRLPtr> m_crls;
     std::vector<CtlPtr> m_ctls;

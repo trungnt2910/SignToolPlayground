@@ -18,7 +18,14 @@ enum class StoreType
     PeFile,
     AppxFile,
     PfxFile,
+    P7bFile,
     WinSystem
+};
+
+enum class StoreFormat
+{
+    Der = 0,
+    Pkcs7 = 1
 };
 
 struct StoreOptions
@@ -27,6 +34,7 @@ struct StoreOptions
     std::string providerName;     // /y
     std::string encodingType;     // /e
     std::string password;         // /p
+    StoreFormat format = StoreFormat::Der;
 };
 
 class CertificateStore
