@@ -104,7 +104,7 @@ crypto::EVPPKeyPtr loadIssuerKey(const MakeCertOptions& options)
         }
     }
 
-    if (issuerPvk.getKeyType() != options.issuerKeySpec)
+    if (issuerPvk.getKeyType() != static_cast<PvkKeySpec>(options.issuerKeySpec))
     {
         throw crypto::CckyException(
             "Can't access the key of the issuer ('" + options.issuerPvkFile + "')", false);
@@ -172,7 +172,7 @@ PrivateKeyPtr loadSubjectKeyFromPvk(const MakeCertOptions& options)
                 "Can't create the key of the subject ('" + options.pvkFile + "')", false);
         }
     }
-    if (pvk.getKeyType() != options.keySpec)
+    if (pvk.getKeyType() != static_cast<PvkKeySpec>(options.keySpec))
     {
         throw crypto::CckyException(
             "Can't create the key of the subject ('" + options.pvkFile + "')", false);
@@ -185,8 +185,9 @@ void saveSubjectKeyToPvk(
     const crypto::EVPPKeyPtr& pkey, const MakeCertOptions& options, const std::string& password)
 {
     crypto::PvkKey pvk;
-    std::vector<uint8_t> blob = crypto::PvkHelper::pkeyToBlob(pkey.get(), options.keySpec);
-    pvk.setKeyData(blob, options.keySpec);
+    std::vector<uint8_t> blob =
+        crypto::PvkHelper::pkeyToBlob(pkey.get(), static_cast<PvkKeySpec>(options.keySpec));
+    pvk.setKeyData(blob, static_cast<PvkKeySpec>(options.keySpec));
     if (!password.empty())
     {
         pvk.encrypt(password);

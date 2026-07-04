@@ -18,6 +18,10 @@ namespace crypto
 namespace
 {
 constexpr uint32_t PVK_MAGIC = 0xB0B5F11E;
+constexpr size_t PVK_PUBLIC_KEY_SIZE = 8;
+constexpr uint32_t PVK_RSAPUBLIC_MAGIC = 0x31415352;  // 'RSA1'
+constexpr uint32_t PVK_RSAPRIVATE_MAGIC = 0x32415352; // 'RSA2'
+constexpr uint8_t PVK_BLOB_VERSION = 2;
 
 struct PvkHeader
 {
@@ -57,7 +61,7 @@ std::vector<uint8_t> deriveRc4Key(const std::string& password, const std::vector
 
 } // namespace
 
-PvkKey::PvkKey() : m_keyType(0), m_isEncrypted(false) {}
+PvkKey::PvkKey() : m_keyType(PvkKeySpec::KeyExchange), m_isEncrypted(false) {}
 PvkKey::~PvkKey() = default;
 PvkKey::PvkKey(PvkKey&& other) noexcept = default;
 PvkKey& PvkKey::operator=(PvkKey&& other) noexcept = default;
@@ -94,7 +98,7 @@ void PvkKey::load(const std::string& filePath)
         throw PvkCorruptFileException("Invalid PVK magic: " + filePath);
     }
 
-    m_keyType = header.keyType;
+    m_keyType = static_cast<PvkKeySpec>(header.keyType);
     m_isEncrypted = (header.encrypted != 0);
 
     m_salt.resize(header.saltLen);
@@ -107,6 +111,17 @@ void PvkKey::load(const std::string& filePath)
     if (header.keyLen > 0 && !file.read(reinterpret_cast<char*>(m_payload.data()), header.keyLen))
     {
         throw PvkCorruptFileException("Failed to read PVK key payload: " + filePath);
+    }
+
+    if (m_payload.size() < PVK_PUBLIC_KEY_SIZE)
+    {
+        throw PvkCorruptFileException("PVK key payload too small: " + filePath);
+    }
+
+    uint8_t bVersion = m_payload[1];
+    if (bVersion != PVK_BLOB_VERSION)
+    {
+        throw PvkBadProviderVersionException("Bad Version of provider");
     }
 
     if (!m_isEncrypted)
@@ -123,9 +138,20 @@ void PvkKey::decrypt(const std::string& password)
         return; // Nothing to decrypt
     }
 
+    if (m_payload.size() < PVK_PUBLIC_KEY_SIZE)
+    {
+        throw PvkCorruptFileException("Payload too small");
+    }
+
     std::vector<uint8_t> rc4Key = deriveRc4Key(password, m_salt);
 
-    m_keyData = CryptoFactory::encryptRc4Bytes(rc4Key, m_payload);
+    std::vector<uint8_t> encryptedPart(m_payload.begin() + PVK_PUBLIC_KEY_SIZE, m_payload.end());
+    std::vector<uint8_t> decryptedPart = CryptoFactory::encryptRc4Bytes(rc4Key, encryptedPart);
+
+    m_keyData.clear();
+    m_keyData.reserve(m_payload.size());
+    m_keyData.insert(m_keyData.end(), m_payload.begin(), m_payload.begin() + PVK_PUBLIC_KEY_SIZE);
+    m_keyData.insert(m_keyData.end(), decryptedPart.begin(), decryptedPart.end());
 
     // Validate by checking the RSA2 magic in the PRIVATEKEYBLOB
     // PRIVATEKEYBLOB starts with:
@@ -134,10 +160,10 @@ void PvkKey::decrypt(const std::string& password)
     // WORD reserved;
     // ALG_ID aiKeyAlg;
     // DWORD magic; (RSA2)
-    if (m_keyData.size() >= 12)
+    if (m_keyData.size() >= PVK_PUBLIC_KEY_SIZE + 4)
     {
-        uint32_t rsaMagic = readU32LE(m_keyData.data() + 8);
-        if (rsaMagic != 0x32415352) // "RSA2"
+        uint32_t rsaMagic = readU32LE(m_keyData.data() + PVK_PUBLIC_KEY_SIZE);
+        if (rsaMagic != PVK_RSAPRIVATE_MAGIC)
         {
             // Clear wrong key data
             for (auto& b : m_keyData)
@@ -154,7 +180,7 @@ void PvkKey::decrypt(const std::string& password)
     }
 }
 
-void PvkKey::encrypt(const std::string& password)
+void PvkKey::encrypt(const std::string& password, const std::vector<uint8_t>& salt)
 {
     if (password.empty())
     {
@@ -164,17 +190,34 @@ void PvkKey::encrypt(const std::string& password)
         return;
     }
 
-    m_isEncrypted = true;
-    m_salt.resize(16); // Generate 16 bytes of salt
+    if (m_keyData.size() < PVK_PUBLIC_KEY_SIZE)
+    {
+        throw std::runtime_error("Key data too small to encrypt");
+    }
 
-    CryptoFactory::getRandomBytes(m_salt.data(), m_salt.size());
+    m_isEncrypted = true;
+    if (!salt.empty())
+    {
+        m_salt = salt;
+    }
+    else
+    {
+        m_salt.resize(16); // Generate 16 bytes of salt
+        CryptoFactory::getRandomBytes(m_salt.data(), m_salt.size());
+    }
 
     std::vector<uint8_t> rc4Key = deriveRc4Key(password, m_salt);
 
-    m_payload = CryptoFactory::encryptRc4Bytes(rc4Key, m_keyData);
+    std::vector<uint8_t> plainPart(m_keyData.begin() + PVK_PUBLIC_KEY_SIZE, m_keyData.end());
+    std::vector<uint8_t> encryptedPart = CryptoFactory::encryptRc4Bytes(rc4Key, plainPart);
+
+    m_payload.clear();
+    m_payload.reserve(m_keyData.size());
+    m_payload.insert(m_payload.end(), m_keyData.begin(), m_keyData.begin() + PVK_PUBLIC_KEY_SIZE);
+    m_payload.insert(m_payload.end(), encryptedPart.begin(), encryptedPart.end());
 }
 
-void PvkKey::setKeyData(const std::vector<uint8_t>& keyData, uint32_t keyType)
+void PvkKey::setKeyData(const std::vector<uint8_t>& keyData, PvkKeySpec keyType)
 {
     m_keyData = keyData;
     m_keyType = keyType;
@@ -194,7 +237,7 @@ void PvkKey::save(const std::string& filePath) const
     uint8_t headerBuf[24];
     writeU32LE(PVK_MAGIC, headerBuf);
     writeU32LE(0, headerBuf + 4);
-    writeU32LE(m_keyType, headerBuf + 8);
+    writeU32LE(static_cast<uint32_t>(m_keyType), headerBuf + 8);
     writeU32LE(m_isEncrypted ? 1 : 0, headerBuf + 12);
     writeU32LE(static_cast<uint32_t>(m_salt.size()), headerBuf + 16);
     writeU32LE(static_cast<uint32_t>(m_payload.size()), headerBuf + 20);

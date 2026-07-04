@@ -491,7 +491,7 @@ TEST_F(Given_MakeCert, When_SkySignature_CreatesSignatureKey)
     }
 
     EXPECT_EQ(ret, 0);
-    EXPECT_EQ(pvk.getKeyType(), 2); // AT_SIGNATURE
+    EXPECT_EQ(pvk.getKeyType(), ccky::crypto::PvkKeySpec::Signature); // AT_SIGNATURE
     ASSERT_GE(keyData.size(), 8);
     EXPECT_EQ(aiKeyAlg, 0x00002400); // CALG_RSA_SIGN
 }
@@ -527,7 +527,7 @@ TEST_F(Given_MakeCert, When_SkyExchange_CreatesExchangeKey)
     }
 
     EXPECT_EQ(ret, 0);
-    EXPECT_EQ(pvk.getKeyType(), 1); // AT_KEYEXCHANGE
+    EXPECT_EQ(pvk.getKeyType(), ccky::crypto::PvkKeySpec::KeyExchange); // AT_KEYEXCHANGE
     ASSERT_GE(keyData.size(), 8);
     EXPECT_EQ(aiKeyAlg, 0x0000a400); // CALG_RSA_KEYX
 }

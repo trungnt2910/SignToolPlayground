@@ -116,6 +116,11 @@ int Pvk2PfxCommand::executeImpl(const cli::ParsedArgs& args)
         displayError("ERROR: Output file exists.\n(Error Code = 0x80070050).");
         return 1;
     }
+    catch (const crypto::PvkBadProviderVersionException&)
+    {
+        displayError("ERROR: Bad Version of provider.\n(Error Code = 0x80090007).");
+        return 1;
+    }
     catch (const crypto::PvkCorruptFileException&)
     {
         displayError("ERROR: An error occurred while reading or writing to a file.\n(Error Code = "

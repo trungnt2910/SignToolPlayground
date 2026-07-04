@@ -223,7 +223,7 @@ HCRYPTPROV loadIssuerKey(const MakeCertOptions& options, PCCERT_CONTEXT pIssuerC
             }
         }
 
-        if (issuerPvk.getKeyType() != options.issuerKeySpec)
+        if (issuerPvk.getKeyType() != static_cast<PvkKeySpec>(options.issuerKeySpec))
         {
             throw CckyException(
                 "Can't access the key of the issuer ('" + options.issuerPvkFile + "')", false);
@@ -328,7 +328,7 @@ PrivateKeyPtr loadSubjectKeyFromPvk(const MakeCertOptions& options,
                 "Can't access the key of the subject ('" + options.pvkFile + "')", false);
         }
     }
-    if (pvk.getKeyType() != options.keySpec)
+    if (pvk.getKeyType() != static_cast<PvkKeySpec>(options.keySpec))
     {
         throw CckyException(
             "Can't access the key of the subject ('" + options.pvkFile + "')", false);
@@ -364,7 +364,7 @@ void saveSubjectKeyToPvk(
     }
 
     PvkKey pvkFileKey;
-    pvkFileKey.setKeyData(pvkBlob, options.keySpec);
+    pvkFileKey.setKeyData(pvkBlob, static_cast<PvkKeySpec>(options.keySpec));
     if (!password.empty())
     {
         pvkFileKey.encrypt(password);

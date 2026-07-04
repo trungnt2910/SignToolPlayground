@@ -142,7 +142,7 @@ EVPPKeyPtr PvkHelper::blobToPkey(const std::vector<uint8_t>& keyData)
     return EVPPKeyPtr(raw_pkey);
 }
 
-std::vector<uint8_t> PvkHelper::pkeyToBlob(EVP_PKEY* pkey, uint32_t keySpec)
+std::vector<uint8_t> PvkHelper::pkeyToBlob(EVP_PKEY* pkey, PvkKeySpec keySpec)
 {
     if (!pkey || EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA)
     {
@@ -190,7 +190,7 @@ std::vector<uint8_t> PvkHelper::pkeyToBlob(EVP_PKEY* pkey, uint32_t keySpec)
         ptr[3] = static_cast<uint8_t>((val >> 24) & 0xFF);
     };
 
-    uint32_t aiKeyAlg = (keySpec == KEYSPEC_SIGN) ? CALG_RSA_SIGN : CALG_RSA_KEYX;
+    uint32_t aiKeyAlg = (keySpec == PvkKeySpec::Signature) ? CALG_RSA_SIGN : CALG_RSA_KEYX;
     writeU32LE(aiKeyAlg, &keyData[4]);
     std::memcpy(&keyData[8], "RSA2", 4);
     writeU32LE(bitlen, &keyData[12]);
