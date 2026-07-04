@@ -59,7 +59,7 @@ void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
     pvkKey.decrypt(opts.pvkPassword);
 
     const std::vector<uint8_t>& keyData = pvkKey.getKeyData();
-    uint32_t keyType = pvkKey.getKeyType();
+    PvkKeySpec keyType = pvkKey.getKeyType();
 
     // 2. Load the CER/SPC file
     auto store = CryptoFactory::createStore(StoreType::CerFile, opts.spcFile);
@@ -140,11 +140,10 @@ void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
                 provInfo.pwszContainerName = const_cast<LPWSTR>(containerName.c_str());
                 provInfo.pwszProvName = const_cast<LPWSTR>(MS_DEF_PROV_W);
                 provInfo.dwProvType = PROV_RSA_FULL;
-                provInfo.dwKeySpec = keyType; // From PVK header
+                provInfo.dwKeySpec = static_cast<DWORD>(keyType); // From PVK header
                 provInfo.dwFlags = 0;
                 provInfo.cProvParam = 0;
                 provInfo.rgProvParam = nullptr;
-                provInfo.dwKeySpec = keyType;
 
                 CertSetCertificateContextProperty(pCert, CERT_KEY_PROV_INFO_PROP_ID, 0, &provInfo);
                 first = false;

@@ -25,6 +25,18 @@ class PvkIncorrectPasswordException : public CckyException
     PvkIncorrectPasswordException(const std::string& msg) : CckyException(msg, false) {}
 };
 
+class PvkBadProviderVersionException : public CckyException
+{
+  public:
+    PvkBadProviderVersionException(const std::string& msg) : CckyException(msg, false) {}
+};
+
+enum class PvkKeySpec : uint32_t
+{
+    KeyExchange = 1, // AT_KEYEXCHANGE
+    Signature = 2    // AT_SIGNATURE
+};
+
 class PvkKey
 {
   public:
@@ -42,25 +54,28 @@ class PvkKey
     // Decrypts the loaded payload using the provided password
     void decrypt(const std::string& password);
 
-    // Encrypts the payload using the provided password
-    void encrypt(const std::string& password);
+    // Encrypts the payload using the provided password, optionally using a specific salt
+    void encrypt(const std::string& password, const std::vector<uint8_t>& salt = {});
 
     // Saves the PVK structure to a file
     void save(const std::string& filePath) const;
 
     // Sets the raw unencrypted PRIVATEKEYBLOB bytes and KeySpec
-    void setKeyData(const std::vector<uint8_t>& keyData, uint32_t keyType);
+    void setKeyData(const std::vector<uint8_t>& keyData, PvkKeySpec keyType);
 
     // Gets the raw unencrypted PRIVATEKEYBLOB bytes
     const std::vector<uint8_t>& getKeyData() const { return m_keyData; }
 
     // Gets the KeySpec (e.g., AT_KEYEXCHANGE, AT_SIGNATURE)
-    uint32_t getKeyType() const { return m_keyType; }
+    PvkKeySpec getKeyType() const { return m_keyType; }
 
     bool isEncrypted() const { return m_isEncrypted; }
 
+    // Gets the salt bytes (if encrypted)
+    const std::vector<uint8_t>& getSalt() const { return m_salt; }
+
   private:
-    uint32_t m_keyType;
+    PvkKeySpec m_keyType;
     bool m_isEncrypted;
     std::vector<uint8_t> m_salt;
     std::vector<uint8_t> m_payload; // encrypted or unencrypted payload
