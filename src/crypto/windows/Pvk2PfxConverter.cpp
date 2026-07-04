@@ -11,10 +11,10 @@
 #include <wincrypt.h>
 
 #include "crypto/CckyException.h"
+#include "crypto/CertificateStore.h"
 #include "crypto/CryptoFactory.h"
-#include "crypto/ICertStore.h"
 #include "crypto/PvkKey.h"
-#include "crypto/windows/WinCert.h"
+#include "crypto/windows/Win32Cert.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WindowsException.h"
 
@@ -127,7 +127,7 @@ void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
     bool first = true;
     for (auto& cert : certs)
     {
-        auto winCert = dynamic_cast<WinCert*>(cert.get());
+        auto winCert = dynamic_cast<Win32Cert*>(cert.get());
         if (winCert)
         {
             PCCERT_CONTEXT pCert = winCert->getInternal();

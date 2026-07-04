@@ -56,7 +56,7 @@ std::vector<cli::FlagDef> CertMgrCommand::getFlagDefs(const std::string& subcomm
         {"?", cli::FlagType::Boolean, "Displays help.", "", "", 0, "*", true}};
 }
 
-std::shared_ptr<crypto::ICertStore> CertMgrCommand::getStore(
+crypto::CertificateStorePtr CertMgrCommand::getStore(
     const std::string& location, bool isSystemStore)
 {
     crypto::StoreType type =
@@ -313,7 +313,7 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
             destStore->addCertificate(c);
         }
 
-        // TODO: ICertStore does not currently expose saveAsPkcs7 in its virtual interface,
+        // TODO: CertificateStore does not currently expose saveAsPkcs7 in its virtual interface,
         // and the Windows backend lacks PKCS#7 serialization. Both branches fallback to standard
         // save.
         if (args.hasFlag("7"))

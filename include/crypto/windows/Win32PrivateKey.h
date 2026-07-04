@@ -1,10 +1,11 @@
-#ifndef CCKY_WINDOWS_PRIVATE_KEY_H
-#define CCKY_WINDOWS_PRIVATE_KEY_H
+#ifndef CCKY_WIN32_PRIVATE_KEY_H
+#define CCKY_WIN32_PRIVATE_KEY_H
 
 #include <string>
 #include <vector>
 
 #include "crypto/PrivateKey.h"
+#include "crypto/windows/KeySetDeleter.h"
 #include "crypto/windows/WinWrapper.h"
 
 namespace ccky
@@ -12,16 +13,16 @@ namespace ccky
 namespace crypto
 {
 
-class WinPrivateKey : public PrivateKey
+class Win32PrivateKey : public PrivateKey
 {
   public:
-    WinPrivateKey(CryptProvPtr hProv, CryptKeyPtr hKey, const std::wstring& wContainerName,
+    Win32PrivateKey(CryptProvPtr hProv, CryptKeyPtr hKey, const std::wstring& wContainerName,
         const std::wstring& wProviderName, uint32_t providerType, uint32_t keySpec,
         std::unique_ptr<KeySetDeleter> keysetDeleter);
 
-    WinPrivateKey(CertContextPtr pCertContext);
+    Win32PrivateKey(CertContextPtr pCertContext);
 
-    ~WinPrivateKey() override;
+    ~Win32PrivateKey() override;
 
     std::string getContainerName() const override;
     std::string getProviderName() const override;
@@ -50,4 +51,4 @@ class WinPrivateKey : public PrivateKey
 } // namespace crypto
 } // namespace ccky
 
-#endif // CCKY_WINDOWS_PRIVATE_KEY_H
+#endif // CCKY_WIN32_PRIVATE_KEY_H

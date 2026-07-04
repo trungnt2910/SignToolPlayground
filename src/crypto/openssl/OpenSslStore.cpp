@@ -10,6 +10,7 @@
 #include "crypto/AuthenticodeSigner.h"
 #include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslHelper.h"
+#include "crypto/openssl/OpenSslPrivateKey.h"
 #include "crypto/openssl/ZipArchive.h"
 
 namespace ccky
@@ -199,12 +200,12 @@ void OpenSslCerFileStore::addCertificate(CertificatePtr cert)
     }
     auto der = cert->getEncoded();
     const unsigned char* p = der.data();
-    X509* x = d2i_X509(nullptr, &p, der.size());
+    X509Ptr x(d2i_X509(nullptr, &p, der.size()));
     if (!x)
     {
         throw OpenSslException("Failed to parse certificate", false);
     }
-    m_certs.push_back(X509Ptr(x));
+    m_certs.push_back(std::move(x));
 }
 
 void OpenSslCerFileStore::addCrl(CrlPtr crl)
@@ -215,12 +216,12 @@ void OpenSslCerFileStore::addCrl(CrlPtr crl)
     }
     auto der = crl->getEncoded();
     const unsigned char* p = der.data();
-    X509_CRL* x = d2i_X509_CRL(nullptr, &p, der.size());
+    X509CRLPtr x(d2i_X509_CRL(nullptr, &p, der.size()));
     if (!x)
     {
         throw OpenSslException("Failed to parse CRL", false);
     }
-    m_crls.push_back(X509CRLPtr(x));
+    m_crls.push_back(std::move(x));
 }
 
 void OpenSslCerFileStore::addCtl(CtlPtr ctl)
@@ -277,19 +278,6 @@ void OpenSslCerFileStore::deleteCtl(const std::string& sha1Hash)
             return true;
         });
     m_ctls.erase(it, m_ctls.end());
-}
-
-void OpenSslCerFileStore::addPrivateKey(const std::string& pfxFilePath, const std::string& password)
-{
-    throw OpenSslException(
-        "addPrivateKey is unsupported on this platform (OpenSSL backend).", false);
-}
-
-void OpenSslCerFileStore::deletePrivateKey(
-    const std::string& commonName, const std::string& sha1Hash)
-{
-    throw OpenSslException(
-        "deletePrivateKey is unsupported on this platform (OpenSSL backend).", false);
 }
 
 // PEFileStore
@@ -615,12 +603,12 @@ void OpenSslPeFileStore::addCertificate(CertificatePtr cert)
     }
     auto der = cert->getEncoded();
     const unsigned char* p = der.data();
-    X509* x = d2i_X509(nullptr, &p, der.size());
+    X509Ptr x(d2i_X509(nullptr, &p, der.size()));
     if (!x)
     {
         throw OpenSslException("Failed to parse certificate", false);
     }
-    m_certs.push_back(X509Ptr(x));
+    m_certs.push_back(std::move(x));
 }
 
 void OpenSslPeFileStore::addCrl(CrlPtr crl)
@@ -631,12 +619,12 @@ void OpenSslPeFileStore::addCrl(CrlPtr crl)
     }
     auto der = crl->getEncoded();
     const unsigned char* p = der.data();
-    X509_CRL* x = d2i_X509_CRL(nullptr, &p, der.size());
+    X509CRLPtr x(d2i_X509_CRL(nullptr, &p, der.size()));
     if (!x)
     {
         throw OpenSslException("Failed to parse CRL", false);
     }
-    m_crls.push_back(X509CRLPtr(x));
+    m_crls.push_back(std::move(x));
 }
 
 void OpenSslPeFileStore::addCtl(CtlPtr ctl)
@@ -693,19 +681,6 @@ void OpenSslPeFileStore::deleteCtl(const std::string& sha1Hash)
             return true;
         });
     m_ctls.erase(it, m_ctls.end());
-}
-
-void OpenSslPeFileStore::addPrivateKey(const std::string& pfxFilePath, const std::string& password)
-{
-    throw OpenSslException(
-        "addPrivateKey is unsupported on this platform (OpenSSL backend).", false);
-}
-
-void OpenSslPeFileStore::deletePrivateKey(
-    const std::string& commonName, const std::string& sha1Hash)
-{
-    throw OpenSslException(
-        "deletePrivateKey is unsupported on this platform (OpenSSL backend).", false);
 }
 
 // AppxFileStore
@@ -860,12 +835,12 @@ void OpenSslAppxFileStore::addCertificate(CertificatePtr cert)
     }
     auto der = cert->getEncoded();
     const unsigned char* p = der.data();
-    X509* x = d2i_X509(nullptr, &p, der.size());
+    X509Ptr x(d2i_X509(nullptr, &p, der.size()));
     if (!x)
     {
         throw OpenSslException("Failed to parse certificate", false);
     }
-    m_certs.push_back(X509Ptr(x));
+    m_certs.push_back(std::move(x));
 }
 
 void OpenSslAppxFileStore::addCrl(CrlPtr crl)
@@ -876,12 +851,12 @@ void OpenSslAppxFileStore::addCrl(CrlPtr crl)
     }
     auto der = crl->getEncoded();
     const unsigned char* p = der.data();
-    X509_CRL* x = d2i_X509_CRL(nullptr, &p, der.size());
+    X509CRLPtr x(d2i_X509_CRL(nullptr, &p, der.size()));
     if (!x)
     {
         throw OpenSslException("Failed to parse CRL", false);
     }
-    m_crls.push_back(X509CRLPtr(x));
+    m_crls.push_back(std::move(x));
 }
 
 void OpenSslAppxFileStore::addCtl(CtlPtr ctl)
@@ -938,20 +913,6 @@ void OpenSslAppxFileStore::deleteCtl(const std::string& sha1Hash)
             return true;
         });
     m_ctls.erase(it, m_ctls.end());
-}
-
-void OpenSslAppxFileStore::addPrivateKey(
-    const std::string& pfxFilePath, const std::string& password)
-{
-    throw OpenSslException(
-        "addPrivateKey is unsupported on this platform (OpenSSL backend).", false);
-}
-
-void OpenSslAppxFileStore::deletePrivateKey(
-    const std::string& commonName, const std::string& sha1Hash)
-{
-    throw OpenSslException(
-        "deletePrivateKey is unsupported on this platform (OpenSSL backend).", false);
 }
 
 PKCS7Ptr OpenSslAppxFileStore::getPkcs7()
@@ -1081,20 +1042,6 @@ void OpenSslWinSystemStore::deleteCtl(const std::string& sha1Hash)
         "Windows system certificate stores are unsupported on this platform (OpenSSL backend).",
         false);
 }
-void OpenSslWinSystemStore::addPrivateKey(
-    const std::string& pfxFilePath, const std::string& password)
-{
-    throw OpenSslException(
-        "Windows system certificate stores are unsupported on this platform (OpenSSL backend).",
-        false);
-}
-void OpenSslWinSystemStore::deletePrivateKey(
-    const std::string& commonName, const std::string& sha1Hash)
-{
-    throw OpenSslException(
-        "Windows system certificate stores are unsupported on this platform (OpenSSL backend).",
-        false);
-}
 
 // OpenSslPfxCertStore
 void OpenSslPfxCertStore::load(const std::string& location, const StoreOptions& options)
@@ -1118,18 +1065,12 @@ void OpenSslPfxCertStore::load(const std::string& location, const StoreOptions& 
         STACK_OF(X509)* ca = nullptr;
         if (PKCS12_parse(p12.get(), options.password.c_str(), &k, &c, &ca) == 1)
         {
-            if (c)
+            X509Ptr cPtr(c);
+            EVPPKeyPtr kPtr(k);
+            X509StackPtr caPtr(ca);
+            if (cPtr)
             {
-                m_certs.push_back(std::make_shared<OpenSslPfxCert>(c, k));
-                X509_free(c);
-            }
-            if (k)
-            {
-                EVP_PKEY_free(k);
-            }
-            if (ca)
-            {
-                sk_X509_pop_free(ca, X509_free);
+                m_certs.push_back(std::make_shared<OpenSslPfxCert>(cPtr.get(), kPtr.get()));
             }
         }
     }
@@ -1156,7 +1097,25 @@ void OpenSslPfxCertStore::addCertificate(CertificatePtr cert)
     {
         throw OpenSslException("Invalid certificate pointer", false);
     }
-    m_certs.push_back(cert);
+    auto der = cert->getEncoded();
+    const unsigned char* p = der.data();
+    X509Ptr x(d2i_X509(nullptr, &p, der.size()));
+    if (!x)
+    {
+        throw OpenSslException("Failed to parse certificate", false);
+    }
+    PrivateKeyPtr pkeyHolder;
+    EVP_PKEY* pkey = nullptr;
+    if (cert->hasPrivateKey())
+    {
+        pkeyHolder = cert->getPrivateKey();
+        auto pkeyPtr = std::dynamic_pointer_cast<OpenSslPrivateKey>(pkeyHolder);
+        if (pkeyPtr)
+        {
+            pkey = pkeyPtr->getInternal().get();
+        }
+    }
+    m_certs.push_back(std::make_shared<OpenSslPfxCert>(x.get(), pkey));
 }
 
 void OpenSslPfxCertStore::addCrl(CrlPtr crl)
@@ -1222,19 +1181,6 @@ void OpenSslPfxCertStore::deleteCtl(const std::string& sha1Hash)
             return true;
         });
     m_ctls.erase(it, m_ctls.end());
-}
-
-void OpenSslPfxCertStore::addPrivateKey(const std::string& pfxFilePath, const std::string& password)
-{
-    throw OpenSslException(
-        "addPrivateKey is unsupported on this platform (OpenSSL backend).", false);
-}
-
-void OpenSslPfxCertStore::deletePrivateKey(
-    const std::string& commonName, const std::string& sha1Hash)
-{
-    throw OpenSslException(
-        "deletePrivateKey is unsupported on this platform (OpenSSL backend).", false);
 }
 
 } // namespace crypto

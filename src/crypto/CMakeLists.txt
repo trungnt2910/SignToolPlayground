@@ -8,12 +8,13 @@ if(WIN32)
         windows/Console.cpp
         windows/CryptoFactory.cpp
         windows/FileTypeDetector.cpp
+        windows/KeySetDeleter.cpp
         windows/Pvk2PfxConverter.cpp
-        windows/WinCert.cpp
+        windows/Win32Cert.cpp
+        windows/Win32PrivateKey.cpp
+        windows/Win32Store.cpp
         windows/WinHelper.cpp
-        windows/WinPrivateKey.cpp
         windows/WinSigner.cpp
-        windows/WinStore.cpp
         windows/WindowsException.cpp
     )
 else()

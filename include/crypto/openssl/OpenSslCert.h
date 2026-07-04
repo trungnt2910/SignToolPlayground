@@ -15,36 +15,52 @@ class OpenSslCert : public Certificate
     explicit OpenSslCert(X509* cert, EVP_PKEY* pkey = nullptr);
     ~OpenSslCert() override;
 
-    std::string getCommonName() const override;
-    std::string getIssuerName() const override;
-    std::string getSha1() const override;
+    // Encoding, Hashes & Algorithms
     std::vector<uint8_t> getEncoded() const override;
-
-    std::string getSubjectDisplay() const override;
-    std::string getIssuerDisplay() const override;
-    std::string getSubjectDN() const override;
-    std::string getIssuerDN() const override;
     std::string getSerialNumber() const override;
+    std::string getSha1() const override;
     std::string getSha1Thumbprint() const override;
     std::string getMd5Thumbprint() const override;
+    std::string getSignatureAlgorithm() const override;
+
+    // Subject Information
+    std::string getCommonName() const override;
+    std::string getSubjectDisplay() const override;
+    std::string getSubjectDN() const override;
+
+    // Issuer Information
+    std::string getIssuerName() const override;
+    std::string getIssuerDisplay() const override;
+    std::string getIssuerDN() const override;
+
+    // Validity Period
+    std::string getNotBefore() const override;
+    std::string getNotAfter() const override;
+
+    // Key Information
+    int getKeyLength() const override;
     std::string getKeyMd5Thumbprint() const override;
+    std::string getKeySha256Thumbprint() const override;
+
+    // Private Key Information
+    bool hasPrivateKey() const override;
+    PrivateKeyPtr getPrivateKey() const override;
+    bool isPrivateKeyExportable() const override;
+
+    // Provider Information
     std::string getProviderType() const override;
     std::string getProviderName() const override;
     std::string getContainerName() const override;
-    std::string getNotBefore() const override;
-    std::string getNotAfter() const override;
+
+    // Extensions & Policy Attributes
     bool isCA() const override;
     int getPathLenConstraint() const override;
-    int getKeyLength() const override;
     std::vector<std::string> getEnhancedKeyUsage() const override;
-    std::string getSignatureAlgorithm() const override;
     uint32_t getNetscapeCertType() const override;
-    std::string getKeySha256Thumbprint() const override;
-    bool isPrivateKeyExportable() const override;
     std::string getPolicyLink() const override;
 
     X509* getInternal() const { return m_cert.get(); }
-    EVP_PKEY* getPrivateKey() const { return m_pkey.get(); }
+    EVP_PKEY* getInternalKey() const { return m_pkey.get(); }
 
   private:
     X509Ptr m_cert;

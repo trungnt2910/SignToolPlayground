@@ -394,10 +394,15 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_MatchesOutput)
     registerSystemStoreCert("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
-    // 1. store->addPrivateKey(pfxPath, "")
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
     store->load("my");
-    store->addPrivateKey(pfxPath, "");
+    auto pfxStore =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::PfxFile, pfxPath);
+    pfxStore->load(pfxPath);
+    for (auto& cert : pfxStore->getCertificates())
+    {
+        store->addCertificate(cert);
+    }
     // 2. signtool sign /n "ccky" /fd SHA256 test.exe
     std::stringstream out, err;
     auto signCmd = std::make_shared<ccky::commands::SignToolCommand>(std::cin, out, err);
@@ -853,10 +858,15 @@ TEST_F(Given_SignTool, When_SignToolSignWithSystemStoreCert_SucceedsOnWindows)
     registerSystemStoreCert("my", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::filesystem::copy_file(
         origPePath, reSignedSys, std::filesystem::copy_options::overwrite_existing);
-    // 1. store->addPrivateKey(pfxPath, "")
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
     store->load("my");
-    store->addPrivateKey(pfxPath, "");
+    auto pfxStore =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::PfxFile, pfxPath);
+    pfxStore->load(pfxPath);
+    for (auto& cert : pfxStore->getCertificates())
+    {
+        store->addCertificate(cert);
+    }
     // 2. signtool sign /n "ccky" /fd SHA256 re_signed_system_test.exe
     auto signCmd = registry.getCommand("signtool");
     ASSERT_NE(signCmd, nullptr);

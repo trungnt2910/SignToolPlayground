@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "crypto/Certificate.h"
-#include "crypto/ICertStore.h"
+#include "crypto/CertificateStore.h"
 
 namespace ccky
 {
@@ -19,8 +19,7 @@ class CryptoFactory
   public:
     static const std::string& getBackendType();
 
-    static std::shared_ptr<ICertStore> createStore(
-        StoreType type, const std::string& location = "");
+    static CertificateStorePtr createStore(StoreType type, const std::string& location = "");
     static CertificatePtr createCertificateFromDer(const std::vector<uint8_t>& derBytes);
     static CrlPtr createCrlFromDer(const std::vector<uint8_t>& derBytes);
     static CtlPtr createCtlFromDer(const std::vector<uint8_t>& derBytes);

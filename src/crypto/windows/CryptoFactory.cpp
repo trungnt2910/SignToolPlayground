@@ -11,9 +11,9 @@
 
 #include "crypto/CckyException.h"
 #include "crypto/FileTypeDetector.h"
-#include "crypto/windows/WinCert.h"
+#include "crypto/windows/Win32Cert.h"
+#include "crypto/windows/Win32Store.h"
 #include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WinStore.h"
 #include "crypto/windows/WinWrapper.h"
 
 namespace ccky
@@ -27,39 +27,39 @@ const std::string& CryptoFactory::getBackendType()
     return s_backend;
 }
 
-std::shared_ptr<ICertStore> CryptoFactory::createStore(StoreType type, const std::string& location)
+CertificateStorePtr CryptoFactory::createStore(StoreType type, const std::string& location)
 {
     if (type == StoreType::WinSystem)
     {
-        return std::make_shared<WinSystemStoreImpl>();
+        return std::make_shared<Win32SystemStoreImpl>();
     }
     if (type == StoreType::PeFile)
     {
-        return std::make_shared<WinPeFileStore>();
+        return std::make_shared<Win32PeFileStore>();
     }
     if (type == StoreType::AppxFile)
     {
-        return std::make_shared<WinAppxFileStore>();
+        return std::make_shared<Win32AppxFileStore>();
     }
     if (type == StoreType::PfxFile)
     {
-        return std::make_shared<WinPfxCertStore>();
+        return std::make_shared<Win32PfxCertStore>();
     }
 
     StoreType detected = FileTypeDetector::detectFileType(location);
     if (detected == StoreType::PeFile)
     {
-        return std::make_shared<WinPeFileStore>();
+        return std::make_shared<Win32PeFileStore>();
     }
     if (detected == StoreType::AppxFile)
     {
-        return std::make_shared<WinAppxFileStore>();
+        return std::make_shared<Win32AppxFileStore>();
     }
     if (detected == StoreType::PfxFile)
     {
-        return std::make_shared<WinPfxCertStore>();
+        return std::make_shared<Win32PfxCertStore>();
     }
-    return std::make_shared<WinCerFileStore>();
+    return std::make_shared<Win32CerFileStore>();
 }
 
 CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t>& derBytes)
@@ -70,7 +70,7 @@ CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t
     {
         return nullptr;
     }
-    return std::make_shared<WinCert>(certPtr.get());
+    return std::make_shared<Win32Cert>(certPtr.get());
 }
 
 CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
@@ -81,7 +81,7 @@ CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
     {
         return nullptr;
     }
-    return std::make_shared<WinCrl>(crlPtr.get());
+    return std::make_shared<Win32Crl>(crlPtr.get());
 }
 
 CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
@@ -92,7 +92,7 @@ CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
     {
         return nullptr;
     }
-    return std::make_shared<WinCtl>(ctlPtr.get());
+    return std::make_shared<Win32Ctl>(ctlPtr.get());
 }
 
 bool CryptoFactory::acquireContext(const std::string& container, const std::string& provider)

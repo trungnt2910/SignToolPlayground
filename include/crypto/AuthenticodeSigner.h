@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "crypto/ICertStore.h"
+#include "crypto/CertificateStore.h"
 
 namespace ccky
 {

@@ -11,8 +11,8 @@
 #include "CckyTest.h"
 #include "cli/CliParser.h"
 #include "commands/MakeCertCommand.h"
+#include "crypto/CertificateStore.h"
 #include "crypto/CryptoFactory.h"
-#include "crypto/ICertStore.h"
 #include "crypto/PvkKey.h"
 
 namespace

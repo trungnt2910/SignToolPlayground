@@ -631,7 +631,7 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
         opts.registryLocation = signOpts.machineStore ? "localMachine" : "currentUser";
         opts.password = signOpts.password;
 
-        std::shared_ptr<crypto::ICertStore> certStore;
+        crypto::CertificateStorePtr certStore;
         std::string storeLoc;
 
         if (!signOpts.certPath.empty())

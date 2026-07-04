@@ -13,7 +13,7 @@
 #include <wintrust.h>
 
 #include "crypto/FileTypeDetector.h"
-#include "crypto/windows/WinCert.h"
+#include "crypto/windows/Win32Cert.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WindowsException.h"
 
@@ -177,7 +177,7 @@ void AuthenticodeSigner::sign(
             "mssign32.dll or SignerSignEx is not available on this Windows system.", false);
     }
 
-    auto* winCert = dynamic_cast<WinCert*>(cert.get());
+    auto* winCert = dynamic_cast<Win32Cert*>(cert.get());
     if (!winCert || !winCert->getInternal())
     {
         throw WindowsException("Invalid or missing signing certificate.", false);

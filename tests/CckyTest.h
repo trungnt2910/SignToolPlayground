@@ -14,8 +14,8 @@
 #include "commands/MakeCertCommand.h"
 #include "commands/Pvk2PfxCommand.h"
 #include "commands/SignToolCommand.h"
+#include "crypto/CertificateStore.h"
 #include "crypto/CryptoFactory.h"
-#include "crypto/ICertStore.h"
 #include "crypto/TimeFormatter.h"
 
 class CckyCleaner
@@ -138,12 +138,12 @@ class CckyTest : public ::testing::Test
                         auto store = ccky::crypto::CryptoFactory::createStore(
                             ccky::crypto::StoreType::WinSystem, m_storeName);
                         store->load(m_storeName);
-                        store->deletePrivateKey("", m_thumbprint);
+                        store->deleteCertificate("", m_thumbprint);
                     }
                     catch (const std::exception& e)
                     {
                         GTEST_LOG_(WARNING)
-                            << "Failed to delete private key during cleanup: " << e.what();
+                            << "Failed to delete certificate during cleanup: " << e.what();
                     }
                 }
             }
@@ -165,7 +165,7 @@ class CckyTest : public ::testing::Test
                 auto store = ccky::crypto::CryptoFactory::createStore(
                     ccky::crypto::StoreType::WinSystem, storeName);
                 store->load(storeName);
-                store->deletePrivateKey("", thumbprint);
+                store->deleteCertificate("", thumbprint);
             }
             catch (const std::exception& e)
             {

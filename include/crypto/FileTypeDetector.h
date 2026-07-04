@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "crypto/ICertStore.h"
+#include "crypto/CertificateStore.h"
 
 namespace ccky
 {

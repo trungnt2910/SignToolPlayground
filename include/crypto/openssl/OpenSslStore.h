@@ -1,7 +1,7 @@
 #ifndef CCKY_OPENSSL_STORE_H
 #define CCKY_OPENSSL_STORE_H
 
-#include "crypto/ICertStore.h"
+#include "crypto/CertificateStore.h"
 #include "crypto/openssl/OpenSslCert.h"
 
 namespace ccky
@@ -9,7 +9,7 @@ namespace ccky
 namespace crypto
 {
 
-class OpenSslCerFileStore : public ICertStore
+class OpenSslCerFileStore : public CertificateStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::CerFile; }
@@ -31,9 +31,6 @@ class OpenSslCerFileStore : public ICertStore
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
 
-    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
-    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
-
     bool saveAsPkcs7(const std::string& location);
 
   private:
@@ -43,7 +40,7 @@ class OpenSslCerFileStore : public ICertStore
     std::string m_loadedLocation;
 };
 
-class OpenSslPeFileStore : public ICertStore
+class OpenSslPeFileStore : public CertificateStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::PeFile; }
@@ -65,9 +62,6 @@ class OpenSslPeFileStore : public ICertStore
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
 
-    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
-    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
-
     PKCS7Ptr getPkcs7();
     bool setPkcs7(PKCS7* p7);
 
@@ -85,7 +79,7 @@ class OpenSslPeFileStore : public ICertStore
     std::string m_timestamp;
 };
 
-class OpenSslAppxFileStore : public ICertStore
+class OpenSslAppxFileStore : public CertificateStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::AppxFile; }
@@ -107,9 +101,6 @@ class OpenSslAppxFileStore : public ICertStore
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
 
-    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
-    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
-
     PKCS7Ptr getPkcs7();
     bool setPkcs7(PKCS7* p7);
 
@@ -122,7 +113,7 @@ class OpenSslAppxFileStore : public ICertStore
     std::string m_timestamp;
 };
 
-class OpenSslWinSystemStore : public ICertStore
+class OpenSslWinSystemStore : public CertificateStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::WinSystem; }
@@ -143,12 +134,9 @@ class OpenSslWinSystemStore : public ICertStore
     void deleteCertificate(const std::string& commonName, const std::string& sha1Hash) override;
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
-
-    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
-    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
 };
 
-class OpenSslPfxCertStore : public ICertStore
+class OpenSslPfxCertStore : public CertificateStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::PfxFile; }
@@ -169,9 +157,6 @@ class OpenSslPfxCertStore : public ICertStore
     void deleteCertificate(const std::string& commonName, const std::string& sha1Hash) override;
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
-
-    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
-    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
 
   private:
     std::vector<CertificatePtr> m_certs;

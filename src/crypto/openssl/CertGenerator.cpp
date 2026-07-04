@@ -12,8 +12,8 @@
 #include <openssl/x509v3.h>
 
 #include "crypto/CckyException.h"
+#include "crypto/CertificateStore.h"
 #include "crypto/CryptoFactory.h"
-#include "crypto/ICertStore.h"
 #include "crypto/PvkKey.h"
 #include "crypto/openssl/OpenSslCert.h"
 #include "crypto/openssl/OpenSslPrivateKey.h"

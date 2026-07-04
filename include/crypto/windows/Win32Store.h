@@ -1,5 +1,5 @@
-#ifndef CCKY_WIN_STORE_H
-#define CCKY_WIN_STORE_H
+#ifndef CCKY_WIN32_STORE_H
+#define CCKY_WIN32_STORE_H
 
 #include <memory>
 #include <string>
@@ -9,15 +9,16 @@
 
 #include <wincrypt.h>
 
-#include "crypto/ICertStore.h"
-#include "crypto/windows/WinCert.h"
+#include "crypto/CertificateStore.h"
+#include "crypto/windows/KeySetDeleter.h"
+#include "crypto/windows/Win32Cert.h"
 
 namespace ccky
 {
 namespace crypto
 {
 
-class Win32CommonStore : public ICertStore
+class Win32CommonStore : public CertificateStore
 {
   public:
     ~Win32CommonStore() override = default;
@@ -28,6 +29,19 @@ class Win32CommonStore : public ICertStore
 
     std::string getSigningAlgorithm() override { return m_signingAlgorithm; }
     std::string getTimestamp() override { return m_timestamp.empty() ? "None" : m_timestamp; }
+
+  protected:
+    virtual CertificatePtr createCert(PCCERT_CONTEXT pCert) const;
+
+    std::string m_loadedLocation;
+    std::string m_signingAlgorithm;
+    std::string m_timestamp;
+};
+
+class Win32FileStore : public Win32CommonStore
+{
+  public:
+    ~Win32FileStore() override = default;
 
     std::vector<CertificatePtr> getCertificates() override;
     std::vector<CrlPtr> getCrls() override;
@@ -41,27 +55,20 @@ class Win32CommonStore : public ICertStore
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
 
-    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
-    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
-
   protected:
-    virtual CertificatePtr createCert(PCCERT_CONTEXT pCert) const;
     void populateFromStore(HCERTSTORE hStore);
     void loadSipFile(const std::string& location, const StoreOptions& options);
     void saveSipFile(const std::string& location, const StoreOptions& options);
 
-    std::string m_loadedLocation;
     std::vector<CertificatePtr> m_certs;
     std::vector<CrlPtr> m_crls;
     std::vector<CtlPtr> m_ctls;
-    std::string m_signingAlgorithm;
-    std::string m_timestamp;
 };
 
-class WinSystemStoreImpl : public ICertStore
+class Win32SystemStoreImpl : public Win32CommonStore
 {
   public:
-    ~WinSystemStoreImpl() override = default;
+    ~Win32SystemStoreImpl() override = default;
 
     StoreType getStoreType() const override { return StoreType::WinSystem; }
     void load(const std::string& location, const StoreOptions& options = {}) override;
@@ -82,15 +89,12 @@ class WinSystemStoreImpl : public ICertStore
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
 
-    void addPrivateKey(const std::string& pfxFilePath, const std::string& password = "") override;
-    void deletePrivateKey(const std::string& commonName, const std::string& sha1Hash) override;
-
   private:
+    void deletePrivateKeyContainer(PCCERT_CONTEXT pCert);
     CertStorePtr m_store;
-    std::string m_loadedLocation;
 };
 
-class WinCerFileStore : public Win32CommonStore
+class Win32CerFileStore : public Win32FileStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::CerFile; }
@@ -98,7 +102,7 @@ class WinCerFileStore : public Win32CommonStore
     void save(const std::string& location, const StoreOptions& options = {}) override;
 };
 
-class WinPeFileStore : public Win32CommonStore
+class Win32PeFileStore : public Win32FileStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::PeFile; }
@@ -106,7 +110,7 @@ class WinPeFileStore : public Win32CommonStore
     void save(const std::string& location, const StoreOptions& options = {}) override;
 };
 
-class WinAppxFileStore : public Win32CommonStore
+class Win32AppxFileStore : public Win32FileStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::AppxFile; }
@@ -114,7 +118,7 @@ class WinAppxFileStore : public Win32CommonStore
     void save(const std::string& location, const StoreOptions& options = {}) override;
 };
 
-class WinPfxCertStore : public Win32CommonStore
+class Win32PfxCertStore : public Win32FileStore
 {
   public:
     StoreType getStoreType() const override { return StoreType::PfxFile; }
@@ -123,9 +127,12 @@ class WinPfxCertStore : public Win32CommonStore
 
   protected:
     CertificatePtr createCert(PCCERT_CONTEXT pCert) const override;
+
+  private:
+    std::vector<std::unique_ptr<KeySetDeleter>> m_keyDeleters;
 };
 
 } // namespace crypto
 } // namespace ccky
 
-#endif // CCKY_WIN_STORE_H
+#endif // CCKY_WIN32_STORE_H

@@ -1,6 +1,7 @@
 #include "crypto/openssl/OpenSslCert.h"
 
 #include "crypto/openssl/OpenSslHelper.h"
+#include "crypto/openssl/OpenSslPrivateKey.h"
 #include "crypto/openssl/SpcStructures.h"
 
 namespace ccky
@@ -23,18 +24,7 @@ OpenSslCert::OpenSslCert(X509* cert, EVP_PKEY* pkey)
 
 OpenSslCert::~OpenSslCert() = default;
 
-std::string OpenSslCert::getCommonName() const
-{
-    return OpenSslHelper::getCertCommonName(m_cert.get());
-}
-
-std::string OpenSslCert::getIssuerName() const
-{
-    return OpenSslHelper::getCertIssuerName(m_cert.get());
-}
-
-std::string OpenSslCert::getSha1() const { return OpenSslHelper::getCertSha1(m_cert.get()); }
-
+// Encoding, Hashes & Algorithms
 std::vector<uint8_t> OpenSslCert::getEncoded() const
 {
     if (!m_cert)
@@ -52,6 +42,41 @@ std::vector<uint8_t> OpenSslCert::getEncoded() const
     return res;
 }
 
+std::string OpenSslCert::getSerialNumber() const
+{
+    return OpenSslHelper::getCertSerialNumber(m_cert.get());
+}
+
+std::string OpenSslCert::getSha1() const { return OpenSslHelper::getCertSha1(m_cert.get()); }
+
+std::string OpenSslCert::getSha1Thumbprint() const
+{
+    return OpenSslHelper::getCertThumbprint(m_cert.get(), EVP_sha1(), true);
+}
+
+std::string OpenSslCert::getMd5Thumbprint() const
+{
+    return OpenSslHelper::getCertThumbprint(m_cert.get(), EVP_md5(), true);
+}
+
+std::string OpenSslCert::getSignatureAlgorithm() const
+{
+    if (!m_cert)
+    {
+        return "";
+    }
+    int nid = X509_get_signature_nid(m_cert.get());
+    char buf[80];
+    OBJ_obj2txt(buf, sizeof(buf), OBJ_nid2obj(nid), 1);
+    return buf;
+}
+
+// Subject Information
+std::string OpenSslCert::getCommonName() const
+{
+    return OpenSslHelper::getCertCommonName(m_cert.get());
+}
+
 std::string OpenSslCert::getSubjectDisplay() const
 {
     if (!m_cert)
@@ -59,14 +84,6 @@ std::string OpenSslCert::getSubjectDisplay() const
         return "";
     }
     return OpenSslHelper::getNameDisplay(X509_get_subject_name(m_cert.get()));
-}
-std::string OpenSslCert::getIssuerDisplay() const
-{
-    if (!m_cert)
-    {
-        return "";
-    }
-    return OpenSslHelper::getNameDisplay(X509_get_issuer_name(m_cert.get()));
 }
 
 std::string OpenSslCert::getSubjectDN() const
@@ -78,6 +95,21 @@ std::string OpenSslCert::getSubjectDN() const
     return OpenSslHelper::getNameDN(X509_get_subject_name(m_cert.get()));
 }
 
+// Issuer Information
+std::string OpenSslCert::getIssuerName() const
+{
+    return OpenSslHelper::getCertIssuerName(m_cert.get());
+}
+
+std::string OpenSslCert::getIssuerDisplay() const
+{
+    if (!m_cert)
+    {
+        return "";
+    }
+    return OpenSslHelper::getNameDisplay(X509_get_issuer_name(m_cert.get()));
+}
+
 std::string OpenSslCert::getIssuerDN() const
 {
     if (!m_cert)
@@ -87,34 +119,67 @@ std::string OpenSslCert::getIssuerDN() const
     return OpenSslHelper::getNameDN(X509_get_issuer_name(m_cert.get()));
 }
 
-std::string OpenSslCert::getSerialNumber() const
-{
-    return OpenSslHelper::getCertSerialNumber(m_cert.get());
-}
-std::string OpenSslCert::getSha1Thumbprint() const
-{
-    return OpenSslHelper::getCertThumbprint(m_cert.get(), EVP_sha1(), true);
-}
-std::string OpenSslCert::getMd5Thumbprint() const
-{
-    return OpenSslHelper::getCertThumbprint(m_cert.get(), EVP_md5(), true);
-}
-std::string OpenSslCert::getKeyMd5Thumbprint() const
-{
-    return OpenSslHelper::getCertKeyMd5Thumbprint(m_cert.get());
-}
-std::string OpenSslCert::getProviderType() const { return ""; }
-std::string OpenSslCert::getProviderName() const { return ""; }
-std::string OpenSslCert::getContainerName() const { return ""; }
+// Validity Period
 std::string OpenSslCert::getNotBefore() const
 {
     return OpenSslHelper::getCertTime(X509_get0_notBefore(m_cert.get()));
 }
+
 std::string OpenSslCert::getNotAfter() const
 {
     return OpenSslHelper::getCertTime(X509_get0_notAfter(m_cert.get()));
 }
 
+// Key Information
+int OpenSslCert::getKeyLength() const
+{
+    if (!m_cert)
+    {
+        return 0;
+    }
+    EVPPKeyPtr pubkey(X509_get_pubkey(m_cert.get()));
+    if (!pubkey)
+    {
+        return 0;
+    }
+    return EVP_PKEY_bits(pubkey.get());
+}
+
+std::string OpenSslCert::getKeyMd5Thumbprint() const
+{
+    return OpenSslHelper::getCertKeyMd5Thumbprint(m_cert.get());
+}
+
+std::string OpenSslCert::getKeySha256Thumbprint() const
+{
+    if (!m_cert)
+    {
+        return "";
+    }
+    return OpenSslHelper::getCertKeySha256Thumbprint(m_cert.get());
+}
+
+// Private Key Information
+bool OpenSslCert::hasPrivateKey() const { return m_pkey != nullptr; }
+
+PrivateKeyPtr OpenSslCert::getPrivateKey() const
+{
+    if (!hasPrivateKey())
+    {
+        return nullptr;
+    }
+    EVP_PKEY_up_ref(m_pkey.get());
+    return std::make_shared<OpenSslPrivateKey>(EVPPKeyPtr(m_pkey.get()));
+}
+
+bool OpenSslCert::isPrivateKeyExportable() const { return true; }
+
+// Provider Information
+std::string OpenSslCert::getProviderType() const { return ""; }
+std::string OpenSslCert::getProviderName() const { return ""; }
+std::string OpenSslCert::getContainerName() const { return ""; }
+
+// Extensions & Policy Attributes
 bool OpenSslCert::isCA() const
 {
     if (!m_cert)
@@ -131,20 +196,6 @@ int OpenSslCert::getPathLenConstraint() const
         return -1;
     }
     return X509_get_pathlen(m_cert.get());
-}
-
-int OpenSslCert::getKeyLength() const
-{
-    if (!m_cert)
-    {
-        return 0;
-    }
-    EVPPKeyPtr pubkey(X509_get_pubkey(m_cert.get()));
-    if (!pubkey)
-    {
-        return 0;
-    }
-    return EVP_PKEY_bits(pubkey.get());
 }
 
 std::vector<std::string> OpenSslCert::getEnhancedKeyUsage() const
@@ -169,18 +220,6 @@ std::vector<std::string> OpenSslCert::getEnhancedKeyUsage() const
     return res;
 }
 
-std::string OpenSslCert::getSignatureAlgorithm() const
-{
-    if (!m_cert)
-    {
-        return "";
-    }
-    int nid = X509_get_signature_nid(m_cert.get());
-    char buf[80];
-    OBJ_obj2txt(buf, sizeof(buf), OBJ_nid2obj(nid), 1);
-    return buf;
-}
-
 uint32_t OpenSslCert::getNetscapeCertType() const
 {
     if (!m_cert)
@@ -200,17 +239,6 @@ uint32_t OpenSslCert::getNetscapeCertType() const
     }
     return val;
 }
-
-std::string OpenSslCert::getKeySha256Thumbprint() const
-{
-    if (!m_cert)
-    {
-        return "";
-    }
-    return OpenSslHelper::getCertKeySha256Thumbprint(m_cert.get());
-}
-
-bool OpenSslCert::isPrivateKeyExportable() const { return true; }
 
 std::string OpenSslCert::getPolicyLink() const
 {
