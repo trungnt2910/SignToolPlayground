@@ -25,7 +25,7 @@ namespace ccky
 namespace crypto
 {
 
-void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
+void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
 {
     if (opts.pvkFile.empty() || opts.spcFile.empty())
     {
@@ -53,10 +53,6 @@ void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
     {
         throw OutputFileExistsException("Output PFX file exists: " + outPfxPath);
     }
-
-    PvkKey pvkKey;
-    pvkKey.load(opts.pvkFile);
-    pvkKey.decrypt(opts.pvkPassword);
 
     const std::vector<uint8_t>& keyData = pvkKey.getKeyData();
     PvkKeySpec keyType = pvkKey.getKeyType();
@@ -131,9 +127,11 @@ void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
         if (winCert)
         {
             PCCERT_CONTEXT pCert = winCert->getInternal();
-            CertAddCertificateContextToStore(
-                static_cast<HCERTSTORE>(hMemStore.get()), pCert, CERT_STORE_ADD_ALWAYS, nullptr);
 
+            // This MUST be set before the certificate gets added to store.
+            // Otherwise, the resulting PFX store will NOT have a private key.
+            // This is because CertAddCertificateContextToStore adds an independent copy of the
+            // certificate object and will not receive property updates.
             if (first)
             {
                 CRYPT_KEY_PROV_INFO provInfo = {0};
@@ -148,6 +146,9 @@ void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
                 CertSetCertificateContextProperty(pCert, CERT_KEY_PROV_INFO_PROP_ID, 0, &provInfo);
                 first = false;
             }
+
+            CertAddCertificateContextToStore(
+                static_cast<HCERTSTORE>(hMemStore.get()), pCert, CERT_STORE_ADD_ALWAYS, nullptr);
         }
     }
 

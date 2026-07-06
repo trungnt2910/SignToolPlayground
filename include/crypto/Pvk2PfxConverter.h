@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "crypto/PvkKey.h"
+
 namespace ccky
 {
 namespace crypto
@@ -21,7 +23,7 @@ struct Pvk2PfxOptions
 class Pvk2PfxConverter
 {
   public:
-    static void convert(const Pvk2PfxOptions& opts);
+    static void convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts);
 };
 
 } // namespace crypto

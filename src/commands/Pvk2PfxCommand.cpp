@@ -1,11 +1,14 @@
 #include "commands/Pvk2PfxCommand.h"
 
+#include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
 
 #include "cli/CommandRegistry.h"
 #include "crypto/CckyException.h"
+#include "crypto/Console.h"
 #include "crypto/CryptoFactory.h"
 #include "crypto/Pvk2PfxConverter.h"
 #include "crypto/PvkKey.h"
@@ -74,7 +77,7 @@ int Pvk2PfxCommand::executeImpl(const cli::ParsedArgs& args)
     opts.pvkPassword = args.getFlagValue("pi");
     opts.spcFile = args.getFlagValue("spc");
     opts.pfxFile = args.getFlagValue("pfx");
-    opts.pfxPassword = args.getFlagValue("po");
+    opts.pfxPassword = args.hasFlag("po") ? args.getFlagValue("po") : opts.pvkPassword;
     opts.force = args.hasFlag("f");
 
     if (opts.pvkFile.empty())
@@ -91,7 +94,22 @@ int Pvk2PfxCommand::executeImpl(const cli::ParsedArgs& args)
 
     try
     {
-        crypto::Pvk2PfxConverter::convert(opts);
+        crypto::PvkKey pvk;
+        pvk.load(opts.pvkFile);
+        if (pvk.isEncrypted() && !args.hasFlag("pi"))
+        {
+            char sep = std::filesystem::path::preferred_separator;
+            size_t pos = opts.pvkFile.rfind(sep);
+            std::string displayPath =
+                (pos == std::string::npos) ? opts.pvkFile : opts.pvkFile.substr(pos);
+
+            m_err << std::left << std::setw(10) << "Key:" << displayPath << "\n";
+            m_err << std::left << std::setw(10) << "Password:" << std::flush;
+            opts.pvkPassword = crypto::Console::askPassword(m_in, m_err);
+        }
+        pvk.decrypt(opts.pvkPassword);
+
+        crypto::Pvk2PfxConverter::convert(pvk, opts);
         return 0;
     }
     catch (const crypto::PvkIncorrectPasswordException&)

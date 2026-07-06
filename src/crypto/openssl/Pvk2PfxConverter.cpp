@@ -20,7 +20,7 @@ namespace ccky
 namespace crypto
 {
 
-void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
+void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
 {
     if (opts.pvkFile.empty() || opts.spcFile.empty())
     {
@@ -48,10 +48,6 @@ void Pvk2PfxConverter::convert(const Pvk2PfxOptions& opts)
     {
         throw OutputFileExistsException("Output PFX file exists: " + outPfx);
     }
-
-    PvkKey pvkKey;
-    pvkKey.load(opts.pvkFile);
-    pvkKey.decrypt(opts.pvkPassword);
 
     EVPPKeyPtr pkey = PvkHelper::blobToPkey(pvkKey.getKeyData());
 
