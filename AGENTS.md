@@ -44,6 +44,9 @@ common scenarios, including:
 - Long initialization lists (e.g. long command arrays, structs with many members) MUST have each
 element on a separate line.
 - You MUST NOT attempt to disable formatting using clang-format off comments.
+- For non-obvious literal parameters, YOU MUST name the parameter as a comment.
+  + For example, `displayError(msg, /* shouldPrintHelp = */ true)`.
+  + DO NOT just leave it `displayError(msg, true)`.
 
 ## ccky Safety
 

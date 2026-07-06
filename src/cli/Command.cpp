@@ -32,15 +32,6 @@ int Command::execute(const ParsedArgs& args)
     {
         return executeImpl(args);
     }
-    catch (const crypto::CckyException& e)
-    {
-        displayError(e);
-        if (e.shouldPrintHelp())
-        {
-            printHelp();
-        }
-        return 1;
-    }
     catch (const std::exception& e)
     {
         displayError(e);
@@ -51,6 +42,12 @@ int Command::execute(const ParsedArgs& args)
         displayError("Unknown error occurred.");
         return 1;
     }
+}
+
+void Command::displayError(const std::exception& e)
+{
+    const auto* cckyErr = dynamic_cast<const crypto::CckyException*>(&e);
+    displayError(e.what(), cckyErr && cckyErr->shouldPrintHelp());
 }
 
 } // namespace cli

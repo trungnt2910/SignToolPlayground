@@ -153,9 +153,14 @@ int Pvk2PfxCommand::executeImpl(const cli::ParsedArgs& args)
     }
 }
 
-void Pvk2PfxCommand::displayError(const std::exception& e) { m_err << e.what() << "\n"; }
-
-void Pvk2PfxCommand::displayError(const std::string& msg) { m_err << msg << "\n"; }
+void Pvk2PfxCommand::displayError(const std::string& msg, bool shouldPrintHelp)
+{
+    m_err << msg << "\n";
+    if (shouldPrintHelp)
+    {
+        printHelp();
+    }
+}
 
 } // namespace commands
 } // namespace ccky

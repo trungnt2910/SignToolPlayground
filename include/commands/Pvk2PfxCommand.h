@@ -23,8 +23,7 @@ class Pvk2PfxCommand : public cli::Command
   protected:
     void printHelp() override;
     int executeImpl(const cli::ParsedArgs& args) override;
-    void displayError(const std::exception& e) override;
-    void displayError(const std::string& msg) override;
+    void displayError(const std::string& msg, bool shouldPrintHelp = false) override;
 };
 
 } // namespace commands

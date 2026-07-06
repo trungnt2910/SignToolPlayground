@@ -40,7 +40,7 @@ CertificateStorePtr CryptoFactory::createStore(StoreType type, const std::string
     case StoreType::PfxFile:
         return std::make_shared<Win32PfxCertStore>();
     case StoreType::P7bFile:
-        return std::make_shared<Win32CerFileStore>();
+        return std::make_shared<Win32P7bFileStore>();
     case StoreType::CerFile:
     default:
         break;
@@ -55,6 +55,7 @@ CertificateStorePtr CryptoFactory::createStore(StoreType type, const std::string
     case StoreType::PfxFile:
         return std::make_shared<Win32PfxCertStore>();
     case StoreType::P7bFile:
+        return std::make_shared<Win32P7bFileStore>();
     case StoreType::CerFile:
     default:
         return std::make_shared<Win32CerFileStore>();

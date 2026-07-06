@@ -96,22 +96,17 @@ void CertMgrCommand::printHelp()
     }
 }
 
-void CertMgrCommand::displayError(const std::exception& e)
+void CertMgrCommand::displayError(const std::string& msg, bool shouldPrintHelp)
 {
-    const auto* cckyErr = dynamic_cast<const crypto::CckyException*>(&e);
-    if (cckyErr && cckyErr->shouldPrintHelp())
+    m_err << "Error: " << msg << "\n";
+    if (shouldPrintHelp)
     {
-        m_err << "Error: " << e.what() << "\n";
+        printHelp();
     }
     else
     {
-        m_err << "Error: " << e.what() << "\nCertMgr Failed\n";
+        m_err << "CertMgr Failed\n";
     }
-}
-
-void CertMgrCommand::displayError(const std::string& msg)
-{
-    m_err << "Error: " << msg << "\nCertMgr Failed\n";
 }
 
 int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
@@ -128,7 +123,8 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
             !std::all_of(sha1Flag.begin(), sha1Flag.end(),
                 [](char c) { return std::isxdigit(static_cast<unsigned char>(c)); }))
         {
-            throw crypto::CckyException("Invalid value for -sha1 option", true);
+            displayError("Invalid value for -sha1 option", /* shouldPrintHelp = */ true);
+            return 1;
         }
         std::transform(sha1Flag.begin(), sha1Flag.end(), sha1Flag.begin(), ::tolower);
     }
@@ -139,11 +135,13 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
 
     if (args.positional.empty())
     {
-        throw crypto::CckyException("Missing SourceStoreName", true);
+        displayError("Missing SourceStoreName", /* shouldPrintHelp = */ true);
+        return 1;
     }
     if ((isAdd || isPut) && args.positional.size() < 2)
     {
-        throw crypto::CckyException("Has to specify DestinationStoreName", true);
+        displayError("Has to specify DestinationStoreName", /* shouldPrintHelp = */ true);
+        return 1;
     }
 
     std::string sourceLocation = args.positional[0];
@@ -169,6 +167,24 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         return 1;
     }
 
+    bool hasAll = args.hasFlag("all");
+    bool hasC = args.hasFlag("c");
+    bool hasCrl = args.hasFlag("crl");
+    bool hasCtl = args.hasFlag("ctl");
+
+    if (isAdd || isDel)
+    {
+        if (!hasAll && !hasC && !hasCrl && !hasCtl)
+        {
+            if (sourceStore->getStoreType() != crypto::StoreType::CerFile)
+            {
+                displayError("You must specify -all, -c, -CTL, -CRL for add or delete");
+                return 1;
+            }
+            hasAll = true; // Default to all if nothing specified on CerFile
+        }
+    }
+
     if (isAdd)
     {
         std::string destLocation = args.positional[1];
@@ -178,31 +194,21 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         auto destStore = getStore(destLocation, isDestSystemStore);
         destStore->load(destLocation, opts);
 
-        bool addAll = args.hasFlag("all");
-        bool addC = args.hasFlag("c");
-        bool addCrl = args.hasFlag("crl");
-        bool addCtl = args.hasFlag("ctl");
-
-        if (!addAll && !addC && !addCrl && !addCtl)
-        {
-            addAll = true; // Default to all if nothing specified
-        }
-
-        if (addAll || addC)
+        if (hasAll || hasC)
         {
             for (const auto& c : sourceStore->getCertificates())
             {
                 destStore->addCertificate(c);
             }
         }
-        if (addAll || addCrl)
+        if (hasAll || hasCrl)
         {
             for (const auto& c : sourceStore->getCrls())
             {
                 destStore->addCrl(c);
             }
         }
-        if (addAll || addCtl)
+        if (hasAll || hasCtl)
         {
             for (const auto& c : sourceStore->getCtls())
             {
@@ -211,25 +217,13 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         }
 
         destStore->save(destLocation, opts);
-        m_out << "CertMgr Succeeded\n";
-        return 0;
     }
     else if (isDel)
     {
         std::string cn = args.getFlagValue("n");
         std::string sha1 = sha1Flag;
 
-        bool delAll = args.hasFlag("all");
-        bool delC = args.hasFlag("c");
-        bool delCrl = args.hasFlag("crl");
-        bool delCtl = args.hasFlag("ctl");
-
-        if (!delAll && !delC && !delCrl && !delCtl)
-        {
-            delAll = true;
-        }
-
-        if (delAll || delC)
+        if (hasAll || hasC)
         {
             if (!sha1.empty())
             {
@@ -250,24 +244,22 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
                     });
                 if (!found)
                 {
-                    throw crypto::CckyException(
-                        "Can not find a certificate matching the hash value", false);
+                    displayError("Can not find a certificate matching the hash value");
+                    return 1;
                 }
             }
             sourceStore->deleteCertificate(cn, sha1);
         }
-        if (delAll || delCrl)
+        if (hasAll || hasCrl)
         {
             sourceStore->deleteCrl(sha1);
         }
-        if (delAll || delCtl)
+        if (hasAll || hasCtl)
         {
             sourceStore->deleteCtl(sha1);
         }
 
         sourceStore->save(sourceLocation, opts);
-        m_out << "CertMgr Succeeded\n";
-        return 0;
     }
     else if (isPut)
     {
@@ -276,6 +268,14 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
             opts.format = crypto::StoreFormat::Pkcs7;
         }
         std::string destLocation = args.positional[1];
+
+        if (!hasC && !hasCrl && !hasCtl &&
+            sourceStore->getStoreType() != crypto::StoreType::CerFile)
+        {
+            displayError(
+                "Has to specify either -c, or -crl, or -ctl", /* shouldPrintHelp = */ true);
+            return 1;
+        }
 
         auto destStore = crypto::CryptoFactory::createStore(crypto::StoreType::CerFile);
         std::string cn = args.getFlagValue("n");
@@ -295,8 +295,6 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         }
 
         destStore->save(destLocation, opts);
-        m_out << "CertMgr Succeeded\n";
-        return 0;
     }
     else
     {
@@ -377,9 +375,10 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         }
 
         m_out << "==============================================\n";
-        m_out << "CertMgr Succeeded\n";
-        return 0;
     }
+
+    m_out << "CertMgr Succeeded\n";
+    return 0;
 }
 
 } // namespace commands

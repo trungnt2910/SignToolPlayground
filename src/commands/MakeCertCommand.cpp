@@ -570,15 +570,13 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
     }
 }
 
-void MakeCertCommand::displayError(const std::exception& e)
+void MakeCertCommand::displayError(const std::string& msg, bool shouldPrintHelp)
 {
-    m_err << "Error: " << e.what() << "\n";
-}
-
-void MakeCertCommand::displayError(const std::string& msg)
-{
-    // Output error message
     m_err << "Error: " << msg << "\n";
+    if (shouldPrintHelp)
+    {
+        printHelp();
+    }
 }
 
 } // namespace commands

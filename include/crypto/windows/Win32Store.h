@@ -106,6 +106,12 @@ class Win32CerFileStore : public Win32FileStore
     void saveAsPkcs7(const std::string& location);
 };
 
+class Win32P7bFileStore : public Win32CerFileStore
+{
+  public:
+    StoreType getStoreType() const override { return StoreType::P7bFile; }
+};
+
 class Win32PeFileStore : public Win32FileStore
 {
   public:

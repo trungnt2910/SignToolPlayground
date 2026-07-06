@@ -400,7 +400,7 @@ TEST_F(Given_CertMgr, When_CertMgrDelBadSha1_MatchesOutput)
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
     cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
-    const char* argv[] = {
+    std::array argv = {
         "ccky",
         "certmgr",
         "/del",
@@ -409,7 +409,7 @@ TEST_F(Given_CertMgr, When_CertMgrDelBadSha1_MatchesOutput)
         "badsha1",
         "source.cer",
     };
-    auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
 
     int result = cmd->execute(args);
 
@@ -426,7 +426,7 @@ TEST_F(Given_CertMgr, When_CertMgrDelNoMatchingSha1_MatchesOutput)
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
     cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
-    const char* argv[] = {
+    std::array argv = {
         "ccky",
         "certmgr",
         "/del",
@@ -435,7 +435,7 @@ TEST_F(Given_CertMgr, When_CertMgrDelNoMatchingSha1_MatchesOutput)
         "0123456789012345678901234567890123456789",
         cerPath.c_str(),
     };
-    auto args = ccky::cli::CliParser::parse(7, const_cast<char**>(argv), registry);
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
 
     int result = cmd->execute(args);
 
@@ -443,4 +443,151 @@ TEST_F(Given_CertMgr, When_CertMgrDelNoMatchingSha1_MatchesOutput)
     EXPECT_EQ(err.str(), getTestTextContent(getTestDataPath(
                              "tests/data/output/certmgr_del_nomatchingsha1_stderr.txt")));
     EXPECT_EQ(out.str(), "");
+}
+
+TEST_F(Given_CertMgr, When_CertMgrAddComplexSourceMissingArgs_MatchesStderr)
+{
+    std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    registry.registerCommand(cmd);
+    std::array argv = {
+        "ccky",
+        "certmgr",
+        "/add",
+        pfxPath.c_str(),
+        "dest.cer",
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
+    EXPECT_EQ(
+        err.str(), getTestTextContent(getTestDataPath(
+                       "tests/data/output/certmgr_add_complexsourcestoremissingargs_stderr.txt")));
+}
+
+TEST_F(Given_CertMgr, When_CertMgrDelComplexSourceMissingArgs_MatchesStderr)
+{
+    std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    registry.registerCommand(cmd);
+    std::array argv = {
+        "ccky",
+        "certmgr",
+        "/del",
+        pfxPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
+    EXPECT_EQ(
+        err.str(), getTestTextContent(getTestDataPath(
+                       "tests/data/output/certmgr_del_complexsourcestoremissingargs_stderr.txt")));
+}
+
+TEST_F(Given_CertMgr, When_CertMgrPutComplexSourceMissingArgs_MatchesStderr)
+{
+    std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    registry.registerCommand(cmd);
+    std::array argv = {
+        "ccky",
+        "certmgr",
+        "/put",
+        pfxPath.c_str(),
+        "dest.cer",
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 1);
+    EXPECT_EQ(
+        err.str(), getTestTextContent(getTestDataPath(
+                       "tests/data/output/certmgr_put_complexsourcestoremissingargs_stderr.txt")));
+}
+
+TEST_F(Given_CertMgr, When_CertMgrAddSimpleSourceMissingArgs_SucceedsAndMatchesStdout)
+{
+    std::string cerPath = getTestDataPath("tests/data/lxmonika.cer");
+    std::string destPath = "temp_dest_simple.cer";
+    registerTemporaryFile(destPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    registry.registerCommand(cmd);
+    std::array argv = {
+        "ccky",
+        "certmgr",
+        "/add",
+        cerPath.c_str(),
+        destPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(
+        out.str(), getTestTextContent(getTestDataPath("tests/data/output/certmgr_stdout.txt")));
+}
+
+TEST_F(Given_CertMgr, When_CertMgrDelSimpleSourceMissingArgs_SucceedsAndMatchesStdout)
+{
+    std::string cerPath = getTestDataPath("tests/data/lxmonika.cer");
+    std::string tempPath = "temp_del_simple.cer";
+    registerTemporaryFile(tempPath);
+    std::filesystem::copy_file(
+        cerPath, tempPath, std::filesystem::copy_options::overwrite_existing);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    registry.registerCommand(cmd);
+    std::array argv = {
+        "ccky",
+        "certmgr",
+        "/del",
+        tempPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(
+        out.str(), getTestTextContent(getTestDataPath("tests/data/output/certmgr_stdout.txt")));
+}
+
+TEST_F(Given_CertMgr, When_CertMgrPutSimpleSourceMissingArgs_SucceedsAndMatchesStdout)
+{
+    std::string cerPath = getTestDataPath("tests/data/lxmonika.cer");
+    std::string destPath = "temp_put_simple.cer";
+    registerTemporaryFile(destPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    registry.registerCommand(cmd);
+    std::array argv = {
+        "ccky",
+        "certmgr",
+        "/put",
+        cerPath.c_str(),
+        destPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int result = cmd->execute(args);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(
+        out.str(), getTestTextContent(getTestDataPath("tests/data/output/certmgr_stdout.txt")));
 }

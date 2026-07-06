@@ -540,22 +540,13 @@ void SignToolCommand::printHelp()
     }
 }
 
-void SignToolCommand::displayError(const std::exception& e)
-{
-    const auto* cckyErr = dynamic_cast<const crypto::CckyException*>(&e);
-    if (cckyErr && cckyErr->shouldPrintHelp())
-    {
-        m_err << "SignTool Error: " << e.what() << "\n";
-    }
-    else
-    {
-        m_err << "SignTool Error: " << e.what() << "\n";
-    }
-}
-
-void SignToolCommand::displayError(const std::string& msg)
+void SignToolCommand::displayError(const std::string& msg, bool shouldPrintHelp)
 {
     m_err << "SignTool Error: " << msg << "\n";
+    if (shouldPrintHelp)
+    {
+        printHelp();
+    }
 }
 
 int SignToolCommand::executeImpl(const cli::ParsedArgs& args)

@@ -26,8 +26,7 @@ class CertMgrCommand : public cli::Command
 
   protected:
     int executeImpl(const cli::ParsedArgs& args) override;
-    void displayError(const std::exception& e) override;
-    void displayError(const std::string& msg) override;
+    void displayError(const std::string& msg, bool shouldPrintHelp = false) override;
 
   private:
     crypto::CertificateStorePtr getStore(const std::string& location, bool isSystemStore);

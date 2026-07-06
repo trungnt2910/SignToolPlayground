@@ -56,52 +56,6 @@ void OpenSslCerFileStore::load(const std::string& location, const StoreOptions& 
         }
     }
 
-    if (m_certs.empty())
-    {
-        BIO_reset(bio.get());
-        PKCS12Ptr p12(d2i_PKCS12_bio(bio.get(), nullptr));
-        if (p12)
-        {
-            X509* c = nullptr;
-            EVP_PKEY* k = nullptr;
-            STACK_OF(X509)* ca = nullptr;
-            if (PKCS12_parse(p12.get(), "", &k, &c, &ca) == 1)
-            {
-                X509Ptr cPtr(c);
-                EVPPKeyPtr kPtr(k);
-                X509StackPtr caPtr(ca);
-
-                if (cPtr)
-                {
-                    m_certs.push_back(std::move(cPtr));
-                }
-            }
-        }
-    }
-
-    if (m_certs.empty())
-    {
-        BIO_reset(bio.get());
-        PKCS7Ptr p7(PEM_read_bio_PKCS7(bio.get(), nullptr, nullptr, nullptr));
-        if (!p7)
-        {
-            BIO_reset(bio.get());
-            p7.reset(d2i_PKCS7_bio(bio.get(), nullptr));
-        }
-        if (p7)
-        {
-            if (PKCS7_type_is_signed(p7.get()) && p7->d.sign && p7->d.sign->cert)
-            {
-                STACK_OF(X509)* sk = p7->d.sign->cert;
-                for (int i = 0; i < sk_X509_num(sk); ++i)
-                {
-                    X509* x = sk_X509_value(sk, i);
-                    m_certs.push_back(X509Ptr(X509_dup(x)));
-                }
-            }
-        }
-    }
-
     BIO_reset(bio.get());
     while (true)
     {
@@ -191,6 +145,58 @@ void OpenSslCerFileStore::saveAsPkcs7(const std::string& location)
     }
 
     i2d_PKCS7_bio(bio.get(), p7.get());
+}
+
+void OpenSslP7bFileStore::load(const std::string& location, const StoreOptions& options)
+{
+    m_certs.clear();
+    m_crls.clear();
+    m_ctls.clear();
+    m_loadedLocation = location;
+
+    if (!std::filesystem::exists(location))
+    {
+        return;
+    }
+
+    BIOPtr bio(BIO_new_file(location.c_str(), "rb"));
+    if (!bio)
+    {
+        throw OpenSslException("Failed to open the store", false);
+    }
+
+    PKCS7Ptr p7(PEM_read_bio_PKCS7(bio.get(), nullptr, nullptr, nullptr));
+    if (!p7)
+    {
+        BIO_reset(bio.get());
+        p7.reset(d2i_PKCS7_bio(bio.get(), nullptr));
+    }
+    if (p7)
+    {
+        if (PKCS7_type_is_signed(p7.get()) && p7->d.sign && p7->d.sign->cert)
+        {
+            STACK_OF(X509)* sk = p7->d.sign->cert;
+            for (int i = 0; i < sk_X509_num(sk); ++i)
+            {
+                X509* x = sk_X509_value(sk, i);
+                m_certs.push_back(X509Ptr(X509_dup(x)));
+            }
+        }
+        if (PKCS7_type_is_signed(p7.get()) && p7->d.sign && p7->d.sign->crl)
+        {
+            STACK_OF(X509_CRL)* sk = p7->d.sign->crl;
+            for (int i = 0; i < sk_X509_CRL_num(sk); ++i)
+            {
+                X509_CRL* c = sk_X509_CRL_value(sk, i);
+                m_crls.push_back(X509CRLPtr(X509_CRL_dup(c)));
+            }
+        }
+    }
+
+    if (m_certs.empty() && m_crls.empty() && m_ctls.empty())
+    {
+        throw CckyCryptoException("Unsupported or invalid certificate file format", false);
+    }
 }
 
 std::vector<CertificatePtr> OpenSslCerFileStore::getCertificates()

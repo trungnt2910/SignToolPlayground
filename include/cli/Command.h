@@ -150,8 +150,8 @@ class Command
 
   protected:
     virtual int executeImpl(const ParsedArgs& args) = 0;
-    virtual void displayError(const std::exception& e) = 0;
-    virtual void displayError(const std::string& msg) = 0;
+    virtual void displayError(const std::exception& e);
+    virtual void displayError(const std::string& msg, bool shouldPrintHelp = false) = 0;
 
     std::istream& m_in;
     std::ostream& m_out;

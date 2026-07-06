@@ -31,14 +31,22 @@ class OpenSslCerFileStore : public CertificateStore
     void deleteCrl(const std::string& sha1Hash) override;
     void deleteCtl(const std::string& sha1Hash) override;
 
-  private:
-    void saveAsDer(const std::string& location);
-    void saveAsPkcs7(const std::string& location);
-
+  protected:
     std::vector<X509Ptr> m_certs;
     std::vector<X509CRLPtr> m_crls;
     std::vector<CtlPtr> m_ctls;
     std::string m_loadedLocation;
+
+  private:
+    void saveAsDer(const std::string& location);
+    void saveAsPkcs7(const std::string& location);
+};
+
+class OpenSslP7bFileStore : public OpenSslCerFileStore
+{
+  public:
+    StoreType getStoreType() const override { return StoreType::P7bFile; }
+    void load(const std::string& location, const StoreOptions& options = {}) override;
 };
 
 class OpenSslPeFileStore : public CertificateStore
