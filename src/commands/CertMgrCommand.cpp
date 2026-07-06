@@ -133,32 +133,47 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         std::transform(sha1Flag.begin(), sha1Flag.end(), sha1Flag.begin(), ::tolower);
     }
 
-    if (args.subcommand == "/add" || args.subcommand == "-add")
-    {
-        if (args.positional.empty())
-        {
-            throw crypto::CckyException("Missing SourceStoreName", true);
-        }
-        if (args.positional.size() < 2)
-        {
-            throw crypto::CckyException("Has to specify DestinationStoreName", true);
-        }
-        std::string sourceLocation = args.positional[0];
-        std::string destLocation = args.positional[1];
+    bool isAdd = (args.subcommand == "/add" || args.subcommand == "-add");
+    bool isDel = (args.subcommand == "/del" || args.subcommand == "-del");
+    bool isPut = (args.subcommand == "/put" || args.subcommand == "-put");
 
-        bool isSourceSystemStore =
-            (!args.positionalFlags.empty() && args.positionalFlags[0].count("s") > 0) ||
-            (args.hasFlag("s") && args.positionalFlags.size() <= 1);
+    if (args.positional.empty())
+    {
+        throw crypto::CckyException("Missing SourceStoreName", true);
+    }
+    if ((isAdd || isPut) && args.positional.size() < 2)
+    {
+        throw crypto::CckyException("Has to specify DestinationStoreName", true);
+    }
+
+    std::string sourceLocation = args.positional[0];
+    bool isSourceSystemStore =
+        (!args.positionalFlags.empty() && args.positionalFlags[0].count("s") > 0) ||
+        (args.hasFlag("s") && args.positionalFlags.size() <= 1);
+
+    if (!isSourceSystemStore && !std::filesystem::exists(sourceLocation))
+    {
+        displayError("Failed to open the source store");
+        return 1;
+    }
+
+    crypto::CertificateStorePtr sourceStore;
+    try
+    {
+        sourceStore = getStore(sourceLocation, isSourceSystemStore);
+        sourceStore->load(sourceLocation, opts);
+    }
+    catch (const std::exception&)
+    {
+        displayError("Failed to open the source store");
+        return 1;
+    }
+
+    if (isAdd)
+    {
+        std::string destLocation = args.positional[1];
         bool isDestSystemStore =
             (args.positionalFlags.size() > 1 && args.positionalFlags[1].count("s") > 0);
-
-        if (!isSourceSystemStore && !std::filesystem::exists(sourceLocation))
-        {
-            throw crypto::CckyException("Failed to open the source store", false);
-        }
-
-        auto sourceStore = getStore(sourceLocation, isSourceSystemStore);
-        sourceStore->load(sourceLocation, opts);
 
         auto destStore = getStore(destLocation, isDestSystemStore);
         destStore->load(destLocation, opts);
@@ -199,25 +214,8 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         m_out << "CertMgr Succeeded\n";
         return 0;
     }
-    else if (args.subcommand == "/del" || args.subcommand == "-del")
+    else if (isDel)
     {
-        if (args.positional.empty())
-        {
-            throw crypto::CckyException("Missing SourceStoreName", true);
-        }
-        std::string location = args.positional[0];
-        bool isSystemStore =
-            (!args.positionalFlags.empty() && args.positionalFlags[0].count("s") > 0) ||
-            args.hasFlag("s");
-
-        if (!isSystemStore && !std::filesystem::exists(location))
-        {
-            throw crypto::CckyException("Failed to open the source store", false);
-        }
-
-        auto store = getStore(location, isSystemStore);
-        store->load(location, opts);
-
         std::string cn = args.getFlagValue("n");
         std::string sha1 = sha1Flag;
 
@@ -235,7 +233,7 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
         {
             if (!sha1.empty())
             {
-                auto certs = store->getCertificates();
+                auto certs = sourceStore->getCertificates();
                 bool found = std::any_of(certs.begin(), certs.end(),
                     [&](const auto& c)
                     {
@@ -256,49 +254,28 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
                         "Can not find a certificate matching the hash value", false);
                 }
             }
-            store->deleteCertificate(cn, sha1);
+            sourceStore->deleteCertificate(cn, sha1);
         }
         if (delAll || delCrl)
         {
-            store->deleteCrl(sha1);
+            sourceStore->deleteCrl(sha1);
         }
         if (delAll || delCtl)
         {
-            store->deleteCtl(sha1);
+            sourceStore->deleteCtl(sha1);
         }
 
-        store->save(location, opts);
+        sourceStore->save(sourceLocation, opts);
         m_out << "CertMgr Succeeded\n";
         return 0;
     }
-    else if (args.subcommand == "/put" || args.subcommand == "-put")
+    else if (isPut)
     {
         if (args.hasFlag("7"))
         {
             opts.format = crypto::StoreFormat::Pkcs7;
         }
-        if (args.positional.empty())
-        {
-            throw crypto::CckyException("Missing SourceStoreName", true);
-        }
-        if (args.positional.size() < 2)
-        {
-            throw crypto::CckyException("Has to specify DestinationStoreName", true);
-        }
-        std::string sourceLocation = args.positional[0];
         std::string destLocation = args.positional[1];
-
-        bool isSourceSystemStore =
-            (!args.positionalFlags.empty() && args.positionalFlags[0].count("s") > 0) ||
-            (args.hasFlag("s") && args.positionalFlags.size() <= 1);
-
-        if (!isSourceSystemStore && !std::filesystem::exists(sourceLocation))
-        {
-            throw crypto::CckyException("Failed to open the source store", false);
-        }
-
-        auto sourceStore = getStore(sourceLocation, isSourceSystemStore);
-        sourceStore->load(sourceLocation, opts);
 
         auto destStore = crypto::CryptoFactory::createStore(crypto::StoreType::CerFile);
         std::string cn = args.getFlagValue("n");
@@ -324,25 +301,8 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
     else
     {
         // Display mode
-        if (args.positional.empty())
-        {
-            throw crypto::CckyException("Missing SourceStoreName", true);
-        }
-        std::string location = args.positional[0];
-        bool isSystemStore =
-            (!args.positionalFlags.empty() && args.positionalFlags[0].count("s") > 0) ||
-            args.hasFlag("s");
-
-        if (!isSystemStore && !std::filesystem::exists(location))
-        {
-            throw crypto::CckyException("Failed to open the source store", false);
-        }
-
-        auto store = getStore(location, isSystemStore);
-        store->load(location, opts);
-
         bool verbose = args.hasFlag("v");
-        auto certs = store->getCertificates();
+        auto certs = sourceStore->getCertificates();
         for (size_t i = 0; i < certs.size(); ++i)
         {
             const auto& c = certs[i];
@@ -388,7 +348,7 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
             m_out << "NotAfter:: \n  " << c->getNotAfter() << "\n";
         }
 
-        auto ctls = store->getCtls();
+        auto ctls = sourceStore->getCtls();
         if (ctls.empty())
         {
             m_out << "==============No CTLs ==========\n";
@@ -402,7 +362,7 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
             }
         }
 
-        auto crls = store->getCrls();
+        auto crls = sourceStore->getCrls();
         if (crls.empty())
         {
             m_out << "==============No CRLs ==========\n";

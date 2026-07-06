@@ -279,14 +279,14 @@ TEST_F(Given_CertMgr, When_CertMgrAddMissingDest_MatchesStderr)
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
     cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
-    const char* argv[] = {
+    std::array argv = {
         "ccky",
         "certmgr",
         "/add",
         "/c",
         "source.cer",
     };
-    auto args = ccky::cli::CliParser::parse(5, const_cast<char**>(argv), registry);
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
     std::string expected = getTestTextContent(
         getTestDataPath("tests/data/output/certmgr_add_missingdestinationfilename_stderr.txt"));
 
@@ -303,11 +303,11 @@ TEST_F(Given_CertMgr, When_CertMgrDisplayMissingSource_MatchesStderr)
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
     cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
-    const char* argv[] = {
+    std::array argv = {
         "ccky",
         "certmgr",
     };
-    auto args = ccky::cli::CliParser::parse(2, const_cast<char**>(argv), registry);
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
     std::string expected = getTestTextContent(
         getTestDataPath("tests/data/output/certmgr_display_missingsourcefilename_stderr.txt"));
 
@@ -324,15 +324,16 @@ TEST_F(Given_CertMgr, When_CertMgrAddBadSource_MatchesStderr)
     auto cmd = std::make_shared<ccky::commands::CertMgrCommand>(std::cin, out, err);
     cmd->setRegistry(&registry);
     registry.registerCommand(cmd);
-    const char* argv[] = {
+    std::string badSourcePath = getTestDataPath("tests/data/ccky.pvk");
+    std::array argv = {
         "ccky",
         "certmgr",
         "/add",
         "/c",
-        "nonexistent_bad_file.cer",
+        badSourcePath.c_str(),
         "dest.cer",
     };
-    auto args = ccky::cli::CliParser::parse(6, const_cast<char**>(argv), registry);
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
     std::string expected = getTestTextContent(
         getTestDataPath("tests/data/output/certmgr_add_badsourcestore_stderr.txt"));
 

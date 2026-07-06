@@ -618,26 +618,16 @@ void Win32CerFileStore::load(const std::string& location, const StoreOptions& op
     HCERTSTORE rawStore = nullptr;
     HCRYPTMSG rawMsg = nullptr;
 
-    if (CryptQueryObject(CERT_QUERY_OBJECT_FILE, wLocation.c_str(), CERT_QUERY_CONTENT_FLAG_ALL,
-            CERT_QUERY_FORMAT_FLAG_ALL, 0, &dwEncoding, &dwContentType, &dwFormatType, &rawStore,
-            &rawMsg, nullptr))
+    Win32Check::check(CryptQueryObject(CERT_QUERY_OBJECT_FILE, wLocation.c_str(),
+                          CERT_QUERY_CONTENT_FLAG_ALL, CERT_QUERY_FORMAT_FLAG_ALL, 0, &dwEncoding,
+                          &dwContentType, &dwFormatType, &rawStore, &rawMsg, nullptr),
+        "CryptQueryObject failed");
+
+    CertStorePtr hStore(rawStore);
+    CryptMsgPtr hMsg(rawMsg);
+    if (hStore)
     {
-        CertStorePtr hStore(rawStore);
-        CryptMsgPtr hMsg(rawMsg);
-        if (hStore)
-        {
-            populateFromStore(hStore.get());
-        }
-        return;
-    }
-    else
-    {
-        DWORD err = GetLastError();
-        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND || err == CRYPT_E_NO_MATCH)
-        {
-            return;
-        }
-        throw WindowsException("Failed to open the store", false);
+        populateFromStore(hStore.get());
     }
 }
 

@@ -25,10 +25,15 @@ void OpenSslCerFileStore::load(const std::string& location, const StoreOptions& 
     m_ctls.clear();
     m_loadedLocation = location;
 
+    if (!std::filesystem::exists(location))
+    {
+        return;
+    }
+
     BIOPtr bio(BIO_new_file(location.c_str(), "rb"));
     if (!bio)
     {
-        return;
+        throw OpenSslException("Failed to open the store", false);
     }
 
     while (true)
@@ -115,6 +120,11 @@ void OpenSslCerFileStore::load(const std::string& location, const StoreOptions& 
         {
             m_crls.push_back(X509CRLPtr(c));
         }
+    }
+
+    if (m_certs.empty() && m_crls.empty() && m_ctls.empty())
+    {
+        throw CckyCryptoException("Unsupported or invalid certificate file format", false);
     }
 }
 
