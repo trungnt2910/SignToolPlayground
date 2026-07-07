@@ -127,31 +127,29 @@ crypto::EVPPKeyPtr loadIssuerKey(const MakeCertOptions& options)
 
 PrivateKeyPtr loadSubjectKeyFromCert(const MakeCertOptions& options)
 {
-    BIO* bio = BIO_new_file(options.subjectCertFile.c_str(), "rb");
-    if (!bio)
+    crypto::BIOPtr bio(BIO_new_file(options.subjectCertFile.c_str(), "rb"));
+    if (bio == nullptr)
     {
         throw crypto::CckyException(
             "Can't access the certificate of the subject ('" + options.subjectCertFile + "')",
             false);
     }
-    crypto::BIOPtr bioSafe(bio);
-    X509* rawSubjCert = d2i_X509_bio(bioSafe.get(), nullptr);
-    if (!rawSubjCert)
+    crypto::X509Ptr subjCert;
+    if (d2i_X509_bio(bio.get(), &subjCert.init()) == nullptr || subjCert == nullptr)
     {
         throw crypto::CckyException(
             "Can't access the certificate of the subject ('" + options.subjectCertFile + "')",
             false);
     }
-    crypto::X509Ptr subjCertSafe(rawSubjCert);
 
-    EVP_PKEY* raw_pkey = X509_get_pubkey(subjCertSafe.get());
-    if (!raw_pkey)
+    crypto::EVPPKeyPtr pkey(X509_get_pubkey(subjCert.get()));
+    if (pkey == nullptr)
     {
         throw crypto::CckyException(
             "Can't access the certificate of the subject ('" + options.subjectCertFile + "')",
             false);
     }
-    return std::make_shared<crypto::OpenSslPrivateKey>(crypto::EVPPKeyPtr(raw_pkey));
+    return std::make_shared<crypto::OpenSslPrivateKey>(std::move(pkey));
 }
 
 PrivateKeyPtr loadSubjectKeyFromPvk(const MakeCertOptions& options)
@@ -242,7 +240,7 @@ crypto::X509Ptr createUnsignedCertificate(const MakeCertOptions& options,
     }
 
     // Set issuer name
-    if (options.selfSigned || !options.hasIssuerCert || !issuerCert)
+    if (options.selfSigned || !options.hasIssuerCert || issuerCert == nullptr)
     {
         X509_set_issuer_name(cert.get(), name);
     }
@@ -278,7 +276,7 @@ void addBasicConstraints(X509* cert, const MakeCertOptions& options)
     X509V3_CTX ctx;
     X509V3_set_ctx(&ctx, cert, cert, nullptr, nullptr, 0);
     X509ExtensionPtr ext(X509V3_EXT_conf_nid(nullptr, &ctx, NID_basic_constraints, value.c_str()));
-    if (!ext)
+    if (ext == nullptr)
     {
         throw std::runtime_error("Failed to create basic constraints extension");
     }
@@ -308,7 +306,7 @@ void addEku(X509* cert, const MakeCertOptions& options)
         for (const auto& oid : allEkuOids)
         {
             ASN1ObjectPtr obj(OBJ_txt2obj(oid.c_str(), 1));
-            if (!obj)
+            if (obj == nullptr)
             {
                 throw std::runtime_error("Invalid EKU OID: " + oid);
             }
@@ -329,7 +327,7 @@ void addPolicyLink(X509* cert, const MakeCertOptions& options)
     }
 
     SpcSpAgencyInfoPtr info(SPC_SP_AGENCY_INFO_new());
-    if (!info)
+    if (info == nullptr)
     {
         throw std::runtime_error("Failed to create SPC_SP_AGENCY_INFO");
     }
@@ -345,7 +343,7 @@ void addPolicyLink(X509* cert, const MakeCertOptions& options)
         options.policyLink.size());
 
     ASN1ObjectPtr obj(OBJ_txt2obj(OID_SPC_SP_AGENCY_INFO, 1));
-    if (!obj)
+    if (obj == nullptr)
     {
         throw std::runtime_error("Failed to create OID for SpcSpAgencyInfo");
     }
@@ -364,13 +362,13 @@ void addPolicyLink(X509* cert, const MakeCertOptions& options)
     i2d_SPC_SP_AGENCY_INFO(info.get(), &p);
 
     ASN1OctetStringPtr octet(ASN1_OCTET_STRING_new());
-    if (!octet || !ASN1_OCTET_STRING_set(octet.get(), encoded.data(), len))
+    if (octet == nullptr || !ASN1_OCTET_STRING_set(octet.get(), encoded.data(), len))
     {
         throw std::runtime_error("Failed to create octet string for SpcSpAgencyInfo");
     }
 
     X509ExtensionPtr ext(X509_EXTENSION_create_by_OBJ(nullptr, obj.get(), 0, octet.get()));
-    if (!ext || !X509_add_ext(cert, ext.get(), -1))
+    if (ext == nullptr || !X509_add_ext(cert, ext.get(), -1))
     {
         throw std::runtime_error("Failed to add SpcSpAgencyInfo extension");
     }
@@ -385,7 +383,7 @@ void addNetscape(X509* cert, const MakeCertOptions& options)
     X509V3_CTX ctx;
     X509V3_set_ctx(&ctx, cert, cert, nullptr, nullptr, 0);
     X509ExtensionPtr ext(X509V3_EXT_conf_nid(nullptr, &ctx, NID_netscape_cert_type, "client"));
-    if (ext)
+    if (ext != nullptr)
     {
         X509_add_ext(cert, ext.get(), -1);
     }
@@ -401,7 +399,7 @@ void signCertificate(const crypto::X509Ptr& cert, const crypto::EVPPKeyPtr& subj
     }
 
     EVP_PKEY* signKey = subjectKey.get();
-    if (issuerKey)
+    if (issuerKey != nullptr)
     {
         signKey = issuerKey.get();
     }
@@ -417,7 +415,7 @@ void writeCertificate(const crypto::X509Ptr& cert, const MakeCertOptions& option
     if (!options.outputCertFile.empty())
     {
         crypto::BIOPtr bio_out(BIO_new_file(options.outputCertFile.c_str(), "w"));
-        if (!bio_out)
+        if (bio_out == nullptr)
         {
             throw std::runtime_error(
                 "Failed to open output certificate file: " + options.outputCertFile);
@@ -475,7 +473,7 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
         throw crypto::CckyException(msg, false);
     }
 
-    crypto::EVPPKeyPtr pkey(EVP_PKEY_new());
+    crypto::EVPPKeyPtr pkey;
     int keySpec = options.keySpec;
     int keyLen = options.keyLen;
     if (keyLen == 0)
@@ -499,12 +497,11 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
         {
             if (providerType == 13)
             {
-                EVP_PKEY* raw_pkey = EVP_PKEY_Q_keygen(nullptr, nullptr, "DH", (size_t)keyLen);
-                if (!raw_pkey)
+                pkey.reset(EVP_PKEY_Q_keygen(nullptr, nullptr, "DH", (size_t)keyLen));
+                if (pkey == nullptr)
                 {
                     throw std::runtime_error("Failed to generate DH key");
                 }
-                pkey.reset(raw_pkey);
             }
             else
             {
@@ -514,7 +511,7 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
         else // AT_SIGNATURE
         {
             EVPPKeyCtxPtr pctx(EVP_PKEY_CTX_new_from_name(nullptr, "DSA", nullptr));
-            if (!pctx || EVP_PKEY_paramgen_init(pctx.get()) <= 0)
+            if (pctx == nullptr || EVP_PKEY_paramgen_init(pctx.get()) <= 0)
             {
                 throw std::runtime_error("Failed to initialize DSA parameter generation");
             }
@@ -522,44 +519,33 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
             {
                 throw std::runtime_error("Failed to set DSA parameter bits");
             }
-            EVP_PKEY* raw_params = nullptr;
-            if (EVP_PKEY_paramgen(pctx.get(), &raw_params) <= 0)
+            EVPPKeyPtr params;
+            if (EVP_PKEY_paramgen(pctx.get(), &params.init()) <= 0 || params == nullptr)
             {
                 unsigned long errVal = ERR_get_error();
                 char buf[256];
                 ERR_error_string_n(errVal, buf, sizeof(buf));
                 throw std::runtime_error(std::string("Failed to generate DSA parameters: ") + buf);
             }
-            EVPPKeyPtr params(raw_params);
 
             EVPPKeyCtxPtr kctx(EVP_PKEY_CTX_new(params.get(), nullptr));
-            EVP_PKEY* raw_pkey = nullptr;
-            if (kctx)
-            {
-                if (EVP_PKEY_keygen_init(kctx.get()) <= 0 ||
-                    EVP_PKEY_keygen(kctx.get(), &raw_pkey) <= 0)
-                {
-                    raw_pkey = nullptr;
-                }
-            }
-            if (!raw_pkey)
+            if (kctx == nullptr || EVP_PKEY_keygen_init(kctx.get()) <= 0 ||
+                EVP_PKEY_keygen(kctx.get(), &pkey.init()) <= 0 || pkey == nullptr)
             {
                 unsigned long errVal = ERR_get_error();
                 char buf[256];
                 ERR_error_string_n(errVal, buf, sizeof(buf));
                 throw std::runtime_error(std::string("Failed to generate DSA key: ") + buf);
             }
-            pkey.reset(raw_pkey);
         }
     }
     else if (providerType == 0 || providerType == 1 || providerType == 24)
     {
-        EVP_PKEY* raw_pkey = EVP_PKEY_Q_keygen(nullptr, nullptr, "RSA", (size_t)keyLen);
-        if (!raw_pkey)
+        pkey.reset(EVP_PKEY_Q_keygen(nullptr, nullptr, "RSA", (size_t)keyLen));
+        if (pkey == nullptr)
         {
             throw std::runtime_error("Failed to generate RSA key");
         }
-        pkey.reset(raw_pkey);
     }
     else
     {

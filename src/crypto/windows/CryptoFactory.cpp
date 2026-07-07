@@ -13,8 +13,8 @@
 #include "crypto/FileTypeDetector.h"
 #include "crypto/windows/Win32Cert.h"
 #include "crypto/windows/Win32Store.h"
+#include "crypto/windows/Win32Wrapper.h"
 #include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WinWrapper.h"
 
 namespace ccky
 {
@@ -66,7 +66,7 @@ CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t
 {
     CertContextPtr certPtr(CertCreateCertificateContext(
         X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size()));
-    if (!certPtr)
+    if (certPtr == nullptr)
     {
         return nullptr;
     }
@@ -77,7 +77,7 @@ CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
 {
     CrlContextPtr crlPtr(CertCreateCRLContext(
         X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size()));
-    if (!crlPtr)
+    if (crlPtr == nullptr)
     {
         return nullptr;
     }
@@ -88,7 +88,7 @@ CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
 {
     CtlContextPtr ctlPtr(CertCreateCTLContext(
         X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, derBytes.data(), derBytes.size()));
-    if (!ctlPtr)
+    if (ctlPtr == nullptr)
     {
         return nullptr;
     }
@@ -135,14 +135,12 @@ std::string CryptoFactory::calculateSha256(const std::string& filePath)
         return "";
     }
 
-    HCRYPTPROV rawProv = 0;
-    if (CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    CryptProvPtr hProv;
+    if (CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
     {
-        CryptProvPtr hProv(rawProv);
-        HCRYPTHASH rawHash = 0;
-        if (CryptCreateHash(hProv.get(), CALG_SHA_256, 0, 0, &rawHash))
+        CryptHashPtr hHash;
+        if (CryptCreateHash(hProv.get(), CALG_SHA_256, 0, 0, &hHash.init()))
         {
-            CryptHashPtr hHash(rawHash);
             if (CryptHashData(hHash.get(), data.data(), data.size(), 0))
             {
                 BYTE hash[32];
@@ -165,19 +163,17 @@ std::string CryptoFactory::calculateSha256(const std::string& filePath)
 
 std::vector<uint8_t> CryptoFactory::calculateSha1Bytes(const std::vector<uint8_t>& data)
 {
-    HCRYPTPROV rawProv = 0;
-    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    CryptProvPtr hProv;
+    if (!CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
     {
         throw CckyException("Failed to acquire crypt context for SHA1");
     }
-    CryptProvPtr hProv(rawProv);
 
-    HCRYPTHASH rawHash = 0;
-    if (!CryptCreateHash(hProv.get(), CALG_SHA1, 0, 0, &rawHash))
+    CryptHashPtr hHash;
+    if (!CryptCreateHash(hProv.get(), CALG_SHA1, 0, 0, &hHash.init()))
     {
         throw CckyException("Failed to create SHA1 hash");
     }
-    CryptHashPtr hHash(rawHash);
 
     if (!CryptHashData(hHash.get(), data.data(), static_cast<DWORD>(data.size()), 0))
     {
@@ -197,12 +193,11 @@ std::vector<uint8_t> CryptoFactory::calculateSha1Bytes(const std::vector<uint8_t
 std::vector<uint8_t> CryptoFactory::encryptRc4Bytes(
     const std::vector<uint8_t>& key, const std::vector<uint8_t>& data)
 {
-    HCRYPTPROV rawProv = 0;
-    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    CryptProvPtr hProv;
+    if (!CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
     {
         throw CckyException("Failed to acquire crypt context for RC4");
     }
-    CryptProvPtr hProv(rawProv);
 
     // Prepare PLAINTEXTKEYBLOB
     std::vector<uint8_t> blobBuf(sizeof(BLOBHEADER) + sizeof(DWORD) + key.size());
@@ -217,13 +212,12 @@ std::vector<uint8_t> CryptoFactory::encryptRc4Bytes(
 
     std::copy(key.begin(), key.end(), blobBuf.begin() + sizeof(BLOBHEADER) + sizeof(DWORD));
 
-    HCRYPTKEY rawKey = 0;
+    CryptKeyPtr hKey;
     if (!CryptImportKey(
-            hProv.get(), blobBuf.data(), static_cast<DWORD>(blobBuf.size()), 0, 0, &rawKey))
+            hProv.get(), blobBuf.data(), static_cast<DWORD>(blobBuf.size()), 0, 0, &hKey.init()))
     {
         throw CckyException("Failed to import RC4 key");
     }
-    CryptKeyPtr hKey(rawKey);
 
     std::vector<uint8_t> out = data;
     DWORD dataLen = static_cast<DWORD>(out.size());
@@ -237,12 +231,11 @@ std::vector<uint8_t> CryptoFactory::encryptRc4Bytes(
 
 void CryptoFactory::getRandomBytes(void* buf, size_t len)
 {
-    HCRYPTPROV rawProv = 0;
-    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    CryptProvPtr hProv;
+    if (!CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
     {
         throw CckyException("Failed to acquire crypt context for random bytes");
     }
-    CryptProvPtr hProv(rawProv);
 
     if (!CryptGenRandom(hProv.get(), static_cast<DWORD>(len), static_cast<BYTE*>(buf)))
     {

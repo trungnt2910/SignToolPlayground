@@ -6,7 +6,7 @@
 
 #include "crypto/PrivateKey.h"
 #include "crypto/windows/KeySetDeleter.h"
-#include "crypto/windows/WinWrapper.h"
+#include "crypto/windows/Win32Wrapper.h"
 
 namespace ccky
 {

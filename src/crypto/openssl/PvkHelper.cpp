@@ -56,7 +56,7 @@ EVPPKeyPtr PvkHelper::blobToPkey(const std::vector<uint8_t>& keyData)
     auto readBN = [&](size_t len)
     {
         BNPtr bn(BN_lebin2bn(&keyData[offset], len, nullptr));
-        if (!bn)
+        if (bn == nullptr)
         {
             throw std::runtime_error("Failed to parse BIGNUM");
         }
@@ -72,36 +72,33 @@ EVPPKeyPtr PvkHelper::blobToPkey(const std::vector<uint8_t>& keyData)
     BNPtr iqmp = readBN(p_len);
     BNPtr d = readBN(n_len);
 
-    BIGNUM* raw_e = BN_new();
-    if (!raw_e)
+    BNPtr e(BN_new());
+    if (e == nullptr)
     {
         throw std::runtime_error("Failed to allocate BIGNUM");
     }
-    BNPtr e(raw_e);
     BN_set_word(e.get(), pubexp);
 
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
-    if (!ctx)
+    EVPPKeyCtxPtr ctx(EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr));
+    if (ctx == nullptr)
     {
         throw std::runtime_error("Failed to create EVP_PKEY_CTX");
     }
-    std::unique_ptr<EVP_PKEY_CTX, void (*)(EVP_PKEY_CTX*)> ctx_guard(ctx, EVP_PKEY_CTX_free);
 
-    if (EVP_PKEY_fromdata_init(ctx) <= 0)
+    if (EVP_PKEY_fromdata_init(ctx.get()) <= 0)
     {
         throw std::runtime_error("Failed to init EVP_PKEY_fromdata");
     }
 
-    OSSL_PARAM_BLD* bld = OSSL_PARAM_BLD_new();
-    if (!bld)
+    OsslParamBldPtr bld(OSSL_PARAM_BLD_new());
+    if (bld == nullptr)
     {
         throw std::runtime_error("Failed to create OSSL_PARAM_BLD");
     }
-    std::unique_ptr<OSSL_PARAM_BLD, void (*)(OSSL_PARAM_BLD*)> bld_guard(bld, OSSL_PARAM_BLD_free);
 
     auto pushBN = [&](const char* name, const BNPtr& bn)
     {
-        if (OSSL_PARAM_BLD_push_BN(bld, name, bn.get()) <= 0)
+        if (OSSL_PARAM_BLD_push_BN(bld.get(), name, bn.get()) <= 0)
         {
             throw std::runtime_error(std::string("Failed to push BN: ") + name);
         }
@@ -116,20 +113,19 @@ EVPPKeyPtr PvkHelper::blobToPkey(const std::vector<uint8_t>& keyData)
     pushBN("rsa-exponent2", dmq1);
     pushBN("rsa-coefficient1", iqmp);
 
-    OSSL_PARAM* params = OSSL_PARAM_BLD_to_param(bld);
-    if (!params)
+    OsslParamPtr params(OSSL_PARAM_BLD_to_param(bld.get()));
+    if (params == nullptr)
     {
         throw std::runtime_error("Failed to build params");
     }
-    std::unique_ptr<OSSL_PARAM, void (*)(OSSL_PARAM*)> params_guard(params, OSSL_PARAM_free);
 
-    EVP_PKEY* raw_pkey = nullptr;
-    if (EVP_PKEY_fromdata(ctx, &raw_pkey, EVP_PKEY_KEYPAIR, params) <= 0)
+    EVPPKeyPtr pkey;
+    if (EVP_PKEY_fromdata(ctx.get(), &pkey.init(), EVP_PKEY_KEYPAIR, params.get()) <= 0)
     {
         throw std::runtime_error("Failed to create EVP_PKEY from data");
     }
 
-    return EVPPKeyPtr(raw_pkey);
+    return pkey;
 }
 
 std::vector<uint8_t> PvkHelper::pkeyToBlob(EVP_PKEY* pkey, PvkKeySpec keySpec)
@@ -141,12 +137,12 @@ std::vector<uint8_t> PvkHelper::pkeyToBlob(EVP_PKEY* pkey, PvkKeySpec keySpec)
 
     auto getBNParam = [](EVP_PKEY* k, const char* name) -> BNPtr
     {
-        BIGNUM* raw_bn = nullptr;
-        if (EVP_PKEY_get_bn_param(k, name, &raw_bn) <= 0)
+        BNPtr bn;
+        if (EVP_PKEY_get_bn_param(k, name, &bn.init()) <= 0)
         {
             throw std::runtime_error(std::string("Failed to get BN param: ") + name);
         }
-        return BNPtr(raw_bn);
+        return bn;
     };
 
     BNPtr n = getBNParam(pkey, "n");

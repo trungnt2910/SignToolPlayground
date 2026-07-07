@@ -64,7 +64,7 @@ CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t
 {
     const unsigned char* p = derBytes.data();
     X509Ptr x(d2i_X509(nullptr, &p, derBytes.size()));
-    if (!x)
+    if (x == nullptr)
     {
         return nullptr;
     }
@@ -75,7 +75,7 @@ CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
 {
     const unsigned char* p = derBytes.data();
     X509CRLPtr x(d2i_X509_CRL(nullptr, &p, derBytes.size()));
-    if (!x)
+    if (x == nullptr)
     {
         return nullptr;
     }
@@ -115,7 +115,7 @@ std::string CryptoFactory::calculateSha256(const std::string& filePath)
 std::vector<uint8_t> CryptoFactory::calculateSha1Bytes(const std::vector<uint8_t>& data)
 {
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (!ctx)
+    if (ctx == nullptr)
     {
         throw OpenSslException("Failed to create MD context");
     }

@@ -75,7 +75,7 @@ std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, cons
     const EVP_MD* md = OpenSslHelper::getDigestAlgorithm(alg);
 
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (!ctx || EVP_DigestInit_ex(ctx.get(), md, nullptr) != 1)
+    if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), md, nullptr) != 1)
     {
         return {};
     }
@@ -133,7 +133,7 @@ std::vector<uint8_t> calculateAppxHashInternal(const std::string& filePath, cons
         auto hashBuf = [&](const std::vector<uint8_t>& data) -> std::vector<uint8_t>
         {
             EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-            if (!ctx || EVP_DigestInit_ex(ctx.get(), md, nullptr) != 1)
+            if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), md, nullptr) != 1)
             {
                 return {};
             }
@@ -274,7 +274,7 @@ void signAppx(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::st
     }
     BIOPtr memBio(BIO_new_mem_buf(appxHash.data(), appxHash.size()));
     PKCS7Ptr p7(PKCS7_sign(x, pkey, nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
-    if (!p7)
+    if (p7 == nullptr)
     {
         throw OpenSslException("Failed to create PKCS#7 signature structure", false);
     }
@@ -296,7 +296,7 @@ void signPe(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::stri
     }
     BIOPtr memBio(BIO_new_mem_buf(peHash.data(), peHash.size()));
     PKCS7Ptr p7(PKCS7_sign(x, pkey, nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
-    if (!p7)
+    if (p7 == nullptr)
     {
         throw OpenSslException("Failed to create PKCS#7 signature structure", false);
     }

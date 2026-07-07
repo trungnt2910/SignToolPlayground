@@ -6,7 +6,7 @@
 #include <wincrypt.h>
 
 #include "crypto/Certificate.h"
-#include "crypto/windows/WinWrapper.h"
+#include "crypto/windows/Win32Wrapper.h"
 
 namespace ccky
 {

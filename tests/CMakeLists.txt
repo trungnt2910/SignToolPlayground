@@ -1,6 +1,7 @@
 ccky_add_executable(ccky_tests
     Given_AppxStore.cpp
     Given_Bytes.cpp
+    Given_CckyHandle.cpp
     Given_CckyHelp.cpp
     Given_Certificate.cpp
     Given_CertMgr.cpp

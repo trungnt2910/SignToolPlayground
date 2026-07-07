@@ -30,19 +30,17 @@ OpenSslCert::~OpenSslCert() = default;
 // Encoding, Hashes & Algorithms
 std::vector<uint8_t> OpenSslCert::getEncoded() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return {};
     }
-    unsigned char* buf = nullptr;
-    int len = i2d_X509(m_cert.get(), &buf);
-    if (len <= 0 || !buf)
+    OpenSslBufferPtr bufPtr;
+    int len = i2d_X509(m_cert.get(), &bufPtr.init());
+    if (len <= 0 || bufPtr == nullptr)
     {
         return {};
     }
-    std::vector<uint8_t> res(buf, buf + len);
-    OPENSSL_free(buf);
-    return res;
+    return std::vector<uint8_t>(bufPtr.get(), bufPtr.get() + len);
 }
 
 std::string OpenSslCert::getSerialNumber() const
@@ -64,7 +62,7 @@ std::string OpenSslCert::getMd5Thumbprint() const
 
 std::string OpenSslCert::getSignatureAlgorithm() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -82,7 +80,7 @@ std::string OpenSslCert::getCommonName() const
 
 std::string OpenSslCert::getSubjectDisplay() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -91,7 +89,7 @@ std::string OpenSslCert::getSubjectDisplay() const
 
 std::string OpenSslCert::getSubjectDN() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -106,7 +104,7 @@ std::string OpenSslCert::getIssuerName() const
 
 std::string OpenSslCert::getIssuerDisplay() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -115,7 +113,7 @@ std::string OpenSslCert::getIssuerDisplay() const
 
 std::string OpenSslCert::getIssuerDN() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -138,12 +136,12 @@ std::string OpenSslCert::getNotAfter() const
 // Key Information
 int OpenSslCert::getKeyLength() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return 0;
     }
     EVPPKeyPtr pubkey(X509_get_pubkey(m_cert.get()));
-    if (!pubkey)
+    if (pubkey == nullptr)
     {
         return 0;
     }
@@ -157,7 +155,7 @@ std::string OpenSslCert::getKeyMd5Thumbprint() const
 
 std::string OpenSslCert::getKeySha256Thumbprint() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -187,7 +185,7 @@ std::string OpenSslCert::getContainerName() const { return ""; }
 // Extensions & Policy Attributes
 bool OpenSslCert::isCA() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return false;
     }
@@ -196,7 +194,7 @@ bool OpenSslCert::isCA() const
 
 int OpenSslCert::getPathLenConstraint() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return -1;
     }
@@ -206,13 +204,13 @@ int OpenSslCert::getPathLenConstraint() const
 std::vector<std::string> OpenSslCert::getEnhancedKeyUsage() const
 {
     std::vector<std::string> res;
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return res;
     }
     EKUPtr eku(
         (EXTENDED_KEY_USAGE*)X509_get_ext_d2i(m_cert.get(), NID_ext_key_usage, nullptr, nullptr));
-    if (!eku)
+    if (eku == nullptr)
     {
         return res;
     }
@@ -227,13 +225,13 @@ std::vector<std::string> OpenSslCert::getEnhancedKeyUsage() const
 
 uint32_t OpenSslCert::getNetscapeCertType() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return 0;
     }
     ASN1BitStringPtr nsType(
         (ASN1_BIT_STRING*)X509_get_ext_d2i(m_cert.get(), NID_netscape_cert_type, nullptr, nullptr));
-    if (!nsType)
+    if (nsType == nullptr)
     {
         return 0;
     }
@@ -247,12 +245,12 @@ uint32_t OpenSslCert::getNetscapeCertType() const
 
 std::string OpenSslCert::getPolicyLink() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
     ASN1ObjectPtr obj(OBJ_txt2obj(OID_SPC_SP_AGENCY_INFO, 1));
-    if (!obj)
+    if (obj == nullptr)
     {
         return "";
     }
@@ -273,7 +271,7 @@ std::string OpenSslCert::getPolicyLink() const
     }
     const unsigned char* p = ASN1_STRING_get0_data(data);
     SpcSpAgencyInfoPtr info(d2i_SPC_SP_AGENCY_INFO(nullptr, &p, ASN1_STRING_length(data)));
-    if (!info)
+    if (info == nullptr)
     {
         return "";
     }
@@ -304,17 +302,16 @@ std::string OpenSslCrl::getSha1() const { return OpenSslHelper::getCrlSha1(m_crl
 
 std::vector<uint8_t> OpenSslCrl::getEncoded() const
 {
-    if (!m_crl)
+    if (m_crl == nullptr)
     {
         return {};
     }
-    unsigned char* buf = nullptr;
-    int len = i2d_X509_CRL(m_crl.get(), &buf);
-    if (len <= 0 || !buf)
+    OpenSslBufferPtr bufPtr;
+    int len = i2d_X509_CRL(m_crl.get(), &bufPtr.init());
+    if (len <= 0 || bufPtr == nullptr)
     {
         return {};
     }
-    OpenSslBufferPtr bufPtr(buf);
     return std::vector<uint8_t>(bufPtr.get(), bufPtr.get() + len);
 }
 

@@ -102,22 +102,20 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
     };
     std::unique_ptr<HCRYPTPROV, TempProvDeleter> hProv(rawProv, TempProvDeleter{containerName});
 
-    HCRYPTKEY rawKey = 0;
+    CryptKeyPtr hKey;
     if (!CryptImportKey(hProv.get(), keyData.data(), static_cast<DWORD>(keyData.size()), 0,
-            CRYPT_EXPORTABLE, &rawKey))
+            CRYPT_EXPORTABLE, &hKey.init()))
     {
         throw WindowsException("Failed to import PVK private key");
     }
-    CryptKeyPtr hKey(rawKey);
 
     // 4. Create in-memory certificate store
-    HCERTSTORE rawMemStore =
-        CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, CERT_STORE_CREATE_NEW_FLAG, nullptr);
-    if (!rawMemStore)
+    CertStorePtr hMemStore(
+        CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, CERT_STORE_CREATE_NEW_FLAG, nullptr));
+    if (hMemStore == nullptr)
     {
         throw WindowsException("Failed to create memory store");
     }
-    CertStorePtr hMemStore(rawMemStore);
 
     // Add all certificates and associate the private key with the first one
     bool first = true;

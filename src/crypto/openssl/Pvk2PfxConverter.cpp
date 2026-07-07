@@ -107,13 +107,13 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
         sk_X509_free(caCerts);
     }
 
-    if (!p12)
+    if (p12 == nullptr)
     {
         throw CckyCryptoException("Failed to create PKCS12 structure");
     }
 
     BIOPtr outBio(BIO_new_file(outPfx.c_str(), "wb"));
-    if (!outBio)
+    if (outBio == nullptr)
     {
         throw CckyCryptoException("Failed to open output PFX file for writing: " + outPfx);
     }

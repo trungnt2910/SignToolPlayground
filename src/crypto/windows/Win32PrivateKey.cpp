@@ -20,7 +20,7 @@ Win32PrivateKey::Win32PrivateKey(CertContextPtr pCertContext)
     : m_pCertContext(std::move(pCertContext)), m_providerType(0), m_keySpec(0),
       m_isTempContainer(false)
 {
-    if (!m_pCertContext)
+    if (m_pCertContext == nullptr)
     {
         return;
     }
@@ -97,7 +97,7 @@ std::string Win32PrivateKey::getProviderName() const
 
 const CERT_PUBLIC_KEY_INFO* Win32PrivateKey::getPublicKeyInfo() const
 {
-    if (m_pCertContext)
+    if (m_pCertContext != nullptr)
     {
         return &m_pCertContext->pCertInfo->SubjectPublicKeyInfo;
     }

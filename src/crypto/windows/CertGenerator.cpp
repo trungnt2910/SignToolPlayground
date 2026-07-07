@@ -19,8 +19,8 @@
 #include "crypto/PvkKey.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/Win32Time.h"
+#include "crypto/windows/Win32Wrapper.h"
 #include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WinWrapper.h"
 #include "crypto/windows/WindowsException.h"
 
 namespace ccky
@@ -124,16 +124,16 @@ CertContextPtr loadSubjectCert(const MakeCertOptions& options)
         return nullptr;
     }
     std::wstring wSubjectCertFile = WinHelper::utf8ToWide(options.subjectCertFile);
-    PCCERT_CONTEXT pTempCert = nullptr;
+    CertContextPtr cert;
     if (!CryptQueryObject(CERT_QUERY_OBJECT_FILE, wSubjectCertFile.c_str(),
             CERT_QUERY_CONTENT_FLAG_CERT, CERT_QUERY_FORMAT_FLAG_BINARY, 0, nullptr, nullptr,
-            nullptr, nullptr, nullptr, reinterpret_cast<const void**>(&pTempCert)))
+            nullptr, nullptr, nullptr, reinterpret_cast<const void**>(&cert.init())))
     {
         throw CckyException(
             "Can't access the certificate of the subject ('" + options.subjectCertFile + "')",
             false);
     }
-    return CertContextPtr(pTempCert);
+    return cert;
 }
 
 CertContextPtr loadIssuerCert(const MakeCertOptions& options)
@@ -146,16 +146,16 @@ CertContextPtr loadIssuerCert(const MakeCertOptions& options)
     if (!options.issuerCertFile.empty())
     {
         std::wstring wIssuerCertFile = WinHelper::utf8ToWide(options.issuerCertFile);
-        PCCERT_CONTEXT pTempCert = nullptr;
+        CertContextPtr cert;
         if (!CryptQueryObject(CERT_QUERY_OBJECT_FILE, wIssuerCertFile.c_str(),
                 CERT_QUERY_CONTENT_FLAG_CERT, CERT_QUERY_FORMAT_FLAG_ALL, 0, nullptr, nullptr,
-                nullptr, nullptr, nullptr, reinterpret_cast<const void**>(&pTempCert)))
+                nullptr, nullptr, nullptr, reinterpret_cast<const void**>(&cert.init())))
         {
             throw CckyException(
                 "Can't access the certificate of the issuer ('" + options.issuerCertFile + "')",
                 false);
         }
-        return CertContextPtr(pTempCert);
+        return cert;
     }
     else if (!options.issuerName.empty())
     {
@@ -168,22 +168,22 @@ CertContextPtr loadIssuerCert(const MakeCertOptions& options)
 
         CertStorePtr hStore(
             CertOpenStore(CERT_STORE_PROV_SYSTEM_W, 0, NULL, storeFlags, wIssuerStoreName.c_str()));
-        if (!hStore)
+        if (hStore == nullptr)
         {
             throw CckyException(
                 "Failed to open issuer certificate store: " + options.issuerStoreName, false);
         }
 
         std::wstring wIssuerName = WinHelper::utf8ToWide(options.issuerName);
-        PCCERT_CONTEXT pTempCert =
+        CertContextPtr cert(
             CertFindCertificateInStore(hStore.get(), X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, 0,
-                CERT_FIND_SUBJECT_STR_W, wIssuerName.c_str(), nullptr);
-        if (!pTempCert)
+                CERT_FIND_SUBJECT_STR_W, wIssuerName.c_str(), nullptr));
+        if (cert == nullptr)
         {
             throw CckyException(
                 "Can't find the certificate of the issuer ('" + options.issuerName + "')", false);
         }
-        return CertContextPtr(pTempCert);
+        return cert;
     }
     return nullptr;
 }
@@ -338,14 +338,13 @@ PrivateKeyPtr loadSubjectKeyFromPvk(const MakeCertOptions& options,
     }
     auto pvkBlob = pvk.getKeyData();
 
-    HCRYPTKEY rawKey = 0;
+    CryptKeyPtr hKey;
     if (!CryptImportKey(hProv.get(), pvkBlob.data(), static_cast<DWORD>(pvkBlob.size()), 0,
-            CRYPT_EXPORTABLE, &rawKey))
+            CRYPT_EXPORTABLE, &hKey.init()))
     {
         throw CckyException(
             "Can't access the key of the subject ('" + options.pvkFile + "')", false);
     }
-    CryptKeyPtr hKey(rawKey);
 
     return std::make_shared<Win32PrivateKey>(std::move(hProv), std::move(hKey), containerName,
         providerName ? providerName : L"", providerType, options.keySpec, std::move(keysetDeleter));
@@ -563,7 +562,7 @@ PCCERT_CONTEXT signCertificate(const CERT_PUBLIC_KEY_INFO* pSubjectPublicKeyInfo
 
     certInfo.SignatureAlgorithm = *pSignatureAlgorithm;
 
-    if (pIssuerCert)
+    if (pIssuerCert != nullptr)
     {
         certInfo.Issuer = pIssuerCert->pCertInfo->Subject;
     }
@@ -642,7 +641,7 @@ void writeCertificate(
 
         CertStorePtr hStore(
             CertOpenStore(CERT_STORE_PROV_SYSTEM_W, 0, NULL, storeFlags, wStoreName.c_str()));
-        if (!hStore)
+        if (hStore == nullptr)
         {
             throw CckyException(
                 "Failed to open subject certificate store: " + options.ssStoreName, false);
@@ -796,8 +795,8 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
     }
     dwFlags |= (dwKeyLen << 16);
 
-    HCRYPTKEY rawKey = 0;
-    if (!CryptGenKey(hProv.get(), options.keySpec, dwFlags, &rawKey))
+    CryptKeyPtr hKey;
+    if (!CryptGenKey(hProv.get(), options.keySpec, dwFlags, &hKey.init()))
     {
         std::string error = "Can't create the key of the subject";
         if (!options.pvkFile.empty())
@@ -806,7 +805,6 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
         }
         throw CckyException(error, false);
     }
-    CryptKeyPtr hKey(rawKey);
 
     std::string password;
     if (!options.pvkFile.empty())
@@ -880,12 +878,11 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
             hIssuerProv =
                 acquireSubjectContext(options, tempIssuerContainerName, providerName, providerType);
             freeIssuerProv = true;
-            HCRYPTKEY hTempKeyRaw = 0;
-            if (!CryptGenKey(hIssuerProv, options.keySpec, 0, &hTempKeyRaw))
+            CryptKeyPtr hTempKey;
+            if (!CryptGenKey(hIssuerProv, options.keySpec, 0, &hTempKey.init()))
             {
                 throw WindowsException("Failed to generate temporary signing key");
             }
-            CryptKeyPtr hTempKey(hTempKeyRaw);
         }
     }
     IssuerProvCloser issuerProvCloser{hIssuerProv, tempIssuerContainerName, providerName,
@@ -906,7 +903,7 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
     CRYPT_ALGORITHM_IDENTIFIER sigAlg;
     ZeroMemory(&sigAlg, sizeof(sigAlg));
 
-    std::string pubKeyOid = pIssuerCert
+    std::string pubKeyOid = pIssuerCert != nullptr
                                 ? pIssuerCert->pCertInfo->SubjectPublicKeyInfo.Algorithm.pszObjId
                                 : pSubjectPublicKeyInfo->Algorithm.pszObjId;
 

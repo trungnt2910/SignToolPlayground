@@ -51,13 +51,12 @@ std::string OpenSslHelper::getCertCommonName(X509* cert)
     {
         return "";
     }
-    unsigned char* raw_utf8 = nullptr;
-    int len = ASN1_STRING_to_UTF8(&raw_utf8, data);
-    if (len < 0 || !raw_utf8)
+    OpenSslBufferPtr utf8;
+    int len = ASN1_STRING_to_UTF8(&utf8.init(), data);
+    if (len < 0 || utf8 == nullptr)
     {
         return "";
     }
-    OpenSslBufferPtr utf8(raw_utf8);
     std::string res(reinterpret_cast<char*>(utf8.get()), len);
     return res;
 }
@@ -88,13 +87,12 @@ std::string OpenSslHelper::getCertIssuerName(X509* cert)
     {
         return "";
     }
-    unsigned char* raw_utf8 = nullptr;
-    int len = ASN1_STRING_to_UTF8(&raw_utf8, data);
-    if (len < 0 || !raw_utf8)
+    OpenSslBufferPtr utf8;
+    int len = ASN1_STRING_to_UTF8(&utf8.init(), data);
+    if (len < 0 || utf8 == nullptr)
     {
         return "";
     }
-    OpenSslBufferPtr utf8(raw_utf8);
     std::string res(reinterpret_cast<char*>(utf8.get()), len);
     return res;
 }
@@ -156,11 +154,10 @@ std::string OpenSslHelper::getNameDisplay(X509_NAME* name)
         ASN1_STRING* data = X509_NAME_ENTRY_get_data(entry);
         if (data)
         {
-            unsigned char* raw_utf8 = nullptr;
-            int len = ASN1_STRING_to_UTF8(&raw_utf8, data);
-            if (len > 0 && raw_utf8)
+            OpenSslBufferPtr utf8;
+            int len = ASN1_STRING_to_UTF8(&utf8.init(), data);
+            if (len > 0 && utf8 != nullptr)
             {
-                OpenSslBufferPtr utf8(raw_utf8);
                 ss << " " << std::string(reinterpret_cast<char*>(utf8.get()), len);
             }
         }
@@ -181,7 +178,7 @@ std::string OpenSslHelper::getNameDN(X509_NAME* name)
         return "";
     }
     BIOPtr bio(BIO_new(BIO_s_mem()));
-    if (!bio)
+    if (bio == nullptr)
     {
         return "";
     }
@@ -237,7 +234,7 @@ std::string OpenSslHelper::getCrlSha1(X509_CRL* crl)
 std::string OpenSslHelper::getBufferSha1(const std::vector<uint8_t>& data)
 {
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (!ctx || EVP_DigestInit_ex(ctx.get(), EVP_sha1(), nullptr) != 1)
+    if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), EVP_sha1(), nullptr) != 1)
     {
         return "";
     }
@@ -262,7 +259,7 @@ std::string OpenSslHelper::getBufferSha1(const std::vector<uint8_t>& data)
 std::string OpenSslHelper::getBufferSha256(const std::vector<uint8_t>& data)
 {
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (!ctx || EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) != 1)
+    if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) != 1)
     {
         return "";
     }
@@ -347,17 +344,16 @@ std::string OpenSslHelper::getCertKeyMd5Thumbprint(X509* cert)
     {
         return "";
     }
-    unsigned char* der = nullptr;
-    int len = i2d_PUBKEY(pkey, &der);
-    if (len <= 0 || !der)
+    OpenSslBufferPtr derPtr;
+    int len = i2d_PUBKEY(pkey, &derPtr.init());
+    if (len <= 0 || derPtr == nullptr)
     {
         return "";
     }
-    OpenSslBufferPtr derPtr(der);
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int mdLen = 0;
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (ctx && EVP_DigestInit_ex(ctx.get(), EVP_md5(), nullptr) == 1 &&
+    if (ctx != nullptr && EVP_DigestInit_ex(ctx.get(), EVP_md5(), nullptr) == 1 &&
         EVP_DigestUpdate(ctx.get(), derPtr.get(), len) == 1 &&
         EVP_DigestFinal_ex(ctx.get(), md, &mdLen) == 1)
     {
@@ -387,17 +383,16 @@ std::string OpenSslHelper::getCertKeySha256Thumbprint(X509* cert)
     {
         return "";
     }
-    unsigned char* der = nullptr;
-    int len = i2d_PUBKEY(pkey, &der);
-    if (len <= 0 || !der)
+    OpenSslBufferPtr derPtr;
+    int len = i2d_PUBKEY(pkey, &derPtr.init());
+    if (len <= 0 || derPtr == nullptr)
     {
         return "";
     }
-    OpenSslBufferPtr derPtr(der);
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int mdLen = 0;
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (ctx && EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) == 1 &&
+    if (ctx != nullptr && EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) == 1 &&
         EVP_DigestUpdate(ctx.get(), derPtr.get(), len) == 1 &&
         EVP_DigestFinal_ex(ctx.get(), md, &mdLen) == 1)
     {

@@ -30,7 +30,7 @@ Win32Cert::Win32Cert(PCCERT_CONTEXT cert)
 // Encoding, Hashes & Algorithms
 std::vector<uint8_t> Win32Cert::getEncoded() const
 {
-    if (!m_cert || !m_cert->pbCertEncoded || m_cert->cbCertEncoded == 0)
+    if (m_cert == nullptr || !m_cert->pbCertEncoded || m_cert->cbCertEncoded == 0)
     {
         return {};
     }
@@ -40,7 +40,7 @@ std::vector<uint8_t> Win32Cert::getEncoded() const
 
 std::string Win32Cert::getSerialNumber() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -60,7 +60,7 @@ std::string Win32Cert::getSerialNumber() const
 
 std::string Win32Cert::getSha1() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -80,7 +80,7 @@ std::string Win32Cert::getSha1() const
 
 std::string Win32Cert::getSha1Thumbprint() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -105,7 +105,7 @@ std::string Win32Cert::getSha1Thumbprint() const
 
 std::string Win32Cert::getMd5Thumbprint() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -130,7 +130,7 @@ std::string Win32Cert::getMd5Thumbprint() const
 
 std::string Win32Cert::getSignatureAlgorithm() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -140,7 +140,7 @@ std::string Win32Cert::getSignatureAlgorithm() const
 // Subject Information
 std::string Win32Cert::getCommonName() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -156,7 +156,7 @@ std::string Win32Cert::getCommonName() const
 
 std::string Win32Cert::getSubjectDisplay() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -165,7 +165,7 @@ std::string Win32Cert::getSubjectDisplay() const
 
 std::string Win32Cert::getSubjectDN() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -175,7 +175,7 @@ std::string Win32Cert::getSubjectDN() const
 // Issuer Information
 std::string Win32Cert::getIssuerName() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -191,7 +191,7 @@ std::string Win32Cert::getIssuerName() const
 
 std::string Win32Cert::getIssuerDisplay() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -200,7 +200,7 @@ std::string Win32Cert::getIssuerDisplay() const
 
 std::string Win32Cert::getIssuerDN() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -210,7 +210,7 @@ std::string Win32Cert::getIssuerDN() const
 // Validity Period
 std::string Win32Cert::getNotBefore() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -219,7 +219,7 @@ std::string Win32Cert::getNotBefore() const
 
 std::string Win32Cert::getNotAfter() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -229,7 +229,7 @@ std::string Win32Cert::getNotAfter() const
 // Key Information
 int Win32Cert::getKeyLength() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return 0;
     }
@@ -238,7 +238,7 @@ int Win32Cert::getKeyLength() const
 
 std::string Win32Cert::getKeyMd5Thumbprint() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -256,18 +256,16 @@ std::string Win32Cert::getKeyMd5Thumbprint() const
         return "";
     }
 
-    HCRYPTPROV rawProv = 0;
-    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+    CryptProvPtr hProv;
+    if (!CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
     {
         return "";
     }
-    CryptProvPtr hProv(rawProv);
-    HCRYPTHASH rawHash = 0;
-    if (!CryptCreateHash(hProv.get(), CALG_MD5, 0, 0, &rawHash))
+    CryptHashPtr hHash;
+    if (!CryptCreateHash(hProv.get(), CALG_MD5, 0, 0, &hHash.init()))
     {
         return "";
     }
-    CryptHashPtr hHash(rawHash);
     if (!CryptHashData(hHash.get(), encodedBuf.data(), encodedBuf.size(), 0))
     {
         return "";
@@ -293,7 +291,7 @@ std::string Win32Cert::getKeyMd5Thumbprint() const
 
 std::string Win32Cert::getKeySha256Thumbprint() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -310,18 +308,16 @@ std::string Win32Cert::getKeySha256Thumbprint() const
         return "";
     }
 
-    HCRYPTPROV rawProv = 0;
-    if (!CryptAcquireContextW(&rawProv, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    CryptProvPtr hProv;
+    if (!CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
     {
         return "";
     }
-    CryptProvPtr hProv(rawProv);
-    HCRYPTHASH rawHash = 0;
-    if (!CryptCreateHash(hProv.get(), CALG_SHA_256, 0, 0, &rawHash))
+    CryptHashPtr hHash;
+    if (!CryptCreateHash(hProv.get(), CALG_SHA_256, 0, 0, &hHash.init()))
     {
         return "";
     }
-    CryptHashPtr hHash(rawHash);
     if (!CryptHashData(hHash.get(), encodedBuf.data(), encodedBuf.size(), 0))
     {
         return "";
@@ -344,7 +340,7 @@ std::string Win32Cert::getKeySha256Thumbprint() const
 // Private Key Information
 bool Win32Cert::hasPrivateKey() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return false;
     }
@@ -391,7 +387,7 @@ PrivateKeyPtr Win32Cert::getPrivateKey() const
 
 bool Win32Cert::isPrivateKeyExportable() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return false;
     }
@@ -408,22 +404,20 @@ bool Win32Cert::isPrivateKeyExportable() const
         return false;
     }
     auto* info = reinterpret_cast<PCRYPT_KEY_PROV_INFO>(buf.data());
-    HCRYPTPROV rawProv = 0;
+    CryptProvPtr hProv;
     if (!CryptAcquireContextW(
-            &rawProv, info->pwszContainerName, info->pwszProvName, info->dwProvType, 0))
+            &hProv.init(), info->pwszContainerName, info->pwszProvName, info->dwProvType, 0))
     {
         return false;
     }
-    CryptProvPtr hProv(rawProv);
-    HCRYPTKEY rawKey = 0;
+    CryptKeyPtr hKey;
     DWORD keySpec = info->dwKeySpec;
-    if (!CryptGetUserKey(hProv.get(), keySpec, &rawKey) &&
-        !CryptGetUserKey(hProv.get(), AT_KEYEXCHANGE, &rawKey) &&
-        !CryptGetUserKey(hProv.get(), AT_SIGNATURE, &rawKey))
+    if (!CryptGetUserKey(hProv.get(), keySpec, &hKey.init()) &&
+        !CryptGetUserKey(hProv.get(), AT_KEYEXCHANGE, &hKey.init()) &&
+        !CryptGetUserKey(hProv.get(), AT_SIGNATURE, &hKey.init()))
     {
         return false;
     }
-    CryptKeyPtr hKey(rawKey);
     DWORD exportSize = 0;
     if (CryptExportKey(hKey.get(), 0, PRIVATEKEYBLOB, 0, nullptr, &exportSize))
     {
@@ -435,7 +429,7 @@ bool Win32Cert::isPrivateKeyExportable() const
 // Provider Information
 std::string Win32Cert::getProviderType() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -457,7 +451,7 @@ std::string Win32Cert::getProviderType() const
 
 std::string Win32Cert::getProviderName() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -483,7 +477,7 @@ std::string Win32Cert::getProviderName() const
 
 std::string Win32Cert::getContainerName() const
 {
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return "";
     }
@@ -510,7 +504,7 @@ std::string Win32Cert::getContainerName() const
 // Extensions & Policy Attributes
 bool Win32Cert::isCA() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return false;
     }
@@ -532,7 +526,7 @@ bool Win32Cert::isCA() const
 
 int Win32Cert::getPathLenConstraint() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return -1;
     }
@@ -559,7 +553,7 @@ int Win32Cert::getPathLenConstraint() const
 std::vector<std::string> Win32Cert::getEnhancedKeyUsage() const
 {
     std::vector<std::string> res;
-    if (!m_cert)
+    if (m_cert == nullptr)
     {
         return res;
     }
@@ -583,7 +577,7 @@ std::vector<std::string> Win32Cert::getEnhancedKeyUsage() const
 
 uint32_t Win32Cert::getNetscapeCertType() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return 0;
     }
@@ -615,7 +609,7 @@ uint32_t Win32Cert::getNetscapeCertType() const
 
 std::string Win32Cert::getPolicyLink() const
 {
-    if (!m_cert || !m_cert->pCertInfo)
+    if (m_cert == nullptr || !m_cert->pCertInfo)
     {
         return "";
     }
@@ -654,13 +648,12 @@ std::string Win32Cert::getNameDisplay(const CERT_NAME_BLOB* pNameBlob) const
     }
 
     DWORD cbInfo = 0;
-    PCERT_NAME_INFO rawInfo = nullptr;
+    LocalFreePtr<CERT_NAME_INFO> pInfo;
     if (!CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, X509_NAME, pNameBlob->pbData,
-            pNameBlob->cbData, CRYPT_DECODE_ALLOC_FLAG, nullptr, &rawInfo, &cbInfo))
+            pNameBlob->cbData, CRYPT_DECODE_ALLOC_FLAG, nullptr, &pInfo.init(), &cbInfo))
     {
         return "";
     }
-    LocalFreePtr<CERT_NAME_INFO> pInfo(rawInfo);
 
     std::stringstream ss;
     for (DWORD i = 0; i < pInfo->cRDN; ++i)
@@ -735,7 +728,7 @@ Win32Crl::Win32Crl(PCCRL_CONTEXT crl)
 
 std::string Win32Crl::getSha1() const
 {
-    if (!m_crl)
+    if (m_crl == nullptr)
     {
         return "";
     }
@@ -755,7 +748,7 @@ std::string Win32Crl::getSha1() const
 
 std::vector<uint8_t> Win32Crl::getEncoded() const
 {
-    if (!m_crl || !m_crl->pbCrlEncoded || m_crl->cbCrlEncoded == 0)
+    if (m_crl == nullptr || !m_crl->pbCrlEncoded || m_crl->cbCrlEncoded == 0)
     {
         return {};
     }
@@ -772,7 +765,7 @@ Win32Ctl::Win32Ctl(PCCTL_CONTEXT ctl)
 
 std::string Win32Ctl::getSha1() const
 {
-    if (!m_ctl)
+    if (m_ctl == nullptr)
     {
         return "";
     }
@@ -792,7 +785,7 @@ std::string Win32Ctl::getSha1() const
 
 std::vector<uint8_t> Win32Ctl::getEncoded() const
 {
-    if (!m_ctl || !m_ctl->pbCtlEncoded || m_ctl->cbCtlEncoded == 0)
+    if (m_ctl == nullptr || !m_ctl->pbCtlEncoded || m_ctl->cbCtlEncoded == 0)
     {
         return {};
     }

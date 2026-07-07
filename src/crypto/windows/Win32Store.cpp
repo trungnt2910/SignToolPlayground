@@ -44,7 +44,7 @@ void Win32FileStore::addCertificate(CertificatePtr cert)
     auto der = cert->getEncoded();
     CertContextPtr pDup(CertCreateCertificateContext(
         X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, der.data(), static_cast<DWORD>(der.size())));
-    if (!pDup)
+    if (pDup == nullptr)
     {
         throw WindowsException("Failed to parse certificate", false);
     }
@@ -77,7 +77,7 @@ void Win32FileStore::addCrl(CrlPtr crl)
     auto der = crl->getEncoded();
     CrlContextPtr pDup(CertCreateCRLContext(
         X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, der.data(), static_cast<DWORD>(der.size())));
-    if (!pDup)
+    if (pDup == nullptr)
     {
         throw WindowsException("Failed to parse CRL", false);
     }
@@ -93,7 +93,7 @@ void Win32FileStore::addCtl(CtlPtr ctl)
     auto der = ctl->getEncoded();
     CtlContextPtr pDup(CertCreateCTLContext(
         X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, der.data(), static_cast<DWORD>(der.size())));
-    if (!pDup)
+    if (pDup == nullptr)
     {
         throw WindowsException("Failed to parse CTL", false);
     }
@@ -182,22 +182,20 @@ void Win32FileStore::loadSipFile(const std::string& location, const StoreOptions
     DWORD dwEncoding = 0;
     DWORD dwContentType = 0;
     DWORD dwFormatType = 0;
-    HCERTSTORE rawStore = nullptr;
-    HCRYPTMSG rawMsg = nullptr;
+    CertStorePtr hStore;
+    CryptMsgPtr hMsg;
 
     if (CryptQueryObject(CERT_QUERY_OBJECT_FILE, wLocation.c_str(),
             CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED | CERT_QUERY_CONTENT_FLAG_PKCS7_UNSIGNED |
                 CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED_EMBED,
-            CERT_QUERY_FORMAT_FLAG_ALL, 0, &dwEncoding, &dwContentType, &dwFormatType, &rawStore,
-            &rawMsg, nullptr))
+            CERT_QUERY_FORMAT_FLAG_ALL, 0, &dwEncoding, &dwContentType, &dwFormatType,
+            &hStore.init(), &hMsg.init(), nullptr))
     {
-        CertStorePtr hStore(rawStore);
-        CryptMsgPtr hMsg(rawMsg);
-        if (hStore)
+        if (hStore != nullptr)
         {
             populateFromStore(hStore.get());
         }
-        if (hMsg)
+        if (hMsg != nullptr)
         {
             DWORD cbSize = 0;
             if (CryptMsgGetParam(hMsg.get(), CMSG_SIGNER_INFO_PARAM, 0, nullptr, &cbSize))
@@ -268,7 +266,7 @@ void Win32FileStore::saveSipFile(const std::string& location, const StoreOptions
 
     CertStorePtr hTempStore(
         CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, CERT_STORE_CREATE_NEW_FLAG, nullptr));
-    if (!hTempStore)
+    if (hTempStore == nullptr)
     {
         throw WindowsException("Failed to save the store", false);
     }
@@ -307,7 +305,7 @@ void Win32FileStore::saveSipFile(const std::string& location, const StoreOptions
             std::wstring wLoc = WinHelper::utf8ToWide(m_loadedLocation);
             HandlePtr hFile(CreateFileW(wLoc.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
                 nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
-            if (hFile)
+            if (hFile != nullptr)
             {
                 DWORD dwLen = sizeof(WIN_CERTIFICATE) + p7Blob.cbData;
                 std::unique_ptr<BYTE[]> winCertBuf(new BYTE[dwLen]);
@@ -339,7 +337,7 @@ void Win32SystemStoreImpl::load(const std::string& location, const StoreOptions&
     std::wstring wLoc = WinHelper::utf8ToWide(location);
     m_store.reset(CertOpenStore(
         CERT_STORE_PROV_SYSTEM_W, 0, 0, dwFlags | CERT_STORE_OPEN_EXISTING_FLAG, wLoc.c_str()));
-    if (!m_store)
+    if (m_store == nullptr)
     {
         throw WindowsException("Failed to open system store: " + location, false);
     }
@@ -353,7 +351,7 @@ void Win32SystemStoreImpl::save(const std::string& location, const StoreOptions&
 std::vector<CertificatePtr> Win32SystemStoreImpl::getCertificates()
 {
     std::vector<CertificatePtr> list;
-    if (!m_store)
+    if (m_store == nullptr)
     {
         return list;
     }
@@ -369,7 +367,7 @@ std::vector<CertificatePtr> Win32SystemStoreImpl::getCertificates()
 std::vector<CrlPtr> Win32SystemStoreImpl::getCrls()
 {
     std::vector<CrlPtr> list;
-    if (!m_store)
+    if (m_store == nullptr)
     {
         return list;
     }
@@ -384,7 +382,7 @@ std::vector<CrlPtr> Win32SystemStoreImpl::getCrls()
 std::vector<CtlPtr> Win32SystemStoreImpl::getCtls()
 {
     std::vector<CtlPtr> list;
-    if (!m_store)
+    if (m_store == nullptr)
     {
         return list;
     }
@@ -398,16 +396,16 @@ std::vector<CtlPtr> Win32SystemStoreImpl::getCtls()
 
 void Win32SystemStoreImpl::addCertificate(CertificatePtr cert)
 {
-    if (!m_store || !cert)
+    if (m_store == nullptr || !cert)
     {
         throw WindowsException("Invalid store handle or certificate pointer", false);
     }
-    PCCERT_CONTEXT rawAddedCert = nullptr;
+    CertContextPtr pAddedCert;
     auto* winCert = dynamic_cast<Win32Cert*>(cert.get());
     if (winCert && winCert->getInternal())
     {
         if (!CertAddCertificateContextToStore(m_store.get(), winCert->getInternal(),
-                CERT_STORE_ADD_REPLACE_EXISTING, &rawAddedCert))
+                CERT_STORE_ADD_REPLACE_EXISTING, &pAddedCert.init()))
         {
             throw WindowsException("Failed to add certificate context to system store", false);
         }
@@ -417,13 +415,12 @@ void Win32SystemStoreImpl::addCertificate(CertificatePtr cert)
         auto der = cert->getEncoded();
         if (!CertAddEncodedCertificateToStore(m_store.get(),
                 X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, der.data(), static_cast<DWORD>(der.size()),
-                CERT_STORE_ADD_REPLACE_EXISTING, &rawAddedCert))
+                CERT_STORE_ADD_REPLACE_EXISTING, &pAddedCert.init()))
         {
             throw WindowsException("Failed to add certificate to system store", false);
         }
     }
-    CertContextPtr pAddedCert(rawAddedCert);
-    if (pAddedCert)
+    if (pAddedCert != nullptr)
     {
         if (cert->hasPrivateKey())
         {
@@ -448,7 +445,7 @@ void Win32SystemStoreImpl::addCertificate(CertificatePtr cert)
 
 void Win32SystemStoreImpl::addCrl(CrlPtr crl)
 {
-    if (!m_store || !crl)
+    if (m_store == nullptr || !crl)
     {
         throw WindowsException("Invalid store handle or CRL pointer", false);
     }
@@ -462,7 +459,7 @@ void Win32SystemStoreImpl::addCrl(CrlPtr crl)
 
 void Win32SystemStoreImpl::addCtl(CtlPtr ctl)
 {
-    if (!m_store || !ctl)
+    if (m_store == nullptr || !ctl)
     {
         throw WindowsException("Invalid store handle or CTL pointer", false);
     }
@@ -477,7 +474,7 @@ void Win32SystemStoreImpl::addCtl(CtlPtr ctl)
 void Win32SystemStoreImpl::deleteCertificate(
     const std::string& commonName, const std::string& sha1Hash)
 {
-    if (!m_store)
+    if (m_store == nullptr)
     {
         throw WindowsException("Invalid store handle", false);
     }
@@ -507,7 +504,7 @@ void Win32SystemStoreImpl::deleteCertificate(
 
 void Win32SystemStoreImpl::deleteCrl(const std::string& sha1Hash)
 {
-    if (!m_store)
+    if (m_store == nullptr)
     {
         throw WindowsException("Invalid store handle", false);
     }
@@ -530,7 +527,7 @@ void Win32SystemStoreImpl::deleteCrl(const std::string& sha1Hash)
 
 void Win32SystemStoreImpl::deleteCtl(const std::string& sha1Hash)
 {
-    if (!m_store)
+    if (m_store == nullptr)
     {
         throw WindowsException("Invalid store handle", false);
     }
@@ -615,17 +612,14 @@ void Win32CerFileStore::load(const std::string& location, const StoreOptions& op
     DWORD dwEncoding = 0;
     DWORD dwContentType = 0;
     DWORD dwFormatType = 0;
-    HCERTSTORE rawStore = nullptr;
-    HCRYPTMSG rawMsg = nullptr;
+    CertStorePtr hStore;
+    CryptMsgPtr hMsg;
 
     Win32Check::check(CryptQueryObject(CERT_QUERY_OBJECT_FILE, wLocation.c_str(),
                           CERT_QUERY_CONTENT_FLAG_ALL, CERT_QUERY_FORMAT_FLAG_ALL, 0, &dwEncoding,
-                          &dwContentType, &dwFormatType, &rawStore, &rawMsg, nullptr),
+                          &dwContentType, &dwFormatType, &hStore.init(), &hMsg.init(), nullptr),
         "CryptQueryObject failed");
-
-    CertStorePtr hStore(rawStore);
-    CryptMsgPtr hMsg(rawMsg);
-    if (hStore)
+    if (hStore != nullptr)
     {
         populateFromStore(hStore.get());
     }
@@ -673,7 +667,7 @@ void Win32CerFileStore::saveAsPkcs7(const std::string& location)
 {
     CertStorePtr hTempStore(
         CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, CERT_STORE_CREATE_NEW_FLAG, nullptr));
-    if (!hTempStore)
+    if (hTempStore == nullptr)
     {
         throw WindowsException("Failed to create memory store for PKCS#7", false);
     }
@@ -756,12 +750,12 @@ void Win32PfxCertStore::load(const std::string& location, const StoreOptions& op
     std::wstring wPass = WinHelper::utf8ToWide(options.password);
     DWORD dwImportFlags = CRYPT_USER_KEYSET | CRYPT_EXPORTABLE;
     CertStorePtr hPfxStore(PFXImportCertStore(&blob, wPass.c_str(), dwImportFlags));
-    if (!hPfxStore)
+    if (hPfxStore == nullptr)
     {
         hPfxStore.reset(PFXImportCertStore(&blob, nullptr, dwImportFlags));
     }
 
-    if (!hPfxStore)
+    if (hPfxStore == nullptr)
     {
         throw WindowsException("Failed to open the store", false);
     }
