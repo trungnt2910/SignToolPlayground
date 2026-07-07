@@ -18,6 +18,7 @@
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
 #include "crypto/windows/Win32PrivateKey.h"
+#include "crypto/windows/Win32Time.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WinWrapper.h"
 #include "crypto/windows/WindowsException.h"
@@ -534,8 +535,8 @@ std::vector<BYTE> encodeNetscape(const MakeCertOptions& options)
 PCCERT_CONTEXT signCertificate(const CERT_PUBLIC_KEY_INFO* pSubjectPublicKeyInfo,
     const CERT_NAME_BLOB* pSubjectName, PCCERT_CONTEXT pIssuerCert, HCRYPTPROV hIssuerProv,
     DWORD dwIssuerKeySpec, PCRYPT_ALGORITHM_IDENTIFIER pSignatureAlgorithm,
-    const SYSTEMTIME* pStartTime, const SYSTEMTIME* pEndTime, const CERT_EXTENSIONS* pExtensions,
-    long serialNum, bool hasSerialNum)
+    std::chrono::system_clock::time_point startTime, std::chrono::system_clock::time_point endTime,
+    const CERT_EXTENSIONS* pExtensions, long serialNum, bool hasSerialNum)
 {
     CERT_INFO certInfo = {0};
     certInfo.dwVersion = CERT_V3;
@@ -571,14 +572,8 @@ PCCERT_CONTEXT signCertificate(const CERT_PUBLIC_KEY_INFO* pSubjectPublicKeyInfo
         certInfo.Issuer = *pSubjectName; // Self-signed
     }
 
-    if (!SystemTimeToFileTime(pStartTime, &certInfo.NotBefore))
-    {
-        throw CckyException("Failed to convert start time.");
-    }
-    if (!SystemTimeToFileTime(pEndTime, &certInfo.NotAfter))
-    {
-        throw CckyException("Failed to convert end time.");
-    }
+    certInfo.NotBefore = Win32Time::fromChrono(startTime);
+    certInfo.NotAfter = Win32Time::fromChrono(endTime);
 
     certInfo.Subject = *pSubjectName;
     certInfo.SubjectPublicKeyInfo = *pSubjectPublicKeyInfo;
@@ -842,11 +837,6 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
 
 void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateKeyPtr subjectKey)
 {
-    if (!options.endStr.empty() && options.months != 0)
-    {
-        throw std::invalid_argument("E and M options are mutually exclusive");
-    }
-
     // 1. Convert Subject Name
     std::wstring wSubjectName = WinHelper::utf8ToWide(options.subjectName);
 
@@ -922,76 +912,7 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
 
     sigAlg.pszObjId = const_cast<LPSTR>(getSignatureAlgorithmOid(options.algo, pubKeyOid));
 
-    // 10. Dates
-    std::chrono::year_month_day ymd_start;
-    SYSTEMTIME stStartTime;
-    GetSystemTime(&stStartTime); // Default to now
-    ymd_start = std::chrono::year_month_day{std::chrono::year{stStartTime.wYear},
-        std::chrono::month{stStartTime.wMonth}, std::chrono::day{stStartTime.wDay}};
-
-    if (!options.startStr.empty())
-    {
-        int m, d, y;
-        if (std::sscanf(options.startStr.c_str(), "%d/%d/%d", &m, &d, &y) == 3)
-        {
-            ZeroMemory(&stStartTime, sizeof(stStartTime));
-            ymd_start = std::chrono::year_month_day{std::chrono::year{y},
-                std::chrono::month{static_cast<unsigned>(m)},
-                std::chrono::day{static_cast<unsigned>(d)}};
-            if (!ymd_start.ok())
-            {
-                throw CckyException("Invalid start date", false);
-            }
-            stStartTime.wYear = static_cast<WORD>(static_cast<int>(ymd_start.year()));
-            stStartTime.wMonth = static_cast<WORD>(static_cast<unsigned>(ymd_start.month()));
-            stStartTime.wDay = static_cast<WORD>(static_cast<unsigned>(ymd_start.day()));
-        }
-    }
-
-    SYSTEMTIME stEndTime;
-    ZeroMemory(&stEndTime, sizeof(stEndTime));
-    if (!options.endStr.empty())
-    {
-        int m, d, y;
-        if (std::sscanf(options.endStr.c_str(), "%d/%d/%d", &m, &d, &y) == 3)
-        {
-            std::chrono::year_month_day ymd{std::chrono::year{y},
-                std::chrono::month{static_cast<unsigned>(m)},
-                std::chrono::day{static_cast<unsigned>(d)}};
-            if (!ymd.ok())
-            {
-                throw CckyException("Invalid end date", false);
-            }
-            stEndTime.wYear = static_cast<WORD>(static_cast<int>(ymd.year()));
-            stEndTime.wMonth = static_cast<WORD>(static_cast<unsigned>(ymd.month()));
-            stEndTime.wDay = static_cast<WORD>(static_cast<unsigned>(ymd.day()));
-        }
-    }
-    else if (options.months > 0)
-    {
-        stEndTime = stStartTime;
-        auto target_ym =
-            (ymd_start.year() / ymd_start.month()) + std::chrono::months(options.months);
-        std::chrono::year_month_day ymd_end = target_ym / ymd_start.day();
-        if (!ymd_end.ok())
-        {
-            ymd_end = target_ym / std::chrono::last;
-        }
-        stEndTime.wYear = static_cast<WORD>(static_cast<int>(ymd_end.year()));
-        stEndTime.wMonth = static_cast<WORD>(static_cast<unsigned>(ymd_end.month()));
-        stEndTime.wDay = static_cast<WORD>(static_cast<unsigned>(ymd_end.day()));
-    }
-    else
-    {
-        stEndTime.wYear = 2039;
-        stEndTime.wMonth = 12;
-        stEndTime.wDay = 31;
-        stEndTime.wHour = 23;
-        stEndTime.wMinute = 59;
-        stEndTime.wSecond = 59;
-    }
-
-    // 11. Extensions
+    // 10. Extensions
     std::vector<CERT_EXTENSION> extensions;
     std::vector<BYTE> bcEncoded = encodeBasicConstraints(options);
     if (!bcEncoded.empty())
@@ -1041,9 +962,9 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
     certExts.cExtension = static_cast<DWORD>(extensions.size());
     certExts.rgExtension = extensions.data();
 
-    // 12. Sign Certificate
+    // 11. Sign Certificate
     CertContextPtr pCertContext(signCertificate(pSubjectPublicKeyInfo, &nameBlob, pIssuerCert.get(),
-        hIssuerProv, dwIssuerKeySpec, &sigAlg, &stStartTime, &stEndTime, &certExts,
+        hIssuerProv, dwIssuerKeySpec, &sigAlg, options.startTime, options.endTime, &certExts,
         options.serialNum, options.hasSerialNum));
 
     // 13. Write Certificate

@@ -1,6 +1,8 @@
 #ifndef CCKY_WINDOWS_EXCEPTION_H
 #define CCKY_WINDOWS_EXCEPTION_H
 
+#include <windows.h>
+
 #include "crypto/CckyException.h"
 
 namespace ccky
@@ -21,7 +23,11 @@ class Win32Check
 {
   public:
     static void check(bool condition, const std::string& context);
-    static void checkPtr(const void* ptr, const std::string& context);
+    template <typename T> static T* checkPtr(T* ptr, const std::string& context)
+    {
+        check(ptr != nullptr && ptr != INVALID_HANDLE_VALUE, context);
+        return ptr;
+    }
     static void checkHr(long hr, const std::string& context);
 };
 

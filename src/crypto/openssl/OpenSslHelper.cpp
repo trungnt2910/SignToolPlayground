@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <sstream>
 
-#include "crypto/TimeFormatter.h"
+#include "crypto/Time.h"
 #include "crypto/openssl/OpenSslWrapper.h"
 
 namespace ccky
@@ -410,27 +410,6 @@ std::string OpenSslHelper::getCertKeySha256Thumbprint(X509* cert)
         return ss.str();
     }
     return "";
-}
-
-std::string OpenSslHelper::getCertTime(const ASN1_TIME* time)
-{
-    if (!time)
-    {
-        return "";
-    }
-    struct tm t;
-    memset(&t, 0, sizeof(t));
-    if (ASN1_TIME_to_tm(time, &t) != 1)
-    {
-        return "";
-    }
-    time_t rawtime = timegm(&t);
-    if (rawtime == -1)
-    {
-        return "";
-    }
-    auto tp = std::chrono::system_clock::from_time_t(rawtime);
-    return TimeFormatter::formatTime(tp);
 }
 
 const EVP_MD* OpenSslHelper::getDigestAlgorithm(const std::string& alg)

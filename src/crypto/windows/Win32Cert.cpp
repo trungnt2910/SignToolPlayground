@@ -9,8 +9,9 @@
 #include <wincrypt.h>
 #include <wintrust.h>
 
-#include "crypto/TimeFormatter.h"
+#include "crypto/Time.h"
 #include "crypto/windows/Win32PrivateKey.h"
+#include "crypto/windows/Win32Time.h"
 #include "crypto/windows/WinHelper.h"
 
 namespace ccky
@@ -213,12 +214,7 @@ std::string Win32Cert::getNotBefore() const
     {
         return "";
     }
-    uint64_t intervals =
-        (static_cast<uint64_t>(m_cert->pCertInfo->NotBefore.dwHighDateTime) << 32) |
-        m_cert->pCertInfo->NotBefore.dwLowDateTime;
-    time_t time = static_cast<time_t>((intervals / 10000000ULL) - 11644473600ULL);
-    auto tp = std::chrono::system_clock::from_time_t(time);
-    return TimeFormatter::formatTime(tp);
+    return Time::format(Win32Time::toChrono(m_cert->pCertInfo->NotBefore));
 }
 
 std::string Win32Cert::getNotAfter() const
@@ -227,11 +223,7 @@ std::string Win32Cert::getNotAfter() const
     {
         return "";
     }
-    uint64_t intervals = (static_cast<uint64_t>(m_cert->pCertInfo->NotAfter.dwHighDateTime) << 32) |
-                         m_cert->pCertInfo->NotAfter.dwLowDateTime;
-    time_t time = static_cast<time_t>((intervals / 10000000ULL) - 11644473600ULL);
-    auto tp = std::chrono::system_clock::from_time_t(time);
-    return TimeFormatter::formatTime(tp);
+    return Time::format(Win32Time::toChrono(m_cert->pCertInfo->NotAfter));
 }
 
 // Key Information

@@ -21,7 +21,11 @@ class OpenSslCheck
 {
   public:
     static void check(bool condition, const std::string& context);
-    static void checkPtr(const void* ptr, const std::string& context);
+    template <typename T> static T* checkPtr(T* ptr, const std::string& context)
+    {
+        check(ptr != nullptr, context);
+        return ptr;
+    }
 };
 
 } // namespace crypto

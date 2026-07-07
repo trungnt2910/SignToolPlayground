@@ -37,11 +37,6 @@ void Win32Check::check(bool condition, const std::string& context)
     }
 }
 
-void Win32Check::checkPtr(const void* ptr, const std::string& context)
-{
-    check(ptr != nullptr && ptr != INVALID_HANDLE_VALUE, context);
-}
-
 void Win32Check::checkHr(long hr, const std::string& context)
 {
     if (hr < 0)

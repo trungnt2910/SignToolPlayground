@@ -24,10 +24,5 @@ void OpenSslCheck::check(bool condition, const std::string& context)
     }
 }
 
-void OpenSslCheck::checkPtr(const void* ptr, const std::string& context)
-{
-    check(ptr != nullptr, context);
-}
-
 } // namespace crypto
 } // namespace ccky

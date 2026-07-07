@@ -13,6 +13,7 @@
 #include "crypto/CertGenerator.h"
 #include "crypto/Console.h"
 #include "crypto/PrivateKey.h"
+#include "crypto/Time.h"
 
 namespace ccky
 {
@@ -211,37 +212,6 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
         return printExtendedHelpAndReturn();
     }
 
-    // Parse validity dates
-    auto tryGetDate = [&](const std::string& flagName, std::string& outVal) -> bool
-    {
-        if (args.hasFlag(flagName))
-        {
-            std::string dateStr = args.getFlagValue(flagName);
-            int m, d, y;
-            if (std::sscanf(dateStr.c_str(), "%d/%d/%d", &m, &d, &y) == 3 && m >= 1 && m <= 12 &&
-                d >= 1 && d <= 31 && y >= 1900 && y <= 9999)
-            {
-                outVal = dateStr;
-                return true;
-            }
-            printInvalidParameter(flagName);
-            return false;
-        }
-        return true;
-    };
-
-    std::string startStr = "";
-    if (!tryGetDate("b", startStr))
-    {
-        return printExtendedHelpAndReturn();
-    }
-
-    std::string endStr = "";
-    if (!tryGetDate("e", endStr))
-    {
-        return printExtendedHelpAndReturn();
-    }
-
     auto tryGetInt = [&](const std::string& flagName, auto& outVal) -> bool
     {
         if (args.hasFlag(flagName))
@@ -259,10 +229,91 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
         return true;
     };
 
-    int months = 0;
-    if (!tryGetInt("m", months))
+    auto tryGetDate = [&](const std::string& flagName,
+                          std::chrono::system_clock::time_point& outVal) -> bool
+    {
+        if (args.hasFlag(flagName))
+        {
+            int n1 = 0, n2 = 0, n3 = 0;
+            char s1 = 0, s2 = 0;
+            std::istringstream iss(args.getFlagValue(flagName));
+            bool syntaxOk = (iss >> n1 >> s1 >> n2 >> s2 >> n3) && (iss >> std::ws, iss.eof()) &&
+                            (s1 == '/') && (s2 == '/') && (n1 >= 1 && n1 <= 12) &&
+                            (n2 >= 1 && n2 <= 31) && (n3 >= 1 && n3 <= 9999);
+            if (!syntaxOk)
+            {
+                printInvalidParameter(flagName);
+                return false;
+            }
+
+            int day = n2;
+            int month = n1;
+            int year = n3;
+            if (n2 <= 12 && crypto::Time::getDateOrder() == crypto::DateOrder::DayMonthYear)
+            {
+                day = n1;
+                month = n2;
+            }
+
+            std::chrono::year_month_day ymd{std::chrono::year{year},
+                std::chrono::month{static_cast<unsigned>(month)},
+                std::chrono::day{static_cast<unsigned>(day)}};
+            if (!ymd.ok())
+            {
+                printInvalidParameter(flagName);
+                return false;
+            }
+            outVal = std::chrono::sys_days{ymd};
+            return true;
+        }
+        return true;
+    };
+
+    std::chrono::system_clock::time_point startTime = std::chrono::system_clock::now();
+    if (!tryGetDate("b", startTime))
     {
         return printExtendedHelpAndReturn();
+    }
+
+    std::chrono::system_clock::time_point endTime;
+    if (args.hasFlag("e") && args.hasFlag("m"))
+    {
+        m_out << "Failed\n";
+        return 1;
+    }
+    if (args.hasFlag("e"))
+    {
+        if (!tryGetDate("e", endTime))
+        {
+            return printExtendedHelpAndReturn();
+        }
+    }
+    else if (args.hasFlag("m"))
+    {
+        int months = 0;
+        if (!tryGetInt("m", months))
+        {
+            return printExtendedHelpAndReturn();
+        }
+        if (months < 0)
+        {
+            return printExtendedHelpAndReturn();
+        }
+        if (months == 0)
+        {
+            endTime = startTime;
+        }
+        else
+        {
+            endTime = crypto::Time::addMonths(startTime, months) - std::chrono::seconds{1};
+        }
+    }
+    else
+    {
+        std::chrono::sys_days defaultDays =
+            std::chrono::year{2039} / std::chrono::December / std::chrono::day{31};
+        endTime = defaultDays + std::chrono::hours{23} + std::chrono::minutes{59} +
+                  std::chrono::seconds{59};
     }
 
     std::string algo = args.getFlagValue("a", "sha1");
@@ -454,9 +505,8 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
     opts.selfSigned = selfSigned;
     opts.pvkFile = pvkFile;
     opts.keyContainer = keyContainer;
-    opts.startStr = startStr;
-    opts.endStr = endStr;
-    opts.months = months;
+    opts.startTime = startTime;
+    opts.endTime = endTime;
     opts.algo = algo;
     opts.keyLen = keyLen;
     opts.keySpec = keySpec;

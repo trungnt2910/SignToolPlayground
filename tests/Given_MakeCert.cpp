@@ -1340,7 +1340,7 @@ TEST_F(Given_MakeCert, When_Jan31PlusOneMonth_CreatesCertWithFeb28)
     EXPECT_EQ(ret, 0);
     ASSERT_EQ(certs.size(), 1);
     EXPECT_EQ(certs[0]->getNotBefore(), "Sat Jan 31 00:00:00 2026");
-    EXPECT_EQ(certs[0]->getNotAfter(), "Sat Feb 28 00:00:00 2026");
+    EXPECT_EQ(certs[0]->getNotAfter(), "Fri Feb 27 23:59:59 2026");
 }
 
 TEST_F(Given_MakeCert, When_Feb29LeapYearPlusTwelveMonths_CreatesCertWithFeb28NextYear)
@@ -1372,7 +1372,7 @@ TEST_F(Given_MakeCert, When_Feb29LeapYearPlusTwelveMonths_CreatesCertWithFeb28Ne
     EXPECT_EQ(ret, 0);
     ASSERT_EQ(certs.size(), 1);
     EXPECT_EQ(certs[0]->getNotBefore(), "Thu Feb 29 00:00:00 2024");
-    EXPECT_EQ(certs[0]->getNotAfter(), "Fri Feb 28 00:00:00 2025");
+    EXPECT_EQ(certs[0]->getNotAfter(), "Thu Feb 27 23:59:59 2025");
 }
 
 TEST_F(Given_MakeCert, When_InvalidSky_Throws)
@@ -1653,4 +1653,273 @@ TEST_F(Given_MakeCert, When_EAndMSpecified_MatchesOutput)
     EXPECT_EQ(ret, 1);
     EXPECT_TRUE(err.str().empty());
     EXPECT_EQ(out.str(), expectedOut);
+}
+
+TEST_F(Given_MakeCert, When_MonthsZero_ExpiresImmediately)
+{
+    std::string certPath = getTempDir() + "/m0_test.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/m",
+        "0",
+        "/n",
+        "CN=M0Test",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), certs[0]->getNotAfter());
+}
+
+TEST_F(Given_MakeCert, When_MonthsNegative_PrintsOnlyExtendedHelp)
+{
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::string outCer = getTempDir() + "/mneg_test.cer";
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/m",
+        "-1",
+        outCer.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+
+    EXPECT_EQ(ret, 1);
+    EXPECT_TRUE(out.str().empty());
+    EXPECT_EQ(err.str(), getTestTextContent("tests/data/output/makecert_helpextended_stderr.txt"));
+}
+
+TEST_F(Given_MakeCert, When_BeginSpecified_UsesStartOfDay)
+{
+    std::string certPath = getTempDir() + "/b_test.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "05/15/2026",
+        "/n",
+        "CN=BTest",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), "Fri May 15 00:00:00 2026");
+}
+
+TEST_F(Given_MakeCert, When_BeginAndMonthsSpecified_UsesEndOfDayBeforePlusMonths)
+{
+    std::string certPath = getTempDir() + "/bm_test.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "01/01/2026",
+        "/m",
+        "12",
+        "/n",
+        "CN=BMTest",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), "Thu Jan 01 00:00:00 2026");
+    EXPECT_EQ(certs[0]->getNotAfter(), "Thu Dec 31 23:59:59 2026");
+}
+
+TEST_F(Given_MakeCert, When_EndSpecified_UsesStartOfDay)
+{
+    std::string certPath = getTempDir() + "/e_test.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/e",
+        "10/20/2028",
+        "/n",
+        "CN=ETest",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotAfter(), "Fri Oct 20 00:00:00 2028");
+}
+
+TEST_F(Given_MakeCert, When_EndBeforeBegin_Succeeds)
+{
+    std::string certPath = getTempDir() + "/eb_test.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "01/01/2026",
+        "/e",
+        "01/01/2020",
+        "/n",
+        "CN=EBTest",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), "Thu Jan 01 00:00:00 2026");
+    EXPECT_EQ(certs[0]->getNotAfter(), "Wed Jan 01 00:00:00 2020");
+}
+
+TEST_F(Given_MakeCert, When_AULocaleSetAndDayExceedsTwelve_FailsNativeFormat)
+{
+    registerLocale("en", "AU");
+    if (ccky::crypto::Time::getDateOrder() != ccky::crypto::DateOrder::DayMonthYear)
+    {
+        GTEST_SKIP() << "AU locale does not use DMY order on system";
+    }
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    registry.registerCommand(cmd);
+    cmd->setRegistry(&registry);
+    std::string outCer = getTempDir() + "/au_fail.cer";
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "29/10/2026",
+        outCer.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+
+    EXPECT_EQ(ret, 1);
+}
+
+TEST_F(Given_MakeCert, When_AULocaleSetAndDayExceedsTwelve_FallsBackToStandardFormat)
+{
+    registerLocale("en", "AU");
+    if (ccky::crypto::Time::getDateOrder() != ccky::crypto::DateOrder::DayMonthYear)
+    {
+        GTEST_SKIP() << "AU locale does not use DMY order on system";
+    }
+    std::string certPath = getTempDir() + "/au_work.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    registry.registerCommand(cmd);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "10/29/2026",
+        "/n",
+        "CN=AUWork",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), "Thu Oct 29 00:00:00 2026");
+}
+
+TEST_F(Given_MakeCert, When_AULocaleSetAndNumbersUnderTwelve_UsesNativeFormat)
+{
+    registerLocale("en", "AU");
+    if (ccky::crypto::Time::getDateOrder() != ccky::crypto::DateOrder::DayMonthYear)
+    {
+        GTEST_SKIP() << "AU locale does not use DMY order on system";
+    }
+    std::string certPath = getTempDir() + "/au_native.cer";
+    registerTemporaryCerFile(certPath);
+    std::stringstream out, err;
+    auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
+    registry.registerCommand(cmd);
+    cmd->setRegistry(&registry);
+    std::array argv = {
+        "ccky",
+        "makecert",
+        "/b",
+        "01/10/2026",
+        "/n",
+        "CN=AUNative",
+        certPath.c_str(),
+    };
+    auto args = ccky::cli::CliParser::parse(argv.size(), argv.data(), registry);
+
+    int ret = cmd->execute(args);
+    auto store =
+        ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::CerFile, certPath);
+    store->load(certPath);
+    auto certs = store->getCertificates();
+
+    EXPECT_EQ(ret, 0);
+    ASSERT_EQ(certs.size(), 1);
+    EXPECT_EQ(certs[0]->getNotBefore(), "Thu Oct 01 00:00:00 2026");
 }

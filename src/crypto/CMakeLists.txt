@@ -3,16 +3,18 @@ if(WIN32)
         Console.cpp
         FileTypeDetector.cpp
         PvkKey.cpp
-        TimeFormatter.cpp
+        Time.cpp
         windows/CertGenerator.cpp
         windows/Console.cpp
         windows/CryptoFactory.cpp
         windows/FileTypeDetector.cpp
         windows/KeySetDeleter.cpp
         windows/Pvk2PfxConverter.cpp
+        windows/Time.cpp
         windows/Win32Cert.cpp
         windows/Win32PrivateKey.cpp
         windows/Win32Store.cpp
+        windows/Win32Time.cpp
         windows/WinHelper.cpp
         windows/WinSigner.cpp
         windows/WindowsException.cpp
@@ -22,7 +24,7 @@ else()
         Console.cpp
         FileTypeDetector.cpp
         PvkKey.cpp
-        TimeFormatter.cpp
+        Time.cpp
         openssl/AuthenticodeSigner.cpp
         openssl/CertGenerator.cpp
         openssl/Console.cpp
@@ -32,9 +34,11 @@ else()
         openssl/OpenSslException.cpp
         openssl/OpenSslHelper.cpp
         openssl/OpenSslStore.cpp
+        openssl/OpenSslTime.cpp
         openssl/Pvk2PfxConverter.cpp
         openssl/PvkHelper.cpp
         openssl/SpcStructures.cpp
+        openssl/Time.cpp
         openssl/X509NameParser.cpp
         openssl/ZipArchive.cpp
     )

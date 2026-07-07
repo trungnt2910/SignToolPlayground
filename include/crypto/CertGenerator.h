@@ -1,6 +1,7 @@
 #ifndef CCKY_CRYPTO_CERT_GENERATOR_H
 #define CCKY_CRYPTO_CERT_GENERATOR_H
 
+#include <chrono>
 #include <functional>
 #include <string>
 #include <vector>
@@ -19,9 +20,8 @@ struct MakeCertOptions
     bool selfSigned;
     std::string pvkFile;
     std::string keyContainer;
-    std::string startStr;
-    std::string endStr;
-    int months;
+    std::chrono::system_clock::time_point startTime;
+    std::chrono::system_clock::time_point endTime;
     std::string algo;
     int keyLen;
     int keySpec;

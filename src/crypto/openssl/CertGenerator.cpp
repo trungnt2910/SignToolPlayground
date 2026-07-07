@@ -20,6 +20,7 @@
 #include "crypto/PvkKey.h"
 #include "crypto/openssl/OpenSslCert.h"
 #include "crypto/openssl/OpenSslPrivateKey.h"
+#include "crypto/openssl/OpenSslTime.h"
 #include "crypto/openssl/OpenSslWrapper.h"
 #include "crypto/openssl/PvkHelper.h"
 #include "crypto/openssl/SpcStructures.h"
@@ -251,86 +252,8 @@ crypto::X509Ptr createUnsignedCertificate(const MakeCertOptions& options,
     }
 
     // Set validity
-    ASN1_TIME* notBefore = X509_getm_notBefore(cert.get());
-    ASN1_TIME* notAfter = X509_getm_notAfter(cert.get());
-
-    std::chrono::year_month_day ymd_start;
-    int h = 0, min = 0, s = 0;
-
-    if (!options.startStr.empty())
-    {
-        int m, d, y;
-        if (std::sscanf(options.startStr.c_str(), "%d/%d/%d", &m, &d, &y) == 3)
-        {
-            ymd_start = std::chrono::year_month_day{std::chrono::year{y},
-                std::chrono::month{static_cast<unsigned>(m)},
-                std::chrono::day{static_cast<unsigned>(d)}};
-            if (!ymd_start.ok())
-            {
-                throw crypto::CckyException("Invalid start date", false);
-            }
-            std::string timeStr = std::format("{:04d}{:02d}{:02d}000000Z",
-                static_cast<int>(ymd_start.year()), static_cast<unsigned>(ymd_start.month()),
-                static_cast<unsigned>(ymd_start.day()));
-            ASN1_TIME_set_string(notBefore, timeStr.c_str());
-        }
-    }
-    else
-    {
-        X509_gmtime_adj(notBefore, 0);
-        std::time_t now = std::time(nullptr);
-        if (std::tm* tm_ptr = std::gmtime(&now))
-        {
-            ymd_start = std::chrono::year_month_day{std::chrono::year{tm_ptr->tm_year + 1900},
-                std::chrono::month{static_cast<unsigned>(tm_ptr->tm_mon + 1)},
-                std::chrono::day{static_cast<unsigned>(tm_ptr->tm_mday)}};
-            h = tm_ptr->tm_hour;
-            min = tm_ptr->tm_min;
-            s = tm_ptr->tm_sec;
-        }
-    }
-
-    if (!options.endStr.empty())
-    {
-        int m, d, y;
-        if (std::sscanf(options.endStr.c_str(), "%d/%d/%d", &m, &d, &y) == 3)
-        {
-            std::chrono::year_month_day ymd{std::chrono::year{y},
-                std::chrono::month{static_cast<unsigned>(m)},
-                std::chrono::day{static_cast<unsigned>(d)}};
-            if (!ymd.ok())
-            {
-                throw crypto::CckyException("Invalid end date", false);
-            }
-            std::string timeStr =
-                std::format("{:04d}{:02d}{:02d}000000Z", static_cast<int>(ymd.year()),
-                    static_cast<unsigned>(ymd.month()), static_cast<unsigned>(ymd.day()));
-            ASN1_TIME_set_string(notAfter, timeStr.c_str());
-        }
-        else
-        {
-            ASN1_TIME_set_string(notAfter, "20391231235959Z");
-        }
-    }
-    else if (options.months > 0)
-    {
-        auto target_ym =
-            (ymd_start.year() / ymd_start.month()) + std::chrono::months(options.months);
-        std::chrono::year_month_day ymd_end = target_ym / ymd_start.day();
-        if (!ymd_end.ok())
-        {
-            ymd_end = target_ym / std::chrono::last;
-        }
-        std::string timeStr = std::format("{:04d}{:02d}{:02d}{:02d}{:02d}{:02d}Z",
-            static_cast<int>(ymd_end.year()), static_cast<unsigned>(ymd_end.month()),
-            static_cast<unsigned>(ymd_end.day()), h, min, s);
-        ASN1_TIME_set_string(notAfter, timeStr.c_str());
-    }
-    else
-    {
-        // Default to exactly 12/31/2039 23:59:59 GMT as per MS docs.
-        ASN1_TIME_set_string(notAfter, "20391231235959Z");
-    }
+    OpenSslTime::fromChrono(X509_getm_notBefore(cert.get()), options.startTime);
+    OpenSslTime::fromChrono(X509_getm_notAfter(cert.get()), options.endTime);
 
     X509_set_pubkey(cert.get(), subjectKey.get());
     return cert;
@@ -668,11 +591,6 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
 
 void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateKeyPtr subjectKey)
 {
-    if (!options.endStr.empty() && options.months != 0)
-    {
-        throw std::invalid_argument("E and M options are mutually exclusive");
-    }
-
     if (!options.keyContainer.empty())
     {
         throw crypto::CckyException(

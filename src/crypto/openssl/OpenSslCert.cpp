@@ -1,7 +1,10 @@
 #include "crypto/openssl/OpenSslCert.h"
 
+#include "crypto/Time.h"
+#include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslHelper.h"
 #include "crypto/openssl/OpenSslPrivateKey.h"
+#include "crypto/openssl/OpenSslTime.h"
 #include "crypto/openssl/SpcStructures.h"
 
 namespace ccky
@@ -122,12 +125,14 @@ std::string OpenSslCert::getIssuerDN() const
 // Validity Period
 std::string OpenSslCert::getNotBefore() const
 {
-    return OpenSslHelper::getCertTime(X509_get0_notBefore(m_cert.get()));
+    return Time::format(OpenSslTime::toChrono(OpenSslCheck::checkPtr(
+        X509_get0_notBefore(m_cert.get()), "Certificate NotBefore is null")));
 }
 
 std::string OpenSslCert::getNotAfter() const
 {
-    return OpenSslHelper::getCertTime(X509_get0_notAfter(m_cert.get()));
+    return Time::format(OpenSslTime::toChrono(
+        OpenSslCheck::checkPtr(X509_get0_notAfter(m_cert.get()), "Certificate NotAfter is null")));
 }
 
 // Key Information

@@ -13,6 +13,7 @@ ccky_add_executable(ccky_tests
     Given_Pvk2Pfx.cpp
     Given_PvkKey.cpp
     Given_SignTool.cpp
+    Given_Time.cpp
     Given_X509NameParser.cpp
     Given_ZipArchive.cpp
 )

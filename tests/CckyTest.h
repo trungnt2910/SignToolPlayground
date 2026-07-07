@@ -18,7 +18,7 @@
 #include "crypto/CertificateStore.h"
 #include "crypto/CryptoFactory.h"
 #include "crypto/FileTypeDetector.h"
-#include "crypto/TimeFormatter.h"
+#include "crypto/Time.h"
 
 class CckyCleaner
 {
@@ -34,7 +34,7 @@ class CckyTest : public ::testing::Test
 
     void SetUp() override
     {
-        ccky::crypto::TimeFormatter::setFormatUTC(true);
+        ccky::crypto::Time::setFormatUTC(true);
         registry.registerCommand(std::make_shared<ccky::commands::CertMgrCommand>());
         registry.registerCommand(std::make_shared<ccky::commands::MakeCertCommand>());
         registry.registerCommand(std::make_shared<ccky::commands::Pvk2PfxCommand>());
@@ -251,6 +251,17 @@ class CckyTest : public ::testing::Test
             }
         }
         registerSystemStoreCert(storeName, commonName);
+    }
+
+    void registerLocale(const std::string& lang, const std::string& region)
+    {
+        ccky::crypto::Time::setLocale(lang, region);
+        class CckyLocaleCleaner : public CckyCleaner
+        {
+          public:
+            ~CckyLocaleCleaner() override { ccky::crypto::Time::clearLocale(); }
+        };
+        m_cleaners.push_back(std::make_unique<CckyLocaleCleaner>());
     }
 
     ccky::cli::CommandRegistry registry;
