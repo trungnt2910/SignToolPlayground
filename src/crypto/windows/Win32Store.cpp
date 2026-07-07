@@ -754,10 +754,11 @@ void Win32PfxCertStore::load(const std::string& location, const StoreOptions& op
     };
 
     std::wstring wPass = WinHelper::utf8ToWide(options.password);
-    CertStorePtr hPfxStore(PFXImportCertStore(&blob, wPass.c_str(), CRYPT_USER_KEYSET));
+    DWORD dwImportFlags = CRYPT_USER_KEYSET | CRYPT_EXPORTABLE;
+    CertStorePtr hPfxStore(PFXImportCertStore(&blob, wPass.c_str(), dwImportFlags));
     if (!hPfxStore)
     {
-        hPfxStore.reset(PFXImportCertStore(&blob, nullptr, CRYPT_USER_KEYSET));
+        hPfxStore.reset(PFXImportCertStore(&blob, nullptr, dwImportFlags));
     }
 
     if (!hPfxStore)

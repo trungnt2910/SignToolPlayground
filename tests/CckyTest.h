@@ -14,8 +14,10 @@
 #include "commands/MakeCertCommand.h"
 #include "commands/Pvk2PfxCommand.h"
 #include "commands/SignToolCommand.h"
+#include "crypto/Certificate.h"
 #include "crypto/CertificateStore.h"
 #include "crypto/CryptoFactory.h"
+#include "crypto/FileTypeDetector.h"
 #include "crypto/TimeFormatter.h"
 
 class CckyCleaner
@@ -28,6 +30,7 @@ class CckyTest : public ::testing::Test
 {
   protected:
     std::vector<std::unique_ptr<CckyCleaner>> m_cleaners;
+    std::vector<ccky::crypto::CertificateStorePtr> m_activeStores;
 
     void SetUp() override
     {
@@ -160,26 +163,94 @@ class CckyTest : public ::testing::Test
             std::make_unique<CckySystemStoreCertCleaner>(storeName, commonName, thumbprint));
     }
 
-    void cleanupSystemStore(const std::string& storeName, const std::string& thumbprint)
+    std::vector<ccky::crypto::CertificatePtr> registerSystemStoreCertFromFile(
+        const std::string& storeName, const std::string& filePath, const std::string& password = "")
     {
-        if (ccky::crypto::CryptoFactory::getBackendType() == "windows")
+        auto type = ccky::crypto::FileTypeDetector::detectFileType(filePath);
+        auto store = ccky::crypto::CryptoFactory::createStore(type, filePath);
+        if (!store)
         {
-            try
+            return {};
+        }
+        ccky::crypto::StoreOptions opts;
+        opts.password = password;
+        store->load(filePath, opts);
+        auto certs = store->getCertificates();
+        for (const auto& cert : certs)
+        {
+            registerSystemStoreCert(storeName, cert->getCommonName(), cert->getSha1());
+        }
+        // Keep the certificate store (which, for PFX files, owns the private keys) alive.
+        // certmgr /add and CertificateStore::addCertificate do not actually keep the private keys.
+        // To make the installed certificate usable, the system relies on the temporary PFX key
+        // container that we are holding.
+        m_activeStores.emplace_back(std::move(store));
+        return certs;
+    }
+
+    std::vector<ccky::crypto::CertificatePtr> installSystemStoreCert(
+        const std::string& storeName, const std::string& filePath, const std::string& password = "")
+    {
+        auto certs = registerSystemStoreCertFromFile(storeName, filePath, password);
+        if (certs.empty() || ccky::crypto::CryptoFactory::getBackendType() != "windows")
+        {
+            return certs;
+        }
+        auto sysStore =
+            ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, storeName);
+        EXPECT_NE(sysStore, nullptr) << "Failed to create WinSystem store: " << storeName;
+        if (!sysStore)
+        {
+            return {};
+        }
+        sysStore->load(storeName);
+        auto existingCerts = sysStore->getCertificates();
+        for (const auto& cert : certs)
+        {
+            for (const auto& existing : existingCerts)
             {
-                auto store = ccky::crypto::CryptoFactory::createStore(
-                    ccky::crypto::StoreType::WinSystem, storeName);
-                store->load(storeName);
-                store->deleteCertificate("", thumbprint);
+                if (!cert->getCommonName().empty() &&
+                    existing->getCommonName() == cert->getCommonName())
+                {
+                    ADD_FAILURE() << "Cannot install certificate '" << cert->getCommonName()
+                                  << "' into store '" << storeName
+                                  << "': a certificate with the same Common Name already exists "
+                                     "(existing SHA1='"
+                                  << existing->getSha1() << "')";
+                    return {};
+                }
             }
-            catch (const std::exception& e)
+            sysStore->addCertificate(cert);
+        }
+        return certs;
+    }
+
+    void reserveSystemStoreCertName(const std::string& storeName, const std::string& commonName)
+    {
+        if (ccky::crypto::CryptoFactory::getBackendType() != "windows")
+        {
+            return;
+        }
+        auto sysStore =
+            ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, storeName);
+        EXPECT_NE(sysStore, nullptr) << "Failed to create WinSystem store: " << storeName;
+        if (!sysStore)
+        {
+            return;
+        }
+        sysStore->load(storeName);
+        for (const auto& existing : sysStore->getCertificates())
+        {
+            if (!commonName.empty() && existing->getCommonName() == commonName)
             {
-                GTEST_LOG_(WARNING) << "Failed to cleanup system store: " << e.what();
-            }
-            catch (...)
-            {
-                GTEST_LOG_(WARNING) << "Failed to cleanup system store due to unknown exception";
+                ADD_FAILURE() << "Cannot reserve certificate Common Name '" << commonName
+                              << "' in store '" << storeName
+                              << "': a certificate with this Common Name already exists (SHA1='"
+                              << existing->getSha1() << "')";
+                return;
             }
         }
+        registerSystemStoreCert(storeName, commonName);
     }
 
     ccky::cli::CommandRegistry registry;

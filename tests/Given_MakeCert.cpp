@@ -148,7 +148,6 @@ class Given_MakeCert : public CckyTest
         {
             if (cert->getCommonName() == commonName)
             {
-                registerSystemStoreCert(storeName, commonName, cert->getSha1());
                 return cert;
             }
         }
@@ -157,6 +156,7 @@ class Given_MakeCert : public CckyTest
 
     std::string createCACertInStore(const std::string& commonName, const std::string& certPath)
     {
+        reserveSystemStoreCertName("My", commonName);
         std::stringstream out, err;
         auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
         cmd->setRegistry(&registry);
@@ -604,6 +604,7 @@ TEST_F(Given_MakeCert, When_StoreSpecified_SavesToStore)
     }
     std::string certPath = getTempDir() + "/store_test.cer";
     std::string commonName = "CckyMakeCertStoreTest";
+    reserveSystemStoreCertName("My", commonName);
     std::string subjectName = "CN=" + commonName;
     std::stringstream out, err;
     auto cmd = std::make_shared<ccky::commands::MakeCertCommand>(std::cin, out, err);
@@ -634,6 +635,7 @@ TEST_F(Given_MakeCert, When_PeSpecified_KeyIsExportable)
     }
     std::string certPath = getTempDir() + "/pe_test.cer";
     std::string commonName = "CckyMakeCertPeTest";
+    reserveSystemStoreCertName("My", commonName);
     std::string subjectName = "CN=" + commonName;
     std::string containerName = "CckyTestContainerPe";
     std::stringstream out, err;
@@ -670,6 +672,7 @@ TEST_F(Given_MakeCert, When_PeNotSpecified_KeyIsNotExportable)
     }
     std::string certPath = getTempDir() + "/no_pe_test.cer";
     std::string commonName = "CckyMakeCertNoPeTest";
+    reserveSystemStoreCertName("My", commonName);
     std::string subjectName = "CN=" + commonName;
     std::string containerName = "CckyTestContainerNoPe";
     std::stringstream out, err;
@@ -1167,6 +1170,7 @@ TEST_F(Given_MakeCert, When_ProviderSpecified_UsesSpecifiedProvider)
     }
     std::string certPath = getTempDir() + "/prov_test.cer";
     std::string commonName = "CckyProvTest";
+    reserveSystemStoreCertName("My", commonName);
     std::string subjectName = "CN=" + commonName;
     std::string containerName = "CckyTestContainerProv";
     std::string provName = "Microsoft Enhanced Cryptographic Provider v1.0";

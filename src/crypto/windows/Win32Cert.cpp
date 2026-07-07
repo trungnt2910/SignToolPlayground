@@ -367,8 +367,9 @@ bool Win32Cert::hasPrivateKey() const
     DWORD dwKeySpec = 0;
     BOOL fCallerFree = FALSE;
     if (CryptAcquireCertificatePrivateKey(m_cert.get(),
-            CRYPT_ACQUIRE_COMPARE_KEY_FLAG | CRYPT_ACQUIRE_SILENT_FLAG, nullptr, &hKeyOrProv,
-            &dwKeySpec, &fCallerFree))
+            CRYPT_ACQUIRE_COMPARE_KEY_FLAG | CRYPT_ACQUIRE_SILENT_FLAG |
+                CRYPT_ACQUIRE_ALLOW_NCRYPT_KEY_FLAG,
+            nullptr, &hKeyOrProv, &dwKeySpec, &fCallerFree))
     {
         if (fCallerFree)
         {

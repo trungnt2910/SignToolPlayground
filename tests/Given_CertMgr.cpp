@@ -149,8 +149,8 @@ TEST_F(Given_CertMgr, When_CertMgrAdd_SucceedsOnWindows)
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
-    registerSystemStoreCert("my", "ccky", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
+    registerSystemStoreCertFromFile("my", pfxPath);
     std::array addArgv = {
         "ccky",
         "certmgr",
@@ -177,21 +177,10 @@ TEST_F(Given_CertMgr, When_CertMgrDel_SucceedsOnWindows)
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
-    registerSystemStoreCert("my", "ccky", "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0");
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-    std::array addArgv = {
-        "ccky",
-        "certmgr",
-        "/add",
-        "/c",
-        pfxPath.c_str(),
-        "/s",
-        "my",
-    };
-    auto addArgs = ccky::cli::CliParser::parse(addArgv.size(), addArgv.data(), registry);
+    installSystemStoreCert("my", pfxPath);
     auto cmd = registry.getCommand("certmgr");
     ASSERT_NE(cmd, nullptr);
-    cmd->execute(addArgs);
     std::array delArgv = {
         "ccky",
         "certmgr",
@@ -217,22 +206,12 @@ TEST_F(Given_CertMgr, When_CertMgrDelByHash_SucceedsOnWindows)
         GTEST_SKIP()
             << "Windows system certificate stores (/s) are unsupported on OpenSSL; skipping test.";
     }
-    std::string cckySha1 = "70cc11b9d1bfdfa1d5f629a8a78173b33b17bee0";
-    registerSystemStoreCert("my", "ccky", cckySha1);
     std::string pfxPath = getTestDataPath("tests/data/ccky.pfx");
-    std::array addArgv = {
-        "ccky",
-        "certmgr",
-        "/add",
-        "/c",
-        pfxPath.c_str(),
-        "/s",
-        "my",
-    };
-    auto addArgs = ccky::cli::CliParser::parse(addArgv.size(), addArgv.data(), registry);
+    auto certs = installSystemStoreCert("my", pfxPath);
+    ASSERT_FALSE(certs.empty());
+    std::string cckySha1 = certs[0]->getSha1();
     auto cmd = registry.getCommand("certmgr");
     ASSERT_NE(cmd, nullptr);
-    cmd->execute(addArgs);
     auto store = ccky::crypto::CryptoFactory::createStore(ccky::crypto::StoreType::WinSystem, "my");
     ASSERT_NO_THROW(store->load("my"));
     std::array delArgv = {

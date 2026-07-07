@@ -172,7 +172,7 @@ PrivateKeyPtr OpenSslCert::getPrivateKey() const
     return std::make_shared<OpenSslPrivateKey>(EVPPKeyPtr(m_pkey.get()));
 }
 
-bool OpenSslCert::isPrivateKeyExportable() const { return true; }
+bool OpenSslCert::isPrivateKeyExportable() const { return hasPrivateKey(); }
 
 // Provider Information
 std::string OpenSslCert::getProviderType() const { return ""; }
