@@ -13,6 +13,7 @@
 #include <wincrypt.h>
 #include <wintrust.h>
 
+#include "crypto/Bytes.h"
 #include "crypto/CckyException.h"
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
@@ -542,26 +543,18 @@ PCCERT_CONTEXT signCertificate(const CERT_PUBLIC_KEY_INFO* pSubjectPublicKeyInfo
     std::vector<uint8_t> serialBuf;
     if (hasSerialNum)
     {
-        serialBuf.resize(sizeof(serialNum));
-        for (size_t i = 0; i < sizeof(serialNum); ++i)
-        {
-            serialBuf[i] = static_cast<uint8_t>((serialNum >> (8 * i)) & 0xFF);
-        }
+        Bytes::appendU32LE(serialBuf, static_cast<uint32_t>(serialNum));
     }
     else
     {
-        long randSerial = 0;
+        uint32_t randSerial = 0;
         do
         {
             CryptoFactory::getRandomBytes(&randSerial, sizeof(randSerial));
             randSerial &= 0x7FFFFFFF; // Ensure it is positive and fits in 31 bits
         } while (randSerial == 0);
 
-        serialBuf.resize(sizeof(randSerial));
-        for (size_t i = 0; i < sizeof(randSerial); ++i)
-        {
-            serialBuf[i] = static_cast<uint8_t>((randSerial >> (8 * i)) & 0xFF);
-        }
+        Bytes::appendU32LE(serialBuf, randSerial);
     }
     // This must be little-endian.
     certInfo.SerialNumber.pbData = serialBuf.data();

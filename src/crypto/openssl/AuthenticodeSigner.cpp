@@ -7,6 +7,7 @@
 
 #include <pugixml.hpp>
 
+#include "crypto/Bytes.h"
 #include "crypto/CryptoFactory.h"
 #include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslHelper.h"
@@ -36,7 +37,7 @@ std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, cons
     // Read e_lfanew at 0x3C
     file.seekg(0x3C, std::ios::beg);
     uint32_t peOffset = 0;
-    if (!file.read(reinterpret_cast<char*>(&peOffset), 4))
+    if (!(file >> Bytes::U32LE(peOffset)))
     {
         return {};
     }
@@ -54,7 +55,7 @@ std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, cons
 
     // Read Optional Header magic
     uint16_t magic = 0;
-    if (!file.read(reinterpret_cast<char*>(&magic), 2))
+    if (!(file >> Bytes::U16LE(magic)))
     {
         return {};
     }
@@ -66,8 +67,7 @@ std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, cons
     file.seekg(securityDirOffset, std::ios::beg);
     uint32_t certTableAddress = 0;
     uint32_t certTableSize = 0;
-    file.read(reinterpret_cast<char*>(&certTableAddress), 4);
-    file.read(reinterpret_cast<char*>(&certTableSize), 4);
+    file >> Bytes::U32LE(certTableAddress) >> Bytes::U32LE(certTableSize);
 
     file.seekg(0, std::ios::end);
     uint32_t fileSize = file.tellg();

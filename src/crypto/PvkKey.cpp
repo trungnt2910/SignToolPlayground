@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "crypto/Bytes.h"
 #include "crypto/CckyException.h"
 #include "crypto/CryptoFactory.h"
 
@@ -32,20 +33,6 @@ struct PvkHeader
     uint32_t saltLen;
     uint32_t keyLen;
 };
-
-uint32_t readU32LE(const uint8_t* p)
-{
-    return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
-           (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);
-}
-
-void writeU32LE(uint32_t val, uint8_t* p)
-{
-    p[0] = static_cast<uint8_t>(val & 0xFF);
-    p[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
-    p[2] = static_cast<uint8_t>((val >> 16) & 0xFF);
-    p[3] = static_cast<uint8_t>((val >> 24) & 0xFF);
-}
 
 std::vector<uint8_t> deriveRc4Key(const std::string& password, const std::vector<uint8_t>& salt)
 {
@@ -79,19 +66,13 @@ void PvkKey::load(const std::string& filePath)
         throw PvkCorruptFileException("Failed to open PVK file: " + filePath);
     }
 
-    uint8_t headerBuf[24];
-    if (!file.read(reinterpret_cast<char*>(headerBuf), 24))
+    PvkHeader header;
+    if (!(file >> Bytes::U32LE(header.magic) >> Bytes::U32LE(header.reserved) >>
+            Bytes::U32LE(header.keyType) >> Bytes::U32LE(header.encrypted) >>
+            Bytes::U32LE(header.saltLen) >> Bytes::U32LE(header.keyLen)))
     {
         throw PvkCorruptFileException("Failed to read PVK header: " + filePath);
     }
-
-    PvkHeader header;
-    header.magic = readU32LE(headerBuf);
-    header.reserved = readU32LE(headerBuf + 4);
-    header.keyType = readU32LE(headerBuf + 8);
-    header.encrypted = readU32LE(headerBuf + 12);
-    header.saltLen = readU32LE(headerBuf + 16);
-    header.keyLen = readU32LE(headerBuf + 20);
 
     if (header.magic != PVK_MAGIC)
     {
@@ -162,7 +143,7 @@ void PvkKey::decrypt(const std::string& password)
     // DWORD magic; (RSA2)
     if (m_keyData.size() >= PVK_PUBLIC_KEY_SIZE + 4)
     {
-        uint32_t rsaMagic = readU32LE(m_keyData.data() + PVK_PUBLIC_KEY_SIZE);
+        uint32_t rsaMagic = Bytes::readU32LE(m_keyData.data() + PVK_PUBLIC_KEY_SIZE);
         if (rsaMagic != PVK_RSAPRIVATE_MAGIC)
         {
             // Clear wrong key data
@@ -234,15 +215,10 @@ void PvkKey::save(const std::string& filePath) const
         throw std::runtime_error("Failed to open PVK file for writing: " + filePath);
     }
 
-    uint8_t headerBuf[24];
-    writeU32LE(PVK_MAGIC, headerBuf);
-    writeU32LE(0, headerBuf + 4);
-    writeU32LE(static_cast<uint32_t>(m_keyType), headerBuf + 8);
-    writeU32LE(m_isEncrypted ? 1 : 0, headerBuf + 12);
-    writeU32LE(static_cast<uint32_t>(m_salt.size()), headerBuf + 16);
-    writeU32LE(static_cast<uint32_t>(m_payload.size()), headerBuf + 20);
-
-    file.write(reinterpret_cast<const char*>(headerBuf), 24);
+    file << Bytes::U32LE(static_cast<uint32_t>(PVK_MAGIC)) << Bytes::U32LE(0U)
+         << Bytes::U32LE(static_cast<uint32_t>(m_keyType)) << Bytes::U32LE(m_isEncrypted ? 1U : 0U)
+         << Bytes::U32LE(static_cast<uint32_t>(m_salt.size()))
+         << Bytes::U32LE(static_cast<uint32_t>(m_payload.size()));
     if (!m_salt.empty())
     {
         file.write(reinterpret_cast<const char*>(m_salt.data()), m_salt.size());

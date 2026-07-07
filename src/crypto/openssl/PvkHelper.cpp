@@ -8,6 +8,8 @@
 #include <openssl/evp.h>
 #include <openssl/param_build.h>
 
+#include "crypto/Bytes.h"
+
 namespace ccky
 {
 namespace crypto
@@ -27,13 +29,7 @@ EVPPKeyPtr PvkHelper::blobToPkey(const std::vector<uint8_t>& keyData)
         throw std::runtime_error("Unsupported key blob type or version");
     }
 
-    auto readU32LE = [](const uint8_t* p) -> uint32_t
-    {
-        return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
-               (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);
-    };
-
-    uint32_t aiKeyAlg = readU32LE(&keyData[4]);
+    uint32_t aiKeyAlg = Bytes::readU32LE(&keyData[4]);
     if (aiKeyAlg != CALG_RSA_KEYX && aiKeyAlg != CALG_RSA_SIGN)
     {
         throw std::runtime_error("Unsupported key algorithm in PVK");
@@ -44,8 +40,8 @@ EVPPKeyPtr PvkHelper::blobToPkey(const std::vector<uint8_t>& keyData)
         throw std::runtime_error("Invalid RSA2 magic in PVK");
     }
 
-    uint32_t bitlen = readU32LE(&keyData[12]);
-    uint32_t pubexp = readU32LE(&keyData[16]);
+    uint32_t bitlen = Bytes::readU32LE(&keyData[12]);
+    uint32_t pubexp = Bytes::readU32LE(&keyData[16]);
 
     size_t n_len = bitlen / 8;
     size_t p_len = bitlen / 16;
@@ -59,17 +55,11 @@ EVPPKeyPtr PvkHelper::blobToPkey(const std::vector<uint8_t>& keyData)
     size_t offset = 20;
     auto readBN = [&](size_t len)
     {
-        std::vector<uint8_t> temp(len);
-        for (size_t i = 0; i < len; ++i)
-        {
-            temp[i] = keyData[offset + len - 1 - i];
-        }
-        BIGNUM* raw_bn = BN_bin2bn(temp.data(), len, nullptr);
-        if (!raw_bn)
+        BNPtr bn(BN_lebin2bn(&keyData[offset], len, nullptr));
+        if (!bn)
         {
             throw std::runtime_error("Failed to parse BIGNUM");
         }
-        BNPtr bn(raw_bn);
         offset += len;
         return bn;
     };
@@ -182,29 +172,16 @@ std::vector<uint8_t> PvkHelper::pkeyToBlob(EVP_PKEY* pkey, PvkKeySpec keySpec)
     keyData[2] = 0;    // Reserved
     keyData[3] = 0;    // Reserved
 
-    auto writeU32LE = [](uint32_t val, uint8_t* ptr)
-    {
-        ptr[0] = static_cast<uint8_t>(val & 0xFF);
-        ptr[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
-        ptr[2] = static_cast<uint8_t>((val >> 16) & 0xFF);
-        ptr[3] = static_cast<uint8_t>((val >> 24) & 0xFF);
-    };
-
     uint32_t aiKeyAlg = (keySpec == PvkKeySpec::Signature) ? CALG_RSA_SIGN : CALG_RSA_KEYX;
-    writeU32LE(aiKeyAlg, &keyData[4]);
+    Bytes::writeU32LE(aiKeyAlg, &keyData[4]);
     std::memcpy(&keyData[8], "RSA2", 4);
-    writeU32LE(bitlen, &keyData[12]);
-    writeU32LE(pubexp, &keyData[16]);
+    Bytes::writeU32LE(bitlen, &keyData[12]);
+    Bytes::writeU32LE(pubexp, &keyData[16]);
 
     size_t offset = 20;
     auto writeBN = [&](const BIGNUM* bn, size_t len)
     {
-        std::vector<uint8_t> temp(len, 0);
-        BN_bn2binpad(bn, temp.data(), len);
-        for (size_t i = 0; i < len; ++i)
-        {
-            keyData[offset + i] = temp[len - 1 - i];
-        }
+        BN_bn2lebinpad(bn, &keyData[offset], len);
         offset += len;
     };
 

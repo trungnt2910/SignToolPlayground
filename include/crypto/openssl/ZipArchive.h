@@ -58,13 +58,6 @@ struct ZipEntry
 class ZipSerializer
 {
   public:
-    static void writeUint16(std::vector<uint8_t>& buf, uint16_t val);
-    static void writeUint32(std::vector<uint8_t>& buf, uint32_t val);
-    static void writeUint64(std::vector<uint8_t>& buf, uint64_t val);
-
-    static void writeUint16(uint8_t* buf, uint16_t val);
-    static void writeUint32(uint8_t* buf, uint32_t val);
-    static void writeUint64(uint8_t* buf, uint64_t val);
     static void serializeCentralDirHeader(
         std::vector<uint8_t>& buf, const ZipEntry& e, const std::string& name, uint64_t offset);
     static void serializeLocalFileHeader(

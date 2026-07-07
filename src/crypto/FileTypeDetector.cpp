@@ -2,6 +2,8 @@
 
 #include <fstream>
 
+#include "crypto/Bytes.h"
+
 namespace ccky
 {
 namespace crypto
@@ -23,7 +25,7 @@ StoreType FileTypeDetector::detectFileType(const std::string& filePath)
             {
                 file.seekg(0x3C, std::ios::beg);
                 uint32_t peOffset = 0;
-                if (file.read(reinterpret_cast<char*>(&peOffset), 4))
+                if (file >> Bytes::U32LE(peOffset))
                 {
                     file.seekg(peOffset, std::ios::beg);
                     char pe[4];

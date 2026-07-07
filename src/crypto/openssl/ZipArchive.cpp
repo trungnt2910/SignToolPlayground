@@ -8,6 +8,8 @@
 
 #include <zlib.h>
 
+#include "crypto/Bytes.h"
+
 namespace ccky
 {
 namespace crypto
@@ -26,53 +28,6 @@ bool matchMagic(const char* p, const uint8_t m[4])
 }
 } // namespace
 
-void ZipSerializer::writeUint16(uint8_t* buf, uint16_t val)
-{
-    buf[0] = static_cast<uint8_t>(val & 0xFF);
-    buf[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
-}
-
-void ZipSerializer::writeUint32(uint8_t* buf, uint32_t val)
-{
-    buf[0] = static_cast<uint8_t>(val & 0xFF);
-    buf[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
-    buf[2] = static_cast<uint8_t>((val >> 16) & 0xFF);
-    buf[3] = static_cast<uint8_t>((val >> 24) & 0xFF);
-}
-
-void ZipSerializer::writeUint64(uint8_t* buf, uint64_t val)
-{
-    buf[0] = static_cast<uint8_t>(val & 0xFF);
-    buf[1] = static_cast<uint8_t>((val >> 8) & 0xFF);
-    buf[2] = static_cast<uint8_t>((val >> 16) & 0xFF);
-    buf[3] = static_cast<uint8_t>((val >> 24) & 0xFF);
-    buf[4] = static_cast<uint8_t>((val >> 32) & 0xFF);
-    buf[5] = static_cast<uint8_t>((val >> 40) & 0xFF);
-    buf[6] = static_cast<uint8_t>((val >> 48) & 0xFF);
-    buf[7] = static_cast<uint8_t>((val >> 56) & 0xFF);
-}
-
-void ZipSerializer::writeUint16(std::vector<uint8_t>& buf, uint16_t val)
-{
-    uint8_t tmp[2];
-    writeUint16(tmp, val);
-    buf.insert(buf.end(), tmp, tmp + 2);
-}
-
-void ZipSerializer::writeUint32(std::vector<uint8_t>& buf, uint32_t val)
-{
-    uint8_t tmp[4];
-    writeUint32(tmp, val);
-    buf.insert(buf.end(), tmp, tmp + 4);
-}
-
-void ZipSerializer::writeUint64(std::vector<uint8_t>& buf, uint64_t val)
-{
-    uint8_t tmp[8];
-    writeUint64(tmp, val);
-    buf.insert(buf.end(), tmp, tmp + 8);
-}
-
 void ZipSerializer::serializeCentralDirHeader(
     std::vector<uint8_t>& buf, const ZipEntry& e, const std::string& name, uint64_t offset)
 {
@@ -81,10 +36,8 @@ void ZipSerializer::serializeCentralDirHeader(
     std::vector<uint8_t> extraCopy = e.extra;
     while (extraOff + 4 <= extraCopy.size())
     {
-        uint16_t tag = static_cast<uint16_t>(extraCopy[extraOff]) |
-                       (static_cast<uint16_t>(extraCopy[extraOff + 1]) << 8);
-        uint16_t sz = static_cast<uint16_t>(extraCopy[extraOff + 2]) |
-                      (static_cast<uint16_t>(extraCopy[extraOff + 3]) << 8);
+        uint16_t tag = Bytes::readU16LE(&extraCopy[extraOff]);
+        uint16_t sz = Bytes::readU16LE(&extraCopy[extraOff + 2]);
         if (extraOff + 4 + sz > extraCopy.size())
         {
             break;
@@ -93,32 +46,34 @@ void ZipSerializer::serializeCentralDirHeader(
         {
             hasZip64 = true;
             size_t cur = extraOff + 4;
-            writeUint64(&extraCopy[cur], e.uncompSize);
-            writeUint64(&extraCopy[cur + 8], e.compSize);
-            writeUint64(&extraCopy[cur + 16], offset);
+            Bytes::writeU64LE(e.uncompSize, &extraCopy[cur]);
+            Bytes::writeU64LE(e.compSize, &extraCopy[cur + 8]);
+            Bytes::writeU64LE(offset, &extraCopy[cur + 16]);
             break;
         }
         extraOff += 4 + sz;
     }
 
     buf.insert(buf.end(), ZipMagic::CentralDirHeader, ZipMagic::CentralDirHeader + 4);
-    writeUint16(buf, e.versionMadeBy);
-    writeUint16(buf, e.versionNeeded);
-    writeUint16(buf, e.gpFlags);
-    writeUint16(buf, e.compressionMethod);
-    writeUint16(buf, e.modTime);
-    writeUint16(buf, e.modDate);
-    writeUint32(buf, e.crc32);
-    writeUint32(buf, hasZip64 ? ZipConstants::Zip64HeaderMask : static_cast<uint32_t>(e.compSize));
-    writeUint32(
+    Bytes::appendU16LE(buf, e.versionMadeBy);
+    Bytes::appendU16LE(buf, e.versionNeeded);
+    Bytes::appendU16LE(buf, e.gpFlags);
+    Bytes::appendU16LE(buf, e.compressionMethod);
+    Bytes::appendU16LE(buf, e.modTime);
+    Bytes::appendU16LE(buf, e.modDate);
+    Bytes::appendU32LE(buf, e.crc32);
+    Bytes::appendU32LE(
+        buf, hasZip64 ? ZipConstants::Zip64HeaderMask : static_cast<uint32_t>(e.compSize));
+    Bytes::appendU32LE(
         buf, hasZip64 ? ZipConstants::Zip64HeaderMask : static_cast<uint32_t>(e.uncompSize));
-    writeUint16(buf, static_cast<uint16_t>(name.size()));
-    writeUint16(buf, static_cast<uint16_t>(extraCopy.size()));
-    writeUint16(buf, static_cast<uint16_t>(e.comment.size()));
-    writeUint16(buf, 0);
-    writeUint16(buf, 0);
-    writeUint32(buf, 0);
-    writeUint32(buf, hasZip64 ? ZipConstants::Zip64HeaderMask : static_cast<uint32_t>(offset));
+    Bytes::appendU16LE(buf, static_cast<uint16_t>(name.size()));
+    Bytes::appendU16LE(buf, static_cast<uint16_t>(extraCopy.size()));
+    Bytes::appendU16LE(buf, static_cast<uint16_t>(e.comment.size()));
+    Bytes::appendU16LE(buf, 0);
+    Bytes::appendU16LE(buf, 0);
+    Bytes::appendU32LE(buf, 0);
+    Bytes::appendU32LE(
+        buf, hasZip64 ? ZipConstants::Zip64HeaderMask : static_cast<uint32_t>(offset));
     buf.insert(buf.end(), name.begin(), name.end());
     if (!extraCopy.empty())
     {
@@ -134,29 +89,29 @@ void ZipSerializer::serializeLocalFileHeader(
     std::vector<uint8_t>& buf, const ZipEntry& e, const std::string& name)
 {
     buf.insert(buf.end(), ZipMagic::LocalFileHeader, ZipMagic::LocalFileHeader + 4);
-    writeUint16(buf, e.versionNeeded);
-    writeUint16(buf, e.gpFlags);
-    writeUint16(buf, e.compressionMethod);
-    writeUint16(buf, e.modTime);
-    writeUint16(buf, e.modDate);
-    writeUint32(buf, e.crc32);
-    writeUint32(buf, static_cast<uint32_t>(e.compSize));
-    writeUint32(buf, static_cast<uint32_t>(e.uncompSize));
-    writeUint16(buf, static_cast<uint16_t>(name.size()));
-    writeUint16(buf, 0);
+    Bytes::appendU16LE(buf, e.versionNeeded);
+    Bytes::appendU16LE(buf, e.gpFlags);
+    Bytes::appendU16LE(buf, e.compressionMethod);
+    Bytes::appendU16LE(buf, e.modTime);
+    Bytes::appendU16LE(buf, e.modDate);
+    Bytes::appendU32LE(buf, e.crc32);
+    Bytes::appendU32LE(buf, static_cast<uint32_t>(e.compSize));
+    Bytes::appendU32LE(buf, static_cast<uint32_t>(e.uncompSize));
+    Bytes::appendU16LE(buf, static_cast<uint16_t>(name.size()));
+    Bytes::appendU16LE(buf, 0);
 }
 
 void ZipSerializer::serializeEndOfCentralDir(
     std::vector<uint8_t>& buf, uint16_t numEntries, uint64_t cdSize, uint64_t cdOffset)
 {
     buf.insert(buf.end(), ZipMagic::EndOfCentralDir, ZipMagic::EndOfCentralDir + 4);
-    writeUint16(buf, 0);
-    writeUint16(buf, 0);
-    writeUint16(buf, numEntries);
-    writeUint16(buf, numEntries);
-    writeUint32(buf, static_cast<uint32_t>(cdSize));
-    writeUint32(buf, static_cast<uint32_t>(cdOffset));
-    writeUint16(buf, 0);
+    Bytes::appendU16LE(buf, 0);
+    Bytes::appendU16LE(buf, 0);
+    Bytes::appendU16LE(buf, numEntries);
+    Bytes::appendU16LE(buf, numEntries);
+    Bytes::appendU32LE(buf, static_cast<uint32_t>(cdSize));
+    Bytes::appendU32LE(buf, static_cast<uint32_t>(cdOffset));
+    Bytes::appendU16LE(buf, 0);
 }
 
 ZipArchive::ZipArchive(const std::string& filePath) : m_filePath(filePath) { load(filePath); }
@@ -223,9 +178,7 @@ void ZipArchive::load(const std::string& filePath)
     uint16_t numEntries = 0;
     uint32_t cdSize = 0;
     uint32_t cdOffset = 0;
-    file.read(reinterpret_cast<char*>(&numEntries), 2);
-    file.read(reinterpret_cast<char*>(&cdSize), 4);
-    file.read(reinterpret_cast<char*>(&cdOffset), 4);
+    file >> Bytes::U16LE(numEntries) >> Bytes::U32LE(cdSize) >> Bytes::U32LE(cdOffset);
 
     uint64_t totalEntries = numEntries;
     if (numEntries == 0xFFFF || cdOffset == 0xFFFFFFFF)
@@ -238,8 +191,7 @@ void ZipArchive::load(const std::string& filePath)
             {
                 uint32_t diskNum = 0;
                 uint64_t zip64EocdOff = 0;
-                file.read(reinterpret_cast<char*>(&diskNum), 4);
-                file.read(reinterpret_cast<char*>(&zip64EocdOff), 8);
+                file >> Bytes::U32LE(diskNum) >> Bytes::U64LE(zip64EocdOff);
 
                 file.seekg(zip64EocdOff, std::ios::beg);
                 char eocd64Sig[4];
@@ -249,9 +201,7 @@ void ZipArchive::load(const std::string& filePath)
                     uint64_t ne64 = 0;
                     uint64_t cs64 = 0;
                     uint64_t co64 = 0;
-                    file.read(reinterpret_cast<char*>(&ne64), 8);
-                    file.read(reinterpret_cast<char*>(&cs64), 8);
-                    file.read(reinterpret_cast<char*>(&co64), 8);
+                    file >> Bytes::U64LE(ne64) >> Bytes::U64LE(cs64) >> Bytes::U64LE(co64);
                     totalEntries = ne64;
                     cdSize = static_cast<uint32_t>(cs64);
                     cdOffset = static_cast<uint32_t>(co64);
@@ -269,15 +219,14 @@ void ZipArchive::load(const std::string& filePath)
             break;
         }
         ZipEntry entry;
-        file.read(reinterpret_cast<char*>(&entry.versionMadeBy), 2);
-        file.read(reinterpret_cast<char*>(&entry.versionNeeded), 2);
-        file.read(reinterpret_cast<char*>(&entry.gpFlags), 2);
-        file.read(reinterpret_cast<char*>(&entry.compressionMethod), 2);
-        file.read(reinterpret_cast<char*>(&entry.modTime), 2);
-        file.read(reinterpret_cast<char*>(&entry.modDate), 2);
-        file.read(reinterpret_cast<char*>(&entry.crc32), 4);
-        file.read(reinterpret_cast<char*>(&entry.compSize), 4);
-        file.read(reinterpret_cast<char*>(&entry.uncompSize), 4);
+        uint32_t compSize32 = 0;
+        uint32_t uncompSize32 = 0;
+        file >> Bytes::U16LE(entry.versionMadeBy) >> Bytes::U16LE(entry.versionNeeded) >>
+            Bytes::U16LE(entry.gpFlags) >> Bytes::U16LE(entry.compressionMethod) >>
+            Bytes::U16LE(entry.modTime) >> Bytes::U16LE(entry.modDate) >>
+            Bytes::U32LE(entry.crc32) >> Bytes::U32LE(compSize32) >> Bytes::U32LE(uncompSize32);
+        entry.compSize = compSize32;
+        entry.uncompSize = uncompSize32;
 
         uint16_t nameLen = 0;
         uint16_t extraLen = 0;
@@ -285,13 +234,11 @@ void ZipArchive::load(const std::string& filePath)
         uint16_t diskStart = 0;
         uint16_t intAttr = 0;
         uint32_t extAttr = 0;
-        file.read(reinterpret_cast<char*>(&nameLen), 2);
-        file.read(reinterpret_cast<char*>(&extraLen), 2);
-        file.read(reinterpret_cast<char*>(&commentLen), 2);
-        file.read(reinterpret_cast<char*>(&diskStart), 2);
-        file.read(reinterpret_cast<char*>(&intAttr), 2);
-        file.read(reinterpret_cast<char*>(&extAttr), 4);
-        file.read(reinterpret_cast<char*>(&entry.localHeaderOffset), 4);
+        uint32_t localHeaderOffset32 = 0;
+        file >> Bytes::U16LE(nameLen) >> Bytes::U16LE(extraLen) >> Bytes::U16LE(commentLen) >>
+            Bytes::U16LE(diskStart) >> Bytes::U16LE(intAttr) >> Bytes::U32LE(extAttr) >>
+            Bytes::U32LE(localHeaderOffset32);
+        entry.localHeaderOffset = localHeaderOffset32;
 
         std::vector<char> nameBuf(nameLen);
         file.read(nameBuf.data(), nameLen);
@@ -304,10 +251,8 @@ void ZipArchive::load(const std::string& filePath)
             size_t off = 0;
             while (off + 4 <= entry.extra.size())
             {
-                uint16_t tag = static_cast<uint16_t>(entry.extra[off]) |
-                               (static_cast<uint16_t>(entry.extra[off + 1]) << 8);
-                uint16_t sz = static_cast<uint16_t>(entry.extra[off + 2]) |
-                              (static_cast<uint16_t>(entry.extra[off + 3]) << 8);
+                uint16_t tag = Bytes::readU16LE(&entry.extra[off]);
+                uint16_t sz = Bytes::readU16LE(&entry.extra[off + 2]);
                 if (off + 4 + sz > entry.extra.size())
                 {
                     break;
@@ -319,12 +264,7 @@ void ZipArchive::load(const std::string& filePath)
                     {
                         if (field == ZipConstants::Zip64HeaderMask && cur + 8 <= off + 4 + sz)
                         {
-                            uint64_t val = 0;
-                            for (int k = 0; k < 8; ++k)
-                            {
-                                val |= static_cast<uint64_t>(entry.extra[cur + k]) << (8 * k);
-                            }
-                            field = val;
+                            field = Bytes::readU64LE(&entry.extra[cur]);
                             cur += 8;
                         }
                     };
@@ -383,8 +323,8 @@ std::vector<uint8_t> ZipArchive::getUncompressedContent(const std::string& name)
     {
         return {};
     }
-    uint16_t nameLen = p[26] | (p[27] << 8);
-    uint16_t extraLen = p[28] | (p[29] << 8);
+    uint16_t nameLen = Bytes::readU16LE(&p[26]);
+    uint16_t extraLen = Bytes::readU16LE(&p[28]);
     uint64_t dataOffset = 30 + nameLen + extraLen;
     if (entry.rawBytes.size() < dataOffset + entry.compSize)
     {

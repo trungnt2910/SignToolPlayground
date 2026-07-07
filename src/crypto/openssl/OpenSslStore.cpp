@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include "crypto/AuthenticodeSigner.h"
+#include "crypto/Bytes.h"
 #include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslHelper.h"
 #include "crypto/openssl/OpenSslPrivateKey.h"
@@ -337,7 +338,7 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
 
     file.seekg(0x3C, std::ios::beg);
     uint32_t peOffset = 0;
-    if (!file.read(reinterpret_cast<char*>(&peOffset), 4))
+    if (!(file >> Bytes::U32LE(peOffset)))
     {
         return;
     }
@@ -351,7 +352,7 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
 
     file.seekg(peOffset + 24, std::ios::beg);
     uint16_t magic = 0;
-    if (!file.read(reinterpret_cast<char*>(&magic), 2))
+    if (!(file >> Bytes::U16LE(magic)))
     {
         return;
     }
@@ -372,11 +373,7 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
     }
 
     file.seekg(m_securityDirOffset, std::ios::beg);
-    if (!file.read(reinterpret_cast<char*>(&m_certTableAddress), 4))
-    {
-        return;
-    }
-    if (!file.read(reinterpret_cast<char*>(&m_certTableSize), 4))
+    if (!(file >> Bytes::U32LE(m_certTableAddress) >> Bytes::U32LE(m_certTableSize)))
     {
         return;
     }
@@ -390,15 +387,7 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
     uint32_t dwLength = 0;
     uint16_t wRevision = 0;
     uint16_t wCertType = 0;
-    if (!file.read(reinterpret_cast<char*>(&dwLength), 4))
-    {
-        return;
-    }
-    if (!file.read(reinterpret_cast<char*>(&wRevision), 2))
-    {
-        return;
-    }
-    if (!file.read(reinterpret_cast<char*>(&wCertType), 2))
+    if (!(file >> Bytes::U32LE(dwLength) >> Bytes::U16LE(wRevision) >> Bytes::U16LE(wCertType)))
     {
         return;
     }
@@ -482,15 +471,7 @@ PKCS7Ptr OpenSslPeFileStore::getPkcs7()
     uint32_t dwLength = 0;
     uint16_t wRevision = 0;
     uint16_t wCertType = 0;
-    if (!file.read(reinterpret_cast<char*>(&dwLength), 4))
-    {
-        return nullptr;
-    }
-    if (!file.read(reinterpret_cast<char*>(&wRevision), 2))
-    {
-        return nullptr;
-    }
-    if (!file.read(reinterpret_cast<char*>(&wCertType), 2))
+    if (!(file >> Bytes::U32LE(dwLength) >> Bytes::U16LE(wRevision) >> Bytes::U16LE(wCertType)))
     {
         return nullptr;
     }
@@ -548,9 +529,7 @@ bool OpenSslPeFileStore::setPkcs7(PKCS7* p7)
     }
 
     file.seekp(writeAddr, std::ios::beg);
-    file.write(reinterpret_cast<const char*>(&dwLength), 4);
-    file.write(reinterpret_cast<const char*>(&wRevision), 2);
-    file.write(reinterpret_cast<const char*>(&wCertType), 2);
+    file << Bytes::U32LE(dwLength) << Bytes::U16LE(wRevision) << Bytes::U16LE(wCertType);
     file.write(derData, derLen);
     if (paddedLen > derLen)
     {
@@ -560,8 +539,7 @@ bool OpenSslPeFileStore::setPkcs7(PKCS7* p7)
 
     uint32_t newCertTableSize = 8 + paddedLen;
     file.seekp(m_securityDirOffset, std::ios::beg);
-    file.write(reinterpret_cast<const char*>(&writeAddr), 4);
-    file.write(reinterpret_cast<const char*>(&newCertTableSize), 4);
+    file << Bytes::U32LE(writeAddr) << Bytes::U32LE(newCertTableSize);
 
     m_certTableAddress = writeAddr;
     m_certTableSize = newCertTableSize;
