@@ -18,6 +18,7 @@
 #include "crypto/CckyProbeAllocate.h"
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
+#include "crypto/Strings.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/Win32Time.h"
 #include "crypto/windows/Win32Wrapper.h"
@@ -79,9 +80,7 @@ struct IssuerProvCloser
 
 std::wstring getCngHashAlgId(const std::string& algo)
 {
-    std::string algoUpper = algo;
-    std::transform(algoUpper.begin(), algoUpper.end(), algoUpper.begin(), ::toupper);
-    return WinHelper::utf8ToWide(algoUpper);
+    return WinHelper::utf8ToWide(Strings::toUpper(algo));
 }
 
 LPCSTR getSignatureAlgorithmOid(const std::string& algo, const std::string& pubKeyOid)

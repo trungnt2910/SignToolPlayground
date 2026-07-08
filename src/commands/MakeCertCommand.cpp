@@ -13,12 +13,15 @@
 #include "crypto/CertGenerator.h"
 #include "crypto/Console.h"
 #include "crypto/PrivateKey.h"
+#include "crypto/Strings.h"
 #include "crypto/Time.h"
 
 namespace ccky
 {
 namespace commands
 {
+
+using ccky::crypto::Strings;
 
 std::string MakeCertCommand::getDescription() const
 {
@@ -384,9 +387,8 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
     std::string issuerStoreLocation = args.getFlagValue("ir", "CurrentUser");
     if (args.hasFlag("ir"))
     {
-        std::string loc = issuerStoreLocation;
-        std::transform(loc.begin(), loc.end(), loc.begin(), ::tolower);
-        if (loc != "currentuser" && loc != "localmachine")
+        if (!Strings::equalsCaseInsensitive(issuerStoreLocation, "currentuser") &&
+            !Strings::equalsCaseInsensitive(issuerStoreLocation, "localmachine"))
         {
             return invalidParameter("ir");
         }
@@ -396,9 +398,8 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
     std::string srStoreLocation = args.getFlagValue("sr", "CurrentUser");
     if (args.hasFlag("sr"))
     {
-        std::string loc = srStoreLocation;
-        std::transform(loc.begin(), loc.end(), loc.begin(), ::tolower);
-        if (loc != "currentuser" && loc != "localmachine")
+        if (!Strings::equalsCaseInsensitive(srStoreLocation, "currentuser") &&
+            !Strings::equalsCaseInsensitive(srStoreLocation, "localmachine"))
         {
             return invalidParameter("sr");
         }
@@ -424,15 +425,10 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
 
     bool exportable = args.hasFlag("pe");
 
-    std::string cyCertType = args.getFlagValue("cy", "end");
+    std::string cyCertType = Strings::toLower(args.getFlagValue("cy", "end"));
+    if (cyCertType != "end" && cyCertType != "authority")
     {
-        std::string cy = cyCertType;
-        std::transform(cy.begin(), cy.end(), cy.begin(), ::tolower);
-        if (cy != "end" && cy != "authority")
-        {
-            return invalidParameter("cy");
-        }
-        cyCertType = cy;
+        return invalidParameter("cy");
     }
 
     int pathLen = 0;
@@ -487,8 +483,8 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
     std::string authority = args.getFlagValue("$");
     if (args.hasFlag("$"))
     {
-        std::transform(authority.begin(), authority.end(), authority.begin(), ::tolower);
-        if (authority != "individual" && authority != "commercial")
+        if (!Strings::equalsCaseInsensitive(authority, "individual") &&
+            !Strings::equalsCaseInsensitive(authority, "commercial"))
         {
             m_err << "Error: Invalid signing authority\n";
             if (m_registry)

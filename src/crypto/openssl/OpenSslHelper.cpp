@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <sstream>
 
+#include "crypto/Strings.h"
 #include "crypto/Time.h"
 #include "crypto/openssl/OpenSslWrapper.h"
 
@@ -145,9 +146,7 @@ std::string OpenSslHelper::getNameDisplay(X509_NAME* name)
             const char* sn = OBJ_nid2sn(nid);
             if (sn && strlen(sn) > 0)
             {
-                std::string upperSn = sn;
-                std::transform(upperSn.begin(), upperSn.end(), upperSn.begin(), ::toupper);
-                ss << " (" << upperSn << ")";
+                ss << " (" << Strings::toUpper(sn) << ")";
             }
         }
 
@@ -409,47 +408,22 @@ std::string OpenSslHelper::getCertKeySha256Thumbprint(X509* cert)
 
 const EVP_MD* OpenSslHelper::getDigestAlgorithm(const std::string& alg)
 {
-    std::string lower = alg;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    if (lower == "sha1")
+    const EVP_MD* md = EVP_get_digestbyname(alg.c_str());
+    if (!md)
     {
-        return EVP_sha1();
+        md = EVP_get_digestbyname(Strings::toUpper(alg).c_str());
     }
-    if (lower == "sha256")
-    {
-        return EVP_sha256();
-    }
-    if (lower == "sha384")
-    {
-        return EVP_sha384();
-    }
-    if (lower == "sha512")
-    {
-        return EVP_sha512();
-    }
-    return EVP_sha1();
+    return md ? md : EVP_sha1();
 }
 
 std::string OpenSslHelper::getDigestAlgorithmName(int nid)
 {
-    if (nid == NID_sha1)
-    {
-        return "sha1";
-    }
-    if (nid == NID_sha256)
-    {
-        return "sha256";
-    }
-    if (nid == NID_sha384)
-    {
-        return "sha384";
-    }
-    if (nid == NID_sha512)
-    {
-        return "sha512";
-    }
     const char* sn = OBJ_nid2sn(nid);
-    return sn ? sn : "sha256";
+    if (!sn || nid == NID_undef)
+    {
+        return "";
+    }
+    return Strings::toLower(sn);
 }
 
 } // namespace crypto

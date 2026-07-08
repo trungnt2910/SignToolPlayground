@@ -10,18 +10,23 @@
 #include "crypto/AuthenticodeSigner.h"
 #include "crypto/CckyException.h"
 #include "crypto/CryptoFactory.h"
+#include "crypto/Strings.h"
 
 namespace ccky
 {
 namespace commands
 {
 
+using ccky::crypto::Strings;
+
 bool CertMgrCommand::isSubcommand(const std::string& arg) const
 {
-    std::string lower = arg;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    return lower == "/add" || lower == "-add" || lower == "/del" || lower == "-del" ||
-           lower == "/put" || lower == "-put";
+    return Strings::equalsCaseInsensitive(arg, "/add") ||
+           Strings::equalsCaseInsensitive(arg, "-add") ||
+           Strings::equalsCaseInsensitive(arg, "/del") ||
+           Strings::equalsCaseInsensitive(arg, "-del") ||
+           Strings::equalsCaseInsensitive(arg, "/put") ||
+           Strings::equalsCaseInsensitive(arg, "-put");
 }
 
 std::vector<cli::FlagDef> CertMgrCommand::getFlagDefs(const std::string& subcommand) const
@@ -126,12 +131,15 @@ int CertMgrCommand::executeImpl(const cli::ParsedArgs& args)
             displayError("Invalid value for -sha1 option", /* shouldPrintHelp = */ true);
             return 1;
         }
-        std::transform(sha1Flag.begin(), sha1Flag.end(), sha1Flag.begin(), ::tolower);
+        sha1Flag = Strings::toLower(sha1Flag);
     }
 
-    bool isAdd = (args.subcommand == "/add" || args.subcommand == "-add");
-    bool isDel = (args.subcommand == "/del" || args.subcommand == "-del");
-    bool isPut = (args.subcommand == "/put" || args.subcommand == "-put");
+    bool isAdd = (Strings::equalsCaseInsensitive(args.subcommand, "/add") ||
+                  Strings::equalsCaseInsensitive(args.subcommand, "-add"));
+    bool isDel = (Strings::equalsCaseInsensitive(args.subcommand, "/del") ||
+                  Strings::equalsCaseInsensitive(args.subcommand, "-del"));
+    bool isPut = (Strings::equalsCaseInsensitive(args.subcommand, "/put") ||
+                  Strings::equalsCaseInsensitive(args.subcommand, "-put"));
 
     if (args.positional.empty())
     {

@@ -14,6 +14,7 @@
 
 #include "crypto/AuthenticodeSigner.h"
 #include "crypto/CckyProbeAllocate.h"
+#include "crypto/Strings.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WindowsException.h"
@@ -176,7 +177,7 @@ void Win32FileStore::loadSipFile(const std::string& location, const StoreOptions
     m_crls.clear();
     m_ctls.clear();
     m_loadedLocation = location;
-    m_signingAlgorithm = "sha256";
+    m_signingAlgorithm = "";
     m_timestamp = "None";
 
     std::wstring wLocation = WinHelper::utf8ToWide(location);
@@ -206,21 +207,12 @@ void Win32FileStore::loadSipFile(const std::string& location, const StoreOptions
                 if (pSi && pSi->HashAlgorithm.pszObjId)
                 {
                     std::string oid = pSi->HashAlgorithm.pszObjId;
-                    if (oid == szOID_OIWSEC_sha1)
+                    PCCRYPT_OID_INFO pInfo = CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY,
+                        const_cast<char*>(oid.c_str()), CRYPT_HASH_ALG_OID_GROUP_ID);
+                    if (pInfo != nullptr && pInfo->pwszName != nullptr)
                     {
-                        m_signingAlgorithm = "sha1";
-                    }
-                    else if (oid == szOID_NIST_sha256)
-                    {
-                        m_signingAlgorithm = "sha256";
-                    }
-                    else if (oid == szOID_NIST_sha384)
-                    {
-                        m_signingAlgorithm = "sha384";
-                    }
-                    else if (oid == szOID_NIST_sha512)
-                    {
-                        m_signingAlgorithm = "sha512";
+                        m_signingAlgorithm =
+                            Strings::toLower(WinHelper::wideToUtf8(pInfo->pwszName));
                     }
                     else
                     {

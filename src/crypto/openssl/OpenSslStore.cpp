@@ -321,7 +321,7 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
     m_certTableAddress = 0;
     m_certTableSize = 0;
     m_isPe32Plus = false;
-    m_signingAlgorithm = "sha256";
+    m_signingAlgorithm = "";
     m_timestamp = "None";
 
     std::ifstream file(location, std::ios::binary);
@@ -697,7 +697,7 @@ void OpenSslAppxFileStore::load(const std::string& location, const StoreOptions&
     m_crls.clear();
     m_ctls.clear();
     m_loadedLocation = location;
-    m_signingAlgorithm = "sha256";
+    m_signingAlgorithm = "";
     m_timestamp = "None";
 
     if (!std::filesystem::exists(location))

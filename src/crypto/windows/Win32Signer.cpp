@@ -13,6 +13,7 @@
 #include <wintrust.h>
 
 #include "crypto/FileTypeDetector.h"
+#include "crypto/Strings.h"
 #include "crypto/windows/Win32Cert.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WindowsException.h"
@@ -241,9 +242,19 @@ void AuthenticodeSigner::sign(
     };
 
     ALG_ID algId = CALG_SHA1;
-    if (options.fileDigestAlg == "SHA256" || options.fileDigestAlg == "sha256")
+    if (!options.fileDigestAlg.empty())
     {
-        algId = CALG_SHA_256;
+        std::wstring wideAlg = WinHelper::utf8ToWide(Strings::toUpper(options.fileDigestAlg));
+        PCCRYPT_OID_INFO pInfo = CryptFindOIDInfo(CRYPT_OID_INFO_NAME_KEY,
+            const_cast<wchar_t*>(wideAlg.c_str()), CRYPT_HASH_ALG_OID_GROUP_ID);
+        if (pInfo != nullptr && pInfo->Algid != 0)
+        {
+            algId = pInfo->Algid;
+        }
+        else if (Strings::equalsCaseInsensitive(options.fileDigestAlg, "sha256"))
+        {
+            algId = CALG_SHA_256;
+        }
     }
 
     SIGNER_SIGNATURE_INFO sigInfo = {

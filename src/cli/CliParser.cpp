@@ -6,10 +6,14 @@
 #include <map>
 #include <sstream>
 
+#include "crypto/Strings.h"
+
 namespace ccky
 {
 namespace cli
 {
+
+using ccky::crypto::Strings;
 
 ParsedArgs CliParser::parse(int argc, const char* const argv[], const CommandRegistry& registry)
 {
@@ -30,8 +34,7 @@ ParsedArgs CliParser::parse(int argc, const char* const argv[], const CommandReg
     {
         execName = execName.substr(0, dot);
     }
-    std::string lowerExec = execName;
-    std::transform(lowerExec.begin(), lowerExec.end(), lowerExec.begin(), ::tolower);
+    std::string lowerExec = Strings::toLower(execName);
 
     int argIndex = 1;
     auto cmd = registry.getCommand(lowerExec);
@@ -69,9 +72,7 @@ ParsedArgs CliParser::parse(int argc, const char* const argv[], const CommandReg
     std::map<std::string, FlagType> flagTypeMap;
     for (const auto& def : flagDefs)
     {
-        std::string lower = def.name;
-        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-        flagTypeMap[lower] = def.type;
+        flagTypeMap[Strings::toLower(def.name)] = def.type;
     }
 
     std::map<std::string, std::vector<std::string>> currentPositionalFlags;
@@ -88,8 +89,7 @@ ParsedArgs CliParser::parse(int argc, const char* const argv[], const CommandReg
             else if (currentArg[0] == '/')
             {
                 std::string flagName = currentArg.substr(1);
-                std::string lower = flagName;
-                std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+                std::string lower = Strings::toLower(flagName);
                 if (lower == "?" || lower == "h" || lower == "help" || flagTypeMap.contains(lower))
                 {
                     isFlag = true;
@@ -105,8 +105,7 @@ ParsedArgs CliParser::parse(int argc, const char* const argv[], const CommandReg
             {
                 flagName = flagName.substr(1);
             }
-            std::string lower = flagName;
-            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+            std::string lower = Strings::toLower(flagName);
 
             auto it = flagTypeMap.find(lower);
             if (it != flagTypeMap.end())

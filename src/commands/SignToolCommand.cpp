@@ -9,24 +9,27 @@
 #include "crypto/AuthenticodeSigner.h"
 #include "crypto/CckyException.h"
 #include "crypto/CryptoFactory.h"
+#include "crypto/Strings.h"
 
 namespace ccky
 {
 namespace commands
 {
 
+using ccky::crypto::Strings;
+
 bool SignToolCommand::isSubcommand(const std::string& arg) const
 {
-    std::string lower = arg;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    return lower == "sign" || lower == "verify" || lower == "timestamp" || lower == "catdb" ||
-           lower == "remove";
+    return Strings::equalsCaseInsensitive(arg, "sign") ||
+           Strings::equalsCaseInsensitive(arg, "verify") ||
+           Strings::equalsCaseInsensitive(arg, "timestamp") ||
+           Strings::equalsCaseInsensitive(arg, "catdb") ||
+           Strings::equalsCaseInsensitive(arg, "remove");
 }
 
 std::vector<cli::FlagDef> SignToolCommand::getFlagDefs(const std::string& subcommand) const
 {
-    std::string lower = subcommand;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::string lower = Strings::toLower(subcommand);
 
     if (lower == "sign")
     {
@@ -551,8 +554,7 @@ void SignToolCommand::displayError(const std::string& msg, bool shouldPrintHelp)
 
 int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
 {
-    std::string lower = args.subcommand;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::string lower = Strings::toLower(args.subcommand);
     m_currentSubcommand = lower;
 
     if (args.hasFlag("h") || args.hasFlag("help") || args.hasFlag("?"))
@@ -695,9 +697,10 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
 
         for (const auto& fileToSign : args.positional)
         {
-            std::string alg = signOpts.fileDigestAlg;
-            std::transform(alg.begin(), alg.end(), alg.begin(), ::toupper);
-            if (alg != "SHA1" && alg != "SHA256")
+            // TODO: Cross-platform Digest helper.
+            // E.g. crypto::Digest::isSupported(signOpts.fileDigestAlg)
+            if (!Strings::equalsCaseInsensitive(signOpts.fileDigestAlg, "sha1") &&
+                !Strings::equalsCaseInsensitive(signOpts.fileDigestAlg, "sha256"))
             {
                 m_err << "SignTool Error: The specified algorithm cannot be used or is invalid.\n";
                 errorCount++;
@@ -789,12 +792,7 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
                 outMsg = "SignTool Error: " + std::string(e.what()) + "\n";
             }
 
-            std::string baseName = fileToVerify;
-            size_t slash = baseName.find_last_of("/\\");
-            if (slash != std::string::npos)
-            {
-                baseName = baseName.substr(slash + 1);
-            }
+            std::string baseName = std::filesystem::path(fileToVerify).filename().string();
 
             std::string algName = peStore->getSigningAlgorithm();
             std::string tsStr = peStore->getTimestamp();

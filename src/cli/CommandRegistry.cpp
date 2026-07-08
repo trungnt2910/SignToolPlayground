@@ -5,10 +5,14 @@
 #include <iomanip>
 #include <sstream>
 
+#include "crypto/Strings.h"
+
 namespace ccky
 {
 namespace cli
 {
+
+using ccky::crypto::Strings;
 
 void CommandRegistry::registerCommand(std::shared_ptr<Command> command)
 {
@@ -16,16 +20,13 @@ void CommandRegistry::registerCommand(std::shared_ptr<Command> command)
     {
         command->setRegistry(this);
         command->registerUsage(this);
-        std::string lower = command->getName();
-        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-        m_commands[lower] = command;
+        m_commands[Strings::toLower(command->getName())] = command;
     }
 }
 
 std::shared_ptr<Command> CommandRegistry::getCommand(const std::string& name) const
 {
-    std::string lower = name;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::string lower = Strings::toLower(name);
     auto it = m_commands.find(lower);
     if (it != m_commands.end())
     {
@@ -49,22 +50,15 @@ void CommandRegistry::registerCommandUsage(const std::string& command,
     const std::string& cmdDescription, const std::vector<SubcommandInfo>& subcommands,
     const std::vector<FlagDef>& flags, UsageBehavior behavior)
 {
-    std::string lowerCmd = command;
-    std::transform(lowerCmd.begin(), lowerCmd.end(), lowerCmd.begin(), ::tolower);
-    std::string lowerSub = subcommand;
-    std::transform(lowerSub.begin(), lowerSub.end(), lowerSub.begin(), ::tolower);
-    m_usageRegistry[{lowerCmd, lowerSub}] = {
+    m_usageRegistry[{Strings::toLower(command), Strings::toLower(subcommand)}] = {
         usageHeader, cmdDescription, subcommands, flags, behavior};
 }
 
 std::string CommandRegistry::getUsage(const std::string& command, const std::string& subcommand,
     const std::string& categoryFilter) const
 {
-    std::string lowerCmd = command;
-    std::transform(lowerCmd.begin(), lowerCmd.end(), lowerCmd.begin(), ::tolower);
-    std::string lowerSub = subcommand;
-    std::transform(lowerSub.begin(), lowerSub.end(), lowerSub.begin(), ::tolower);
-
+    std::string lowerCmd = Strings::toLower(command);
+    std::string lowerSub = Strings::toLower(subcommand);
     auto it = m_usageRegistry.find({lowerCmd, lowerSub});
     if (it == m_usageRegistry.end())
     {
