@@ -78,7 +78,7 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
         throw CckyCryptoException("Failed to parse main certificate from SPC file");
     }
 
-    if (X509_check_private_key(mainCert->getInternal(), pkey.get()) != 1)
+    if (X509_check_private_key(mainCert->getInternal().get(), pkey.get()) != 1)
     {
         throw KeyMismatchException("Private key does not match certificate");
     }
@@ -92,7 +92,7 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
             auto caCert = std::dynamic_pointer_cast<OpenSslCert>(certs[i]);
             if (caCert)
             {
-                sk_X509_push(caCerts, caCert->getInternal());
+                sk_X509_push(caCerts, caCert->getInternal().get());
             }
         }
     }
@@ -100,7 +100,7 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
     const char* pfxPass = opts.pfxPassword.empty() ? nullptr : opts.pfxPassword.c_str();
 
     PKCS12Ptr p12(PKCS12_create(const_cast<char*>(pfxPass), nullptr, pkey.get(),
-        mainCert->getInternal(), caCerts, 0, 0, PKCS12_DEFAULT_ITER, 1, 0));
+        mainCert->getInternal().get(), caCerts, 0, 0, PKCS12_DEFAULT_ITER, 1, 0));
 
     if (caCerts)
     {

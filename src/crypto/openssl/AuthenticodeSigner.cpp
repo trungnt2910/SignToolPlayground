@@ -264,8 +264,8 @@ std::vector<uint8_t> calculateAppxHashInternal(const std::string& filePath, cons
 
 namespace
 {
-void signAppx(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::string& filePath,
-    CertificateStore* store)
+void signAppx(const X509Ptr& x, const EVPPKeyPtr& pkey, const SignOptions& options,
+    const std::string& filePath, const CertificateStorePtr& store)
 {
     std::vector<uint8_t> appxHash = calculateAppxHashInternal(filePath, options.fileDigestAlg);
     if (appxHash.empty())
@@ -273,12 +273,13 @@ void signAppx(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::st
         throw OpenSslException("Failed to calculate APPX file digest for: " + filePath, false);
     }
     BIOPtr memBio(BIO_new_mem_buf(appxHash.data(), appxHash.size()));
-    PKCS7Ptr p7(PKCS7_sign(x, pkey, nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
+    PKCS7Ptr p7(
+        PKCS7_sign(x.get(), pkey.get(), nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
     if (p7 == nullptr)
     {
         throw OpenSslException("Failed to create PKCS#7 signature structure", false);
     }
-    auto* appxStore = dynamic_cast<OpenSslAppxFileStore*>(store);
+    auto* appxStore = dynamic_cast<OpenSslAppxFileStore*>(store.get());
     if (!appxStore || !appxStore->setPkcs7(p7.get()))
     {
         throw OpenSslException(
@@ -286,8 +287,8 @@ void signAppx(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::st
     }
 }
 
-void signPe(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::string& filePath,
-    CertificateStore* store)
+void signPe(const X509Ptr& x, const EVPPKeyPtr& pkey, const SignOptions& options,
+    const std::string& filePath, const CertificateStorePtr& store)
 {
     std::vector<uint8_t> peHash = calculatePeHashInternal(filePath, options.fileDigestAlg);
     if (peHash.empty())
@@ -295,12 +296,13 @@ void signPe(X509* x, EVP_PKEY* pkey, const SignOptions& options, const std::stri
         throw OpenSslException("Failed to calculate PE file digest for: " + filePath, false);
     }
     BIOPtr memBio(BIO_new_mem_buf(peHash.data(), peHash.size()));
-    PKCS7Ptr p7(PKCS7_sign(x, pkey, nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
+    PKCS7Ptr p7(
+        PKCS7_sign(x.get(), pkey.get(), nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
     if (p7 == nullptr)
     {
         throw OpenSslException("Failed to create PKCS#7 signature structure", false);
     }
-    auto* peStore = dynamic_cast<OpenSslPeFileStore*>(store);
+    auto* peStore = dynamic_cast<OpenSslPeFileStore*>(store.get());
     if (!peStore || !peStore->setPkcs7(p7.get()))
     {
         throw OpenSslException("Failed to write Authenticode PKCS#7 signature to PE file.", false);
@@ -312,12 +314,12 @@ void AuthenticodeSigner::sign(
     CertificatePtr cert, const SignOptions& options, const std::string& filePath)
 {
     auto* sslCert = dynamic_cast<OpenSslCert*>(cert.get());
-    if (!sslCert || !sslCert->getInternal() || !sslCert->getInternalKey())
+    if (!sslCert || sslCert->getInternal() == nullptr || sslCert->getInternalKey() == nullptr)
     {
         throw OpenSslException("Invalid or missing signing certificate and private key.", false);
     }
-    X509* x = sslCert->getInternal();
-    EVP_PKEY* pkey = sslCert->getInternalKey();
+    const X509Ptr& x = sslCert->getInternal();
+    const EVPPKeyPtr& pkey = sslCert->getInternalKey();
 
     if (!options.timestampUrl.empty())
     {
@@ -331,11 +333,11 @@ void AuthenticodeSigner::sign(
 
     if (store->getStoreType() == StoreType::AppxFile)
     {
-        signAppx(x, pkey, options, filePath, store.get());
+        signAppx(x, pkey, options, filePath, store);
     }
     else if (store->getStoreType() == StoreType::PeFile)
     {
-        signPe(x, pkey, options, filePath, store.get());
+        signPe(x, pkey, options, filePath, store);
     }
     else
     {

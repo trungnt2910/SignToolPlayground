@@ -56,9 +56,7 @@ crypto::X509Ptr loadIssuerCert(const MakeCertOptions& options)
         {
             throw std::runtime_error("Failed to cast issuer certificate");
         }
-        X509* raw = issuerCert->getInternal();
-        X509_up_ref(raw);
-        return crypto::X509Ptr(raw);
+        return issuerCert->getInternal();
     }
     catch (const std::exception& e)
     {

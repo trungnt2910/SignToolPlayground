@@ -20,13 +20,7 @@ namespace ccky
 namespace crypto
 {
 
-Win32Cert::Win32Cert(PCCERT_CONTEXT cert)
-{
-    if (cert)
-    {
-        m_cert.reset(CertDuplicateCertificateContext(cert));
-    }
-}
+Win32Cert::Win32Cert(CertContextPtr cert) : m_cert(std::move(cert)) {}
 
 // Encoding, Hashes & Algorithms
 std::vector<uint8_t> Win32Cert::getEncoded() const
@@ -365,8 +359,7 @@ PrivateKeyPtr Win32Cert::getPrivateKey() const
     {
         return nullptr;
     }
-    CertContextPtr pDup(CertDuplicateCertificateContext(m_cert.get()));
-    return std::make_shared<Win32PrivateKey>(std::move(pDup));
+    return std::make_shared<Win32PrivateKey>(m_cert);
 }
 
 bool Win32Cert::isPrivateKeyExportable() const
@@ -653,7 +646,7 @@ std::string Win32Cert::getNameDN(const CERT_NAME_BLOB* pNameBlob) const
     return WinHelper::wideToUtf8(wbuf.c_str());
 }
 
-Win32PfxCert::Win32PfxCert(PCCERT_CONTEXT cert) : Win32Cert(cert) {}
+Win32PfxCert::Win32PfxCert(CertContextPtr cert) : Win32Cert(std::move(cert)) {}
 
 std::string Win32PfxCert::getProviderType() const { return "0"; }
 
@@ -661,13 +654,7 @@ std::string Win32PfxCert::getProviderName() const { return "PfxProvider"; }
 
 std::string Win32PfxCert::getContainerName() const { return "PfxContainer"; }
 
-Win32Crl::Win32Crl(PCCRL_CONTEXT crl)
-{
-    if (crl)
-    {
-        m_crl.reset(CertDuplicateCRLContext(crl));
-    }
-}
+Win32Crl::Win32Crl(CrlContextPtr crl) : m_crl(std::move(crl)) {}
 
 std::string Win32Crl::getSha1() const
 {
@@ -698,13 +685,7 @@ std::vector<uint8_t> Win32Crl::getEncoded() const
     return std::vector<uint8_t>(m_crl->pbCrlEncoded, m_crl->pbCrlEncoded + m_crl->cbCrlEncoded);
 }
 
-Win32Ctl::Win32Ctl(PCCTL_CONTEXT ctl)
-{
-    if (ctl)
-    {
-        m_ctl.reset(CertDuplicateCTLContext(ctl));
-    }
-}
+Win32Ctl::Win32Ctl(CtlContextPtr ctl) : m_ctl(std::move(ctl)) {}
 
 std::string Win32Ctl::getSha1() const
 {

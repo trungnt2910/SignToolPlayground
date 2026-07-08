@@ -16,7 +16,7 @@ namespace crypto
 class Win32Cert : public Certificate
 {
   public:
-    explicit Win32Cert(PCCERT_CONTEXT cert);
+    explicit Win32Cert(CertContextPtr cert);
     ~Win32Cert() override = default;
 
     // Encoding, Hashes & Algorithms
@@ -74,7 +74,7 @@ class Win32Cert : public Certificate
 class Win32PfxCert : public Win32Cert
 {
   public:
-    explicit Win32PfxCert(PCCERT_CONTEXT cert);
+    explicit Win32PfxCert(CertContextPtr cert);
     ~Win32PfxCert() override = default;
 
     std::string getProviderType() const override;
@@ -85,7 +85,7 @@ class Win32PfxCert : public Win32Cert
 class Win32Crl : public Crl
 {
   public:
-    explicit Win32Crl(PCCRL_CONTEXT crl);
+    explicit Win32Crl(CrlContextPtr crl);
     ~Win32Crl() override = default;
 
     std::string getSha1() const override;
@@ -100,7 +100,7 @@ class Win32Crl : public Crl
 class Win32Ctl : public Ctl
 {
   public:
-    explicit Win32Ctl(PCCTL_CONTEXT ctl);
+    explicit Win32Ctl(CtlContextPtr ctl);
     ~Win32Ctl() override = default;
 
     std::string getSha1() const override;

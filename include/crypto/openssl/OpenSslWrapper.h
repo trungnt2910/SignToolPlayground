@@ -34,11 +34,11 @@ struct OpenSslWrapperDeleter
 };
 
 using BIOPtr = CckyHandle<BIO*, BIO_free_all>;
-using X509Ptr = CckyHandle<X509*, X509_free>;
-using X509CRLPtr = CckyHandle<X509_CRL*, X509_CRL_free>;
+using X509Ptr = CckyHandle<X509*, X509_free, CckyDefault{}, X509_up_ref>;
+using X509CRLPtr = CckyHandle<X509_CRL*, X509_CRL_free, CckyDefault{}, X509_CRL_up_ref>;
 using X509StackPtr = CckyHandle<STACK_OF(X509)*, OpenSslWrapperDeleter{}>;
 using X509ExtensionPtr = CckyHandle<X509_EXTENSION*, X509_EXTENSION_free>;
-using EVPPKeyPtr = CckyHandle<EVP_PKEY*, EVP_PKEY_free>;
+using EVPPKeyPtr = CckyHandle<EVP_PKEY*, EVP_PKEY_free, CckyDefault{}, EVP_PKEY_up_ref>;
 using EVPPKeyCtxPtr = CckyHandle<EVP_PKEY_CTX*, EVP_PKEY_CTX_free>;
 using PKCS7Ptr = CckyHandle<PKCS7*, PKCS7_free>;
 using PKCS12Ptr = CckyHandle<PKCS12*, PKCS12_free>;

@@ -68,7 +68,7 @@ CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t
     {
         return nullptr;
     }
-    return std::make_shared<OpenSslCert>(x.get());
+    return std::make_shared<OpenSslCert>(std::move(x));
 }
 
 CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
@@ -79,7 +79,7 @@ CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
     {
         return nullptr;
     }
-    return std::make_shared<OpenSslCrl>(x.get());
+    return std::make_shared<OpenSslCrl>(std::move(x));
 }
 
 CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)

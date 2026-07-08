@@ -24,9 +24,9 @@ namespace ccky
 namespace crypto
 {
 
-CertificatePtr Win32CommonStore::createCert(PCCERT_CONTEXT pCert) const
+CertificatePtr Win32CommonStore::createCert(CertContextPtr pCert) const
 {
-    return std::make_shared<Win32Cert>(pCert);
+    return std::make_shared<Win32Cert>(std::move(pCert));
 }
 
 // Win32FileStore
@@ -67,7 +67,7 @@ void Win32FileStore::addCertificate(CertificatePtr cert)
             CertSetCertificateContextProperty(pDup.get(), CERT_KEY_PROV_INFO_PROP_ID, 0, &provInfo);
         }
     }
-    m_certs.push_back(createCert(pDup.get()));
+    m_certs.push_back(createCert(std::move(pDup)));
 }
 
 void Win32FileStore::addCrl(CrlPtr crl)
@@ -83,7 +83,7 @@ void Win32FileStore::addCrl(CrlPtr crl)
     {
         throw WindowsException("Failed to parse CRL", false);
     }
-    m_crls.push_back(std::make_shared<Win32Crl>(pDup.get()));
+    m_crls.push_back(std::make_shared<Win32Crl>(std::move(pDup)));
 }
 
 void Win32FileStore::addCtl(CtlPtr ctl)
@@ -99,7 +99,7 @@ void Win32FileStore::addCtl(CtlPtr ctl)
     {
         throw WindowsException("Failed to parse CTL", false);
     }
-    m_ctls.push_back(std::make_shared<Win32Ctl>(pDup.get()));
+    m_ctls.push_back(std::make_shared<Win32Ctl>(std::move(pDup)));
 }
 
 void Win32FileStore::deleteCertificate(const std::string& commonName, const std::string& sha1Hash)
@@ -157,17 +157,17 @@ void Win32FileStore::populateFromStore(HCERTSTORE hStore)
     CertContextPtr pCert;
     while ((pCert.reset(CertEnumCertificatesInStore(hStore, pCert.release())), pCert != nullptr))
     {
-        m_certs.push_back(createCert(pCert.get()));
+        m_certs.push_back(createCert(pCert));
     }
     CrlContextPtr pCrl;
     while ((pCrl.reset(CertEnumCRLsInStore(hStore, pCrl.release())), pCrl != nullptr))
     {
-        m_crls.push_back(std::make_shared<Win32Crl>(pCrl.get()));
+        m_crls.push_back(std::make_shared<Win32Crl>(pCrl));
     }
     CtlContextPtr pCtl;
     while ((pCtl.reset(CertEnumCTLsInStore(hStore, pCtl.release())), pCtl != nullptr))
     {
-        m_ctls.push_back(std::make_shared<Win32Ctl>(pCtl.get()));
+        m_ctls.push_back(std::make_shared<Win32Ctl>(pCtl));
     }
 }
 
@@ -349,7 +349,7 @@ std::vector<CertificatePtr> Win32SystemStoreImpl::getCertificates()
     while ((
         pCert.reset(CertEnumCertificatesInStore(m_store.get(), pCert.release())), pCert != nullptr))
     {
-        list.push_back(createCert(pCert.get()));
+        list.push_back(createCert(pCert));
     }
     return list;
 }
@@ -364,7 +364,7 @@ std::vector<CrlPtr> Win32SystemStoreImpl::getCrls()
     CrlContextPtr pCrl;
     while ((pCrl.reset(CertEnumCRLsInStore(m_store.get(), pCrl.release())), pCrl != nullptr))
     {
-        list.push_back(std::make_shared<Win32Crl>(pCrl.get()));
+        list.push_back(std::make_shared<Win32Crl>(pCrl));
     }
     return list;
 }
@@ -379,7 +379,7 @@ std::vector<CtlPtr> Win32SystemStoreImpl::getCtls()
     CtlContextPtr pCtl;
     while ((pCtl.reset(CertEnumCTLsInStore(m_store.get(), pCtl.release())), pCtl != nullptr))
     {
-        list.push_back(std::make_shared<Win32Ctl>(pCtl.get()));
+        list.push_back(std::make_shared<Win32Ctl>(pCtl));
     }
     return list;
 }
@@ -472,7 +472,7 @@ void Win32SystemStoreImpl::deleteCertificate(
     while ((
         pCert.reset(CertEnumCertificatesInStore(m_store.get(), pCert.release())), pCert != nullptr))
     {
-        Win32Cert c(pCert.get());
+        Win32Cert c(pCert);
         if (!commonName.empty() && c.getCommonName() != commonName)
         {
             continue;
@@ -484,11 +484,9 @@ void Win32SystemStoreImpl::deleteCertificate(
 
         deletePrivateKeyContainer(pCert.get());
 
-        CertContextPtr pDup(CertDuplicateCertificateContext(pCert.get()));
-        if (!CertDeleteCertificateFromStore(pDup.release()))
-        {
-            throw WindowsException("Failed to delete certificate from system store", false);
-        }
+        CertContextPtr pDup = pCert;
+        Win32Check::check(CertDeleteCertificateFromStore(pDup.release()),
+            "Failed to delete certificate from system store");
     }
 }
 
@@ -501,17 +499,14 @@ void Win32SystemStoreImpl::deleteCrl(const std::string& sha1Hash)
     CrlContextPtr pCrl;
     while ((pCrl.reset(CertEnumCRLsInStore(m_store.get(), pCrl.release())), pCrl != nullptr))
     {
-        Win32Crl c(pCrl.get());
-        if (!sha1Hash.empty() && c.getSha1() != sha1Hash)
+        if (!sha1Hash.empty() && Win32Crl(pCrl).getSha1() != sha1Hash)
         {
             continue;
         }
 
-        CrlContextPtr pDup(CertDuplicateCRLContext(pCrl.get()));
-        if (!CertDeleteCRLFromStore(pDup.release()))
-        {
-            throw WindowsException("Failed to delete CRL from system store", false);
-        }
+        CrlContextPtr pDup = pCrl;
+        Win32Check::check(
+            CertDeleteCRLFromStore(pDup.release()), "Failed to delete CRL from system store");
     }
 }
 
@@ -524,17 +519,14 @@ void Win32SystemStoreImpl::deleteCtl(const std::string& sha1Hash)
     CtlContextPtr pCtl;
     while ((pCtl.reset(CertEnumCTLsInStore(m_store.get(), pCtl.release())), pCtl != nullptr))
     {
-        Win32Ctl c(pCtl.get());
-        if (!sha1Hash.empty() && c.getSha1() != sha1Hash)
+        if (!sha1Hash.empty() && Win32Ctl(pCtl).getSha1() != sha1Hash)
         {
             continue;
         }
 
-        CtlContextPtr pDup(CertDuplicateCTLContext(pCtl.get()));
-        if (!CertDeleteCTLFromStore(pDup.release()))
-        {
-            throw WindowsException("Failed to delete CTL from system store", false);
-        }
+        CtlContextPtr pDup = pCtl;
+        Win32Check::check(
+            CertDeleteCTLFromStore(pDup.release()), "Failed to delete CTL from system store");
     }
 }
 
@@ -757,9 +749,9 @@ void Win32PfxCertStore::load(const std::string& location, const StoreOptions& op
     }
 }
 
-CertificatePtr Win32PfxCertStore::createCert(PCCERT_CONTEXT pCert) const
+CertificatePtr Win32PfxCertStore::createCert(CertContextPtr pCert) const
 {
-    return std::make_shared<Win32PfxCert>(pCert);
+    return std::make_shared<Win32PfxCert>(std::move(pCert));
 }
 
 void Win32PfxCertStore::save(const std::string& location, const StoreOptions& options)

@@ -177,19 +177,17 @@ void OpenSslP7bFileStore::load(const std::string& location, const StoreOptions& 
         if (PKCS7_type_is_signed(p7.get()) && p7->d.sign && p7->d.sign->cert)
         {
             STACK_OF(X509)* sk = p7->d.sign->cert;
-            for (int i = 0; i < sk_X509_num(sk); ++i)
+            while (sk_X509_num(sk) > 0)
             {
-                X509* x = sk_X509_value(sk, i);
-                m_certs.push_back(X509Ptr(X509_dup(x)));
+                m_certs.push_back(X509Ptr(sk_X509_pop(sk)));
             }
         }
         if (PKCS7_type_is_signed(p7.get()) && p7->d.sign && p7->d.sign->crl)
         {
             STACK_OF(X509_CRL)* sk = p7->d.sign->crl;
-            for (int i = 0; i < sk_X509_CRL_num(sk); ++i)
+            while (sk_X509_CRL_num(sk) > 0)
             {
-                X509_CRL* c = sk_X509_CRL_value(sk, i);
-                m_crls.push_back(X509CRLPtr(X509_CRL_dup(c)));
+                m_crls.push_back(X509CRLPtr(sk_X509_CRL_pop(sk)));
             }
         }
     }
@@ -205,7 +203,7 @@ std::vector<CertificatePtr> OpenSslCerFileStore::getCertificates()
     std::vector<CertificatePtr> list;
     for (const auto& c : m_certs)
     {
-        list.push_back(std::make_shared<OpenSslCert>(c.get()));
+        list.push_back(std::make_shared<OpenSslCert>(c));
     }
     return list;
 }
@@ -215,7 +213,7 @@ std::vector<CrlPtr> OpenSslCerFileStore::getCrls()
     std::vector<CrlPtr> list;
     for (const auto& c : m_crls)
     {
-        list.push_back(std::make_shared<OpenSslCrl>(c.get()));
+        list.push_back(std::make_shared<OpenSslCrl>(c));
     }
     return list;
 }
@@ -434,18 +432,16 @@ void OpenSslPeFileStore::load(const std::string& location, const StoreOptions& o
                     if (p7->d.sign->cert)
                     {
                         STACK_OF(X509)* sk = p7->d.sign->cert;
-                        for (int i = 0; i < sk_X509_num(sk); ++i)
+                        while (sk_X509_num(sk) > 0)
                         {
-                            X509* x = sk_X509_value(sk, i);
-                            m_certs.push_back(X509Ptr(X509_dup(x)));
+                            m_certs.push_back(X509Ptr(sk_X509_pop(sk)));
                         }
                         if (p7->d.sign->crl)
                         {
                             STACK_OF(X509_CRL)* crlSk = p7->d.sign->crl;
-                            for (int i = 0; i < sk_X509_CRL_num(crlSk); ++i)
+                            while (sk_X509_CRL_num(crlSk) > 0)
                             {
-                                X509_CRL* c = sk_X509_CRL_value(crlSk, i);
-                                m_crls.push_back(X509CRLPtr(X509_CRL_dup(c)));
+                                m_crls.push_back(X509CRLPtr(sk_X509_CRL_pop(crlSk)));
                             }
                         }
                     }
@@ -585,7 +581,7 @@ std::vector<CertificatePtr> OpenSslPeFileStore::getCertificates()
     std::vector<CertificatePtr> list;
     for (const auto& c : m_certs)
     {
-        list.push_back(std::make_shared<OpenSslCert>(c.get()));
+        list.push_back(std::make_shared<OpenSslCert>(c));
     }
     return list;
 }
@@ -595,7 +591,7 @@ std::vector<CrlPtr> OpenSslPeFileStore::getCrls()
     std::vector<CrlPtr> list;
     for (const auto& c : m_crls)
     {
-        list.push_back(std::make_shared<OpenSslCrl>(c.get()));
+        list.push_back(std::make_shared<OpenSslCrl>(c));
     }
     return list;
 }
@@ -754,18 +750,16 @@ void OpenSslAppxFileStore::load(const std::string& location, const StoreOptions&
                     if (p7->d.sign->cert)
                     {
                         STACK_OF(X509)* sk = p7->d.sign->cert;
-                        for (int i = 0; i < sk_X509_num(sk); ++i)
+                        while (sk_X509_num(sk) > 0)
                         {
-                            X509* x = sk_X509_value(sk, i);
-                            m_certs.push_back(X509Ptr(X509_dup(x)));
+                            m_certs.push_back(X509Ptr(sk_X509_pop(sk)));
                         }
                         if (p7->d.sign->crl)
                         {
                             STACK_OF(X509_CRL)* crlSk = p7->d.sign->crl;
-                            for (int i = 0; i < sk_X509_CRL_num(crlSk); ++i)
+                            while (sk_X509_CRL_num(crlSk) > 0)
                             {
-                                X509_CRL* c = sk_X509_CRL_value(crlSk, i);
-                                m_crls.push_back(X509CRLPtr(X509_CRL_dup(c)));
+                                m_crls.push_back(X509CRLPtr(sk_X509_CRL_pop(crlSk)));
                             }
                         }
                     }
@@ -817,7 +811,7 @@ std::vector<CertificatePtr> OpenSslAppxFileStore::getCertificates()
     std::vector<CertificatePtr> list;
     for (const auto& c : m_certs)
     {
-        list.push_back(std::make_shared<OpenSslCert>(c.get()));
+        list.push_back(std::make_shared<OpenSslCert>(c));
     }
     return list;
 }
@@ -827,7 +821,7 @@ std::vector<CrlPtr> OpenSslAppxFileStore::getCrls()
     std::vector<CrlPtr> list;
     for (const auto& c : m_crls)
     {
-        list.push_back(std::make_shared<OpenSslCrl>(c.get()));
+        list.push_back(std::make_shared<OpenSslCrl>(c));
     }
     return list;
 }
@@ -1081,7 +1075,15 @@ void OpenSslPfxCertStore::load(const std::string& location, const StoreOptions& 
 
     if (cPtr != nullptr)
     {
-        m_certs.push_back(std::make_shared<OpenSslPfxCert>(cPtr.get(), kPtr.get()));
+        m_certs.push_back(std::make_shared<OpenSslPfxCert>(cPtr, kPtr));
+    }
+
+    if (caPtr != nullptr)
+    {
+        while (sk_X509_num(caPtr.get()) > 0)
+        {
+            m_certs.push_back(std::make_shared<OpenSslPfxCert>(X509Ptr(sk_X509_pop(caPtr.get()))));
+        }
     }
 }
 
@@ -1110,17 +1112,17 @@ void OpenSslPfxCertStore::addCertificate(CertificatePtr cert)
         throw OpenSslException("Failed to parse certificate", false);
     }
     PrivateKeyPtr pkeyHolder;
-    EVP_PKEY* pkey = nullptr;
+    EVPPKeyPtr pkey;
     if (cert->hasPrivateKey())
     {
         pkeyHolder = cert->getPrivateKey();
         auto pkeyPtr = std::dynamic_pointer_cast<OpenSslPrivateKey>(pkeyHolder);
         if (pkeyPtr)
         {
-            pkey = pkeyPtr->getInternal().get();
+            pkey = pkeyPtr->getInternal();
         }
     }
-    m_certs.push_back(std::make_shared<OpenSslPfxCert>(x.get(), pkey));
+    m_certs.push_back(std::make_shared<OpenSslPfxCert>(x, pkey));
 }
 
 void OpenSslPfxCertStore::addCrl(CrlPtr crl)

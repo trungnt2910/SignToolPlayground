@@ -12,17 +12,9 @@ namespace ccky
 namespace crypto
 {
 
-OpenSslCert::OpenSslCert(X509* cert, EVP_PKEY* pkey)
+OpenSslCert::OpenSslCert(X509Ptr cert, EVPPKeyPtr pkey)
+    : m_cert(std::move(cert)), m_pkey(std::move(pkey))
 {
-    if (cert)
-    {
-        m_cert.reset(X509_dup(cert));
-    }
-    if (pkey)
-    {
-        EVP_PKEY_up_ref(pkey);
-        m_pkey.reset(pkey);
-    }
 }
 
 OpenSslCert::~OpenSslCert() = default;
@@ -171,8 +163,7 @@ PrivateKeyPtr OpenSslCert::getPrivateKey() const
     {
         return nullptr;
     }
-    EVP_PKEY_up_ref(m_pkey.get());
-    return std::make_shared<OpenSslPrivateKey>(EVPPKeyPtr(m_pkey.get()));
+    return std::make_shared<OpenSslPrivateKey>(m_pkey);
 }
 
 bool OpenSslCert::isPrivateKeyExportable() const { return hasPrivateKey(); }
@@ -282,7 +273,10 @@ std::string OpenSslCert::getPolicyLink() const
     return "";
 }
 
-OpenSslPfxCert::OpenSslPfxCert(X509* cert, EVP_PKEY* pkey) : OpenSslCert(cert, pkey) {}
+OpenSslPfxCert::OpenSslPfxCert(X509Ptr cert, EVPPKeyPtr pkey)
+    : OpenSslCert(std::move(cert), std::move(pkey))
+{
+}
 
 std::string OpenSslPfxCert::getProviderType() const { return "0"; }
 
@@ -290,13 +284,7 @@ std::string OpenSslPfxCert::getProviderName() const { return "PfxProvider"; }
 
 std::string OpenSslPfxCert::getContainerName() const { return "PfxContainer"; }
 
-OpenSslCrl::OpenSslCrl(X509_CRL* crl)
-{
-    if (crl)
-    {
-        m_crl.reset(X509_CRL_dup(crl));
-    }
-}
+OpenSslCrl::OpenSslCrl(X509CRLPtr crl) : m_crl(std::move(crl)) {}
 
 std::string OpenSslCrl::getSha1() const { return OpenSslHelper::getCrlSha1(m_crl.get()); }
 

@@ -12,7 +12,7 @@ namespace crypto
 class OpenSslCert : public Certificate
 {
   public:
-    explicit OpenSslCert(X509* cert, EVP_PKEY* pkey = nullptr);
+    explicit OpenSslCert(X509Ptr cert, EVPPKeyPtr pkey = nullptr);
     ~OpenSslCert() override;
 
     // Encoding, Hashes & Algorithms
@@ -59,8 +59,8 @@ class OpenSslCert : public Certificate
     uint32_t getNetscapeCertType() const override;
     std::string getPolicyLink() const override;
 
-    X509* getInternal() const { return m_cert.get(); }
-    EVP_PKEY* getInternalKey() const { return m_pkey.get(); }
+    const X509Ptr& getInternal() const { return m_cert; }
+    const EVPPKeyPtr& getInternalKey() const { return m_pkey; }
 
   private:
     X509Ptr m_cert;
@@ -70,7 +70,7 @@ class OpenSslCert : public Certificate
 class OpenSslPfxCert : public OpenSslCert
 {
   public:
-    explicit OpenSslPfxCert(X509* cert, EVP_PKEY* pkey = nullptr);
+    explicit OpenSslPfxCert(X509Ptr cert, EVPPKeyPtr pkey = nullptr);
     ~OpenSslPfxCert() override = default;
 
     std::string getProviderType() const override;
@@ -81,13 +81,13 @@ class OpenSslPfxCert : public OpenSslCert
 class OpenSslCrl : public Crl
 {
   public:
-    explicit OpenSslCrl(X509_CRL* crl);
+    explicit OpenSslCrl(X509CRLPtr crl);
     ~OpenSslCrl() override = default;
 
     std::string getSha1() const override;
     std::vector<uint8_t> getEncoded() const override;
 
-    X509_CRL* getInternal() const { return m_crl.get(); }
+    const X509CRLPtr& getInternal() const { return m_crl; }
 
   private:
     X509CRLPtr m_crl;

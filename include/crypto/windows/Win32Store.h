@@ -31,7 +31,7 @@ class Win32CommonStore : public CertificateStore
     std::string getTimestamp() override { return m_timestamp.empty() ? "None" : m_timestamp; }
 
   protected:
-    virtual CertificatePtr createCert(PCCERT_CONTEXT pCert) const;
+    virtual CertificatePtr createCert(CertContextPtr pCert) const;
 
     std::string m_loadedLocation;
     std::string m_signingAlgorithm;
@@ -136,7 +136,7 @@ class Win32PfxCertStore : public Win32FileStore
     void save(const std::string& location, const StoreOptions& options = {}) override;
 
   protected:
-    CertificatePtr createCert(PCCERT_CONTEXT pCert) const override;
+    CertificatePtr createCert(CertContextPtr pCert) const override;
 
   private:
     std::vector<std::unique_ptr<KeySetDeleter>> m_keyDeleters;

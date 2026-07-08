@@ -70,7 +70,7 @@ CertificatePtr CryptoFactory::createCertificateFromDer(const std::vector<uint8_t
     {
         return nullptr;
     }
-    return std::make_shared<Win32Cert>(certPtr.get());
+    return std::make_shared<Win32Cert>(std::move(certPtr));
 }
 
 CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
@@ -81,7 +81,7 @@ CrlPtr CryptoFactory::createCrlFromDer(const std::vector<uint8_t>& derBytes)
     {
         return nullptr;
     }
-    return std::make_shared<Win32Crl>(crlPtr.get());
+    return std::make_shared<Win32Crl>(std::move(crlPtr));
 }
 
 CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
@@ -92,7 +92,7 @@ CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
     {
         return nullptr;
     }
-    return std::make_shared<Win32Ctl>(ctlPtr.get());
+    return std::make_shared<Win32Ctl>(std::move(ctlPtr));
 }
 
 bool CryptoFactory::acquireContext(const std::string& container, const std::string& provider)

@@ -2,6 +2,7 @@
 #define CCKY_HANDLE_H
 
 #include <cstddef>
+#include <new>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -39,7 +40,22 @@ class CckyHandle
     CckyHandle(const CckyHandle& other)
         requires(!std::is_same_v<decltype(Copier), CckyNoCopy>)
     {
-        m_handle = IsInvalid(other.m_handle) ? T(0) : Copier(other.m_handle);
+        if (other.isValid())
+        {
+            if constexpr (std::is_same_v<decltype(Copier(other.m_handle)), T>)
+            {
+                m_handle = Copier(other.m_handle);
+            }
+            else
+            {
+                Copier(other.m_handle);
+                m_handle = other.m_handle;
+            }
+        }
+        else
+        {
+            m_handle = T(0);
+        }
     }
 
     CckyHandle& operator=(const CckyHandle& other)
@@ -47,8 +63,8 @@ class CckyHandle
     {
         if (this != &other)
         {
-            reset();
-            m_handle = IsInvalid(other.m_handle) ? T(0) : Copier(other.m_handle);
+            this->~CckyHandle();
+            ::new (static_cast<void*>(this)) CckyHandle(other);
         }
         return *this;
     }
