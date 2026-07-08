@@ -3,6 +3,7 @@ ccky_add_executable(ccky_tests
     Given_Bytes.cpp
     Given_CckyHandle.cpp
     Given_CckyHelp.cpp
+    Given_CckyProbeAllocate.cpp
     Given_Certificate.cpp
     Given_CertMgr.cpp
     Given_CliParser.cpp

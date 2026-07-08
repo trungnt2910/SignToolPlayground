@@ -148,7 +148,7 @@ class MSSign32Loader
   private:
     MSSign32Loader()
     {
-        HMODULE hMod = LoadLibraryA("mssign32.dll");
+        HMODULE hMod = LoadLibraryW(L"mssign32.dll");
         if (hMod)
         {
             SignerSignEx = reinterpret_cast<SignerSignEx_t>(GetProcAddress(hMod, "SignerSignEx"));

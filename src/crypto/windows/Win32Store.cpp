@@ -13,6 +13,7 @@
 #include <wincrypt.h>
 
 #include "crypto/AuthenticodeSigner.h"
+#include "crypto/CckyProbeAllocate.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WindowsException.h"
@@ -197,56 +198,53 @@ void Win32FileStore::loadSipFile(const std::string& location, const StoreOptions
         }
         if (hMsg != nullptr)
         {
-            DWORD cbSize = 0;
-            if (CryptMsgGetParam(hMsg.get(), CMSG_SIGNER_INFO_PARAM, 0, nullptr, &cbSize))
+            std::vector<uint8_t> siBuf;
+            if (CckyProbeAllocate<CryptMsgGetParam, CckyProbeReturnPositive{}>(hMsg.get(),
+                    CMSG_SIGNER_INFO_PARAM, 0, CckyProbeBuffer(siBuf), CckyProbeBytesRef<DWORD>()))
             {
-                std::vector<uint8_t> siBuf(cbSize);
-                if (CryptMsgGetParam(hMsg.get(), CMSG_SIGNER_INFO_PARAM, 0, siBuf.data(), &cbSize))
+                auto* pSi = reinterpret_cast<PCMSG_SIGNER_INFO>(siBuf.data());
+                if (pSi && pSi->HashAlgorithm.pszObjId)
                 {
-                    auto* pSi = reinterpret_cast<PCMSG_SIGNER_INFO>(siBuf.data());
-                    if (pSi && pSi->HashAlgorithm.pszObjId)
+                    std::string oid = pSi->HashAlgorithm.pszObjId;
+                    if (oid == szOID_OIWSEC_sha1)
                     {
-                        std::string oid = pSi->HashAlgorithm.pszObjId;
-                        if (oid == szOID_OIWSEC_sha1)
-                        {
-                            m_signingAlgorithm = "sha1";
-                        }
-                        else if (oid == szOID_NIST_sha256)
-                        {
-                            m_signingAlgorithm = "sha256";
-                        }
-                        else if (oid == szOID_NIST_sha384)
-                        {
-                            m_signingAlgorithm = "sha384";
-                        }
-                        else if (oid == szOID_NIST_sha512)
-                        {
-                            m_signingAlgorithm = "sha512";
-                        }
-                        else
-                        {
-                            m_signingAlgorithm = oid;
-                        }
+                        m_signingAlgorithm = "sha1";
                     }
-                    if (pSi && pSi->UnauthAttrs.cAttr > 0)
+                    else if (oid == szOID_NIST_sha256)
                     {
-                        for (DWORD i = 0; i < pSi->UnauthAttrs.cAttr; ++i)
+                        m_signingAlgorithm = "sha256";
+                    }
+                    else if (oid == szOID_NIST_sha384)
+                    {
+                        m_signingAlgorithm = "sha384";
+                    }
+                    else if (oid == szOID_NIST_sha512)
+                    {
+                        m_signingAlgorithm = "sha512";
+                    }
+                    else
+                    {
+                        m_signingAlgorithm = oid;
+                    }
+                }
+                if (pSi && pSi->UnauthAttrs.cAttr > 0)
+                {
+                    for (DWORD i = 0; i < pSi->UnauthAttrs.cAttr; ++i)
+                    {
+                        std::string attrOid = pSi->UnauthAttrs.rgAttr[i].pszObjId;
+                        if (attrOid == szOID_RSA_counterSign ||
+                            attrOid == szOID_RFC3161_counterSign)
                         {
-                            std::string attrOid = pSi->UnauthAttrs.rgAttr[i].pszObjId;
-                            if (attrOid == szOID_RSA_counterSign ||
-                                attrOid == szOID_RFC3161_counterSign)
-                            {
-                                m_timestamp = "Present";
-                            }
+                            m_timestamp = "Present";
                         }
                     }
                 }
             }
         }
-    }
-    else if (GetLastError() != CRYPT_E_NO_MATCH)
-    {
-        throw WindowsException("Failed to open the store", false);
+        else if (GetLastError() != CRYPT_E_NO_MATCH)
+        {
+            throw WindowsException("Failed to open the store", false);
+        }
     }
 }
 

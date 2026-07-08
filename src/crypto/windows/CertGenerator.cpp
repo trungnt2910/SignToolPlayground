@@ -15,6 +15,7 @@
 
 #include "crypto/Bytes.h"
 #include "crypto/CckyException.h"
+#include "crypto/CckyProbeAllocate.h"
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
 #include "crypto/windows/Win32PrivateKey.h"
@@ -377,22 +378,15 @@ void saveSubjectKeyToPvk(
 CERT_NAME_BLOB encodeSubjectName(const std::wstring& wSubjectName, std::vector<BYTE>& nameData)
 {
     CERT_NAME_BLOB nameBlob;
-    nameBlob.cbData = 0;
-    nameBlob.pbData = nullptr;
-
-    if (!CertStrToNameW(X509_ASN_ENCODING, wSubjectName.c_str(), CERT_X500_NAME_STR, nullptr,
-            nullptr, &nameBlob.cbData, nullptr))
+    nameData.clear();
+    if (!CckyProbeAllocate<CertStrToNameW, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+            wSubjectName.c_str(), CERT_X500_NAME_STR, nullptr, CckyProbeBuffer(nameData),
+            CckyProbeBytesRef<DWORD>(), nullptr))
     {
         throw CckyException("Failed to convert subject name.");
     }
-
-    nameData.resize(nameBlob.cbData);
+    nameBlob.cbData = static_cast<DWORD>(nameData.size());
     nameBlob.pbData = nameData.data();
-    if (!CertStrToNameW(X509_ASN_ENCODING, wSubjectName.c_str(), CERT_X500_NAME_STR, nullptr,
-            nameBlob.pbData, &nameBlob.cbData, nullptr))
-    {
-        throw CckyException("Failed to encode subject name.");
-    }
     return nameBlob;
 }
 
@@ -419,15 +413,9 @@ std::vector<BYTE> encodeBasicConstraints(const MakeCertOptions& options)
             bcInfo.dwPathLenConstraint = 0;
         }
 
-        DWORD cbEncoded = 0;
-        if (!CryptEncodeObject(
-                X509_ASN_ENCODING, szOID_BASIC_CONSTRAINTS2, &bcInfo, nullptr, &cbEncoded))
-        {
-            throw CckyException("Failed to determine Basic Constraints encoding length.");
-        }
-        bcEncoded.resize(cbEncoded);
-        if (!CryptEncodeObject(
-                X509_ASN_ENCODING, szOID_BASIC_CONSTRAINTS2, &bcInfo, bcEncoded.data(), &cbEncoded))
+        if (!CckyProbeAllocate<CryptEncodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+                szOID_BASIC_CONSTRAINTS2, &bcInfo, CckyProbeBuffer(bcEncoded),
+                CckyProbeBytesRef<DWORD>()))
         {
             throw CckyException("Failed to encode Basic Constraints.");
         }
@@ -459,18 +447,12 @@ std::vector<BYTE> encodeEku(const MakeCertOptions& options)
         }
         ekuInfo.rgpszUsageIdentifier = ekuOidPtrs.data();
 
-        DWORD cbEncoded = 0;
-        if (!CryptEncodeObject(
-                X509_ASN_ENCODING, szOID_ENHANCED_KEY_USAGE, &ekuInfo, nullptr, &cbEncoded))
+        if (!CckyProbeAllocate<CryptEncodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+                szOID_ENHANCED_KEY_USAGE, &ekuInfo, CckyProbeBuffer(ekuEncoded),
+                CckyProbeBytesRef<DWORD>()))
         {
             // Windows backend silently fails for invalid EKUs.
             throw std::invalid_argument("Failed to encode EKU (invalid OID?)");
-        }
-        ekuEncoded.resize(cbEncoded);
-        if (!CryptEncodeObject(X509_ASN_ENCODING, szOID_ENHANCED_KEY_USAGE, &ekuInfo,
-                ekuEncoded.data(), &cbEncoded))
-        {
-            throw std::invalid_argument("Failed to encode EKU");
         }
     }
     return ekuEncoded;
@@ -494,16 +476,9 @@ std::vector<BYTE> encodePolicyLink(const MakeCertOptions& options)
     ZeroMemory(&info, sizeof(info));
     info.pPolicyInformation = &link;
 
-    DWORD cbEncoded = 0;
-    if (CryptEncodeObject(X509_ASN_ENCODING, SPC_SP_AGENCY_INFO_STRUCT, &info, nullptr, &cbEncoded))
-    {
-        policyEncoded.resize(cbEncoded);
-        if (!CryptEncodeObject(X509_ASN_ENCODING, SPC_SP_AGENCY_INFO_STRUCT, &info,
-                policyEncoded.data(), &cbEncoded))
-        {
-            policyEncoded.clear();
-        }
-    }
+    CckyProbeAllocate<CryptEncodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+        SPC_SP_AGENCY_INFO_STRUCT, &info, CckyProbeBuffer(policyEncoded),
+        CckyProbeBytesRef<DWORD>());
     return policyEncoded;
 }
 
@@ -517,16 +492,8 @@ std::vector<BYTE> encodeNetscape(const MakeCertOptions& options)
         bitBlob.cbData = 1;
         bitBlob.pbData = &bits;
         bitBlob.cUnusedBits = 0;
-        DWORD cbEncoded = 0;
-        if (CryptEncodeObject(X509_ASN_ENCODING, X509_BITS, &bitBlob, nullptr, &cbEncoded))
-        {
-            nscpEncoded.resize(cbEncoded);
-            if (!CryptEncodeObject(
-                    X509_ASN_ENCODING, X509_BITS, &bitBlob, nscpEncoded.data(), &cbEncoded))
-            {
-                nscpEncoded.clear();
-            }
-        }
+        CckyProbeAllocate<CryptEncodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+            X509_BITS, &bitBlob, CckyProbeBuffer(nscpEncoded), CckyProbeBytesRef<DWORD>());
     }
     return nscpEncoded;
 }
@@ -583,23 +550,17 @@ PCCERT_CONTEXT signCertificate(const CERT_PUBLIC_KEY_INFO* pSubjectPublicKeyInfo
         certInfo.rgExtension = pExtensions->rgExtension;
     }
 
-    DWORD cbEncoded = 0;
-    if (!CryptSignAndEncodeCertificate(hIssuerProv, dwIssuerKeySpec, X509_ASN_ENCODING,
-            X509_CERT_TO_BE_SIGNED, &certInfo, pSignatureAlgorithm, nullptr, nullptr, &cbEncoded))
-    {
-        throw CckyException("Failed to get signed certificate size.");
-    }
-
-    std::vector<uint8_t> encodedBuf(cbEncoded);
-    if (!CryptSignAndEncodeCertificate(hIssuerProv, dwIssuerKeySpec, X509_ASN_ENCODING,
-            X509_CERT_TO_BE_SIGNED, &certInfo, pSignatureAlgorithm, nullptr, encodedBuf.data(),
-            &cbEncoded))
+    std::vector<uint8_t> encodedBuf;
+    if (!CckyProbeAllocate<CryptSignAndEncodeCertificate, CckyProbeReturnPositive{}>(hIssuerProv,
+            dwIssuerKeySpec, X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, &certInfo,
+            pSignatureAlgorithm, nullptr, CckyProbeBuffer(encodedBuf), CckyProbeBytesRef<DWORD>()))
     {
         throw CckyException("Failed to sign and encode certificate.");
     }
 
-    PCCERT_CONTEXT pCertContext = CertCreateCertificateContext(
-        X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, encodedBuf.data(), cbEncoded);
+    PCCERT_CONTEXT pCertContext =
+        CertCreateCertificateContext(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, encodedBuf.data(),
+            static_cast<DWORD>(encodedBuf.size()));
     if (!pCertContext)
     {
         throw CckyException("Failed to create certificate context from encoded bytes.");

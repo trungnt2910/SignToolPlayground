@@ -9,6 +9,7 @@
 #include <wincrypt.h>
 #include <wintrust.h>
 
+#include "crypto/CckyProbeAllocate.h"
 #include "crypto/Time.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/Win32Time.h"
@@ -144,14 +145,10 @@ std::string Win32Cert::getCommonName() const
     {
         return "";
     }
-    char buf[256] = {0};
-    DWORD len = CertGetNameStringA(
-        m_cert.get(), CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, nullptr, buf, sizeof(buf));
-    if (len > 1)
-    {
-        return std::string(buf);
-    }
-    return "";
+    std::wstring wbuf;
+    CckyProbeAllocate<CertGetNameStringW, CckyProbeReturnPositive{}>(m_cert.get(),
+        CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, nullptr, CckyProbeBuffer(wbuf), CckyProbeSize{});
+    return WinHelper::wideToUtf8(wbuf.c_str());
 }
 
 std::string Win32Cert::getSubjectDisplay() const
@@ -179,14 +176,11 @@ std::string Win32Cert::getIssuerName() const
     {
         return "";
     }
-    char buf[256] = {0};
-    DWORD len = CertGetNameStringA(m_cert.get(), CERT_NAME_SIMPLE_DISPLAY_TYPE,
-        CERT_NAME_ISSUER_FLAG, nullptr, buf, sizeof(buf));
-    if (len > 1)
-    {
-        return std::string(buf);
-    }
-    return "";
+    std::wstring wbuf;
+    CckyProbeAllocate<CertGetNameStringW, CckyProbeReturnPositive{}>(m_cert.get(),
+        CERT_NAME_SIMPLE_DISPLAY_TYPE, CERT_NAME_ISSUER_FLAG, nullptr, CckyProbeBuffer(wbuf),
+        CckyProbeSize{});
+    return WinHelper::wideToUtf8(wbuf.c_str());
 }
 
 std::string Win32Cert::getIssuerDisplay() const
@@ -243,15 +237,10 @@ std::string Win32Cert::getKeyMd5Thumbprint() const
         return "";
     }
 
-    DWORD cbEncoded = 0;
-    if (!CryptEncodeObject(X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO,
-            &m_cert->pCertInfo->SubjectPublicKeyInfo, nullptr, &cbEncoded))
-    {
-        return "";
-    }
-    std::vector<BYTE> encodedBuf(cbEncoded);
-    if (!CryptEncodeObject(X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO,
-            &m_cert->pCertInfo->SubjectPublicKeyInfo, encodedBuf.data(), &cbEncoded))
+    std::vector<BYTE> encodedBuf;
+    if (!CckyProbeAllocate<CryptEncodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+            X509_PUBLIC_KEY_INFO, &m_cert->pCertInfo->SubjectPublicKeyInfo,
+            CckyProbeBuffer(encodedBuf), CckyProbeBytesRef<DWORD>()))
     {
         return "";
     }
@@ -295,15 +284,10 @@ std::string Win32Cert::getKeySha256Thumbprint() const
     {
         return "";
     }
-    DWORD cbEncoded = 0;
-    if (!CryptEncodeObject(X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO,
-            &m_cert->pCertInfo->SubjectPublicKeyInfo, nullptr, &cbEncoded))
-    {
-        return "";
-    }
-    std::vector<BYTE> encodedBuf(cbEncoded);
-    if (!CryptEncodeObject(X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO,
-            &m_cert->pCertInfo->SubjectPublicKeyInfo, encodedBuf.data(), &cbEncoded))
+    std::vector<BYTE> encodedBuf;
+    if (!CckyProbeAllocate<CryptEncodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+            X509_PUBLIC_KEY_INFO, &m_cert->pCertInfo->SubjectPublicKeyInfo,
+            CckyProbeBuffer(encodedBuf), CckyProbeBytesRef<DWORD>()))
     {
         return "";
     }
@@ -391,15 +375,10 @@ bool Win32Cert::isPrivateKeyExportable() const
     {
         return false;
     }
-    DWORD size = 0;
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, nullptr, &size))
-    {
-        return false;
-    }
-    std::vector<uint8_t> buf(size);
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, buf.data(), &size))
+    std::vector<uint8_t> buf;
+    if (!CckyProbeAllocate<CertGetCertificateContextProperty, CckyProbeReturnPositive{}>(
+            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, CckyProbeBuffer(buf),
+            CckyProbeBytesRef<DWORD>()))
     {
         return false;
     }
@@ -433,15 +412,10 @@ std::string Win32Cert::getProviderType() const
     {
         return "";
     }
-    DWORD size = 0;
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, nullptr, &size))
-    {
-        return "";
-    }
-    std::vector<uint8_t> buf(size);
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, buf.data(), &size))
+    std::vector<uint8_t> buf;
+    if (!CckyProbeAllocate<CertGetCertificateContextProperty, CckyProbeReturnPositive{}>(
+            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, CckyProbeBuffer(buf),
+            CckyProbeBytesRef<DWORD>()))
     {
         return "";
     }
@@ -455,15 +429,10 @@ std::string Win32Cert::getProviderName() const
     {
         return "";
     }
-    DWORD size = 0;
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, nullptr, &size))
-    {
-        return "";
-    }
-    std::vector<uint8_t> buf(size);
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, buf.data(), &size))
+    std::vector<uint8_t> buf;
+    if (!CckyProbeAllocate<CertGetCertificateContextProperty, CckyProbeReturnPositive{}>(
+            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, CckyProbeBuffer(buf),
+            CckyProbeBytesRef<DWORD>()))
     {
         return "";
     }
@@ -481,15 +450,10 @@ std::string Win32Cert::getContainerName() const
     {
         return "";
     }
-    DWORD size = 0;
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, nullptr, &size))
-    {
-        return "";
-    }
-    std::vector<uint8_t> buf(size);
-    if (!CertGetCertificateContextProperty(
-            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, buf.data(), &size))
+    std::vector<uint8_t> buf;
+    if (!CckyProbeAllocate<CertGetCertificateContextProperty, CckyProbeReturnPositive{}>(
+            m_cert.get(), CERT_KEY_PROV_INFO_PROP_ID, CckyProbeBuffer(buf),
+            CckyProbeBytesRef<DWORD>()))
     {
         return "";
     }
@@ -557,17 +521,13 @@ std::vector<std::string> Win32Cert::getEnhancedKeyUsage() const
     {
         return res;
     }
-    DWORD cbUsage = 0;
-    if (!CertGetEnhancedKeyUsage(m_cert.get(), 0, nullptr, &cbUsage))
+    std::vector<BYTE> usageBuf;
+    if (!CckyProbeAllocate<CertGetEnhancedKeyUsage, CckyProbeReturnPositive{}>(
+            m_cert.get(), 0, CckyProbeBuffer(usageBuf), CckyProbeBytesRef<DWORD>()))
     {
         return res;
     }
-    std::vector<BYTE> usageBuf(cbUsage);
     PCERT_ENHKEY_USAGE pUsage = reinterpret_cast<PCERT_ENHKEY_USAGE>(usageBuf.data());
-    if (!CertGetEnhancedKeyUsage(m_cert.get(), 0, pUsage, &cbUsage))
-    {
-        return res;
-    }
     for (DWORD i = 0; i < pUsage->cUsageIdentifier; ++i)
     {
         res.push_back(pUsage->rgpszUsageIdentifier[i]);
@@ -587,19 +547,14 @@ uint32_t Win32Cert::getNetscapeCertType() const
     {
         return 0;
     }
-    DWORD cbBits = 0;
-    if (!CryptDecodeObject(X509_ASN_ENCODING, X509_BITS, pExt->Value.pbData, pExt->Value.cbData, 0,
-            nullptr, &cbBits))
+    std::vector<BYTE> bitsBuf;
+    if (!CckyProbeAllocate<CryptDecodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+            X509_BITS, pExt->Value.pbData, pExt->Value.cbData, 0, CckyProbeBuffer(bitsBuf),
+            CckyProbeBytesRef<DWORD>()))
     {
         return 0;
     }
-    std::vector<BYTE> bitsBuf(cbBits);
     PCRYPT_BIT_BLOB pBits = reinterpret_cast<PCRYPT_BIT_BLOB>(bitsBuf.data());
-    if (!CryptDecodeObject(X509_ASN_ENCODING, X509_BITS, pExt->Value.pbData, pExt->Value.cbData, 0,
-            pBits, &cbBits))
-    {
-        return 0;
-    }
     if (pBits->cbData > 0)
     {
         return pBits->pbData[0];
@@ -619,20 +574,14 @@ std::string Win32Cert::getPolicyLink() const
     {
         return "";
     }
-    DWORD cbInfo = 0;
-    if (!CryptDecodeObject(X509_ASN_ENCODING, SPC_SP_AGENCY_INFO_STRUCT, pExt->Value.pbData,
-            pExt->Value.cbData, 0, nullptr, &cbInfo))
+    std::vector<BYTE> infoBuf;
+    if (!CckyProbeAllocate<CryptDecodeObject, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+            SPC_SP_AGENCY_INFO_STRUCT, pExt->Value.pbData, pExt->Value.cbData, 0,
+            CckyProbeBuffer(infoBuf), CckyProbeBytesRef<DWORD>()))
     {
         return "";
     }
-    std::vector<BYTE> infoBuf(cbInfo);
     PSPC_SP_AGENCY_INFO pInfo = reinterpret_cast<PSPC_SP_AGENCY_INFO>(infoBuf.data());
-    if (!CryptDecodeObject(X509_ASN_ENCODING, SPC_SP_AGENCY_INFO_STRUCT, pExt->Value.pbData,
-            pExt->Value.cbData, 0, pInfo, &cbInfo))
-    {
-        return "";
-    }
-    if (pInfo->pPolicyInformation && pInfo->pPolicyInformation->dwLinkChoice == SPC_URL_LINK_CHOICE)
     {
         return WinHelper::wideToUtf8(pInfo->pPolicyInformation->pwszUrl);
     }
@@ -673,12 +622,12 @@ std::string Win32Cert::getNameDisplay(const CERT_NAME_BLOB* pNameBlob) const
                     ss << " (" << WinHelper::wideToUtf8(pOidInfo->pwszName) << ")";
                 }
             }
-            DWORD cch = CertRDNValueToStrA(pAttr->dwValueType, &pAttr->Value, nullptr, 0);
+            std::wstring valBuf;
+            DWORD cch = CckyProbeAllocate<CertRDNValueToStrW, CckyProbeReturnPositive{}>(
+                pAttr->dwValueType, &pAttr->Value, CckyProbeBuffer(valBuf), CckyProbeSize{});
             if (cch > 0)
             {
-                std::vector<char> valBuf(cch);
-                CertRDNValueToStrA(pAttr->dwValueType, &pAttr->Value, valBuf.data(), cch);
-                ss << " " << valBuf.data();
+                ss << " " << WinHelper::wideToUtf8(valBuf.c_str());
             }
             if (j + 1 < pRDN->cRDNAttr || i + 1 < pInfo->cRDN)
             {
@@ -697,17 +646,11 @@ std::string Win32Cert::getNameDN(const CERT_NAME_BLOB* pNameBlob) const
         return "";
     }
 
-    DWORD cch = CertNameToStrA(
-        X509_ASN_ENCODING, const_cast<PCERT_NAME_BLOB>(pNameBlob), CERT_X500_NAME_STR, nullptr, 0);
-    if (cch <= 1)
-    {
-        return "";
-    }
-
-    std::vector<char> buf(cch);
-    CertNameToStrA(X509_ASN_ENCODING, const_cast<PCERT_NAME_BLOB>(pNameBlob), CERT_X500_NAME_STR,
-        buf.data(), cch);
-    return std::string(buf.data());
+    std::wstring wbuf;
+    CckyProbeAllocate<CertNameToStrW, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
+        const_cast<PCERT_NAME_BLOB>(pNameBlob), CERT_X500_NAME_STR, CckyProbeBuffer(wbuf),
+        CckyProbeSize{});
+    return WinHelper::wideToUtf8(wbuf.c_str());
 }
 
 Win32PfxCert::Win32PfxCert(PCCERT_CONTEXT cert) : Win32Cert(cert) {}

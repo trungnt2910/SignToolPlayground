@@ -1,5 +1,12 @@
 #include "crypto/windows/Win32PrivateKey.h"
 
+#include <vector>
+
+#include <windows.h>
+
+#include <wincrypt.h>
+
+#include "crypto/CckyProbeAllocate.h"
 #include "crypto/windows/WinHelper.h"
 
 namespace ccky
@@ -24,27 +31,22 @@ Win32PrivateKey::Win32PrivateKey(CertContextPtr pCertContext)
     {
         return;
     }
-    DWORD size = 0;
-    if (CertGetCertificateContextProperty(
-            m_pCertContext.get(), CERT_KEY_PROV_INFO_PROP_ID, nullptr, &size) &&
-        size > 0)
+    std::vector<uint8_t> buf;
+    if (CckyProbeAllocate<CertGetCertificateContextProperty, CckyProbeReturnPositive{}>(
+            m_pCertContext.get(), CERT_KEY_PROV_INFO_PROP_ID, CckyProbeBuffer(buf),
+            CckyProbeBytesRef<DWORD>()))
     {
-        std::vector<uint8_t> buf(size);
-        if (CertGetCertificateContextProperty(
-                m_pCertContext.get(), CERT_KEY_PROV_INFO_PROP_ID, buf.data(), &size))
+        auto* info = reinterpret_cast<PCRYPT_KEY_PROV_INFO>(buf.data());
+        if (info->pwszContainerName)
         {
-            auto* info = reinterpret_cast<PCRYPT_KEY_PROV_INFO>(buf.data());
-            if (info->pwszContainerName)
-            {
-                m_wContainerName = info->pwszContainerName;
-            }
-            if (info->pwszProvName)
-            {
-                m_wProviderName = info->pwszProvName;
-            }
-            m_providerType = info->dwProvType;
-            m_keySpec = info->dwKeySpec;
+            m_wContainerName = info->pwszContainerName;
         }
+        if (info->pwszProvName)
+        {
+            m_wProviderName = info->pwszProvName;
+        }
+        m_providerType = info->dwProvType;
+        m_keySpec = info->dwKeySpec;
     }
     HCRYPTPROV_OR_NCRYPT_KEY_HANDLE hKeyOrProv = 0;
     DWORD dwKeySpec = 0;
@@ -101,28 +103,20 @@ const CERT_PUBLIC_KEY_INFO* Win32PrivateKey::getPublicKeyInfo() const
     {
         return &m_pCertContext->pCertInfo->SubjectPublicKeyInfo;
     }
-    if (m_hProv.get() != 0)
+    if (m_hProv == nullptr)
     {
-        if (m_publicKeyInfoBuf.empty())
-        {
-            DWORD cbPublicKeyInfo = 0;
-            if (!CryptExportPublicKeyInfo(
-                    m_hProv.get(), m_keySpec, X509_ASN_ENCODING, nullptr, &cbPublicKeyInfo))
-            {
-                return nullptr;
-            }
-            m_publicKeyInfoBuf.resize(cbPublicKeyInfo);
-            if (!CryptExportPublicKeyInfo(m_hProv.get(), m_keySpec, X509_ASN_ENCODING,
-                    reinterpret_cast<PCERT_PUBLIC_KEY_INFO>(m_publicKeyInfoBuf.data()),
-                    &cbPublicKeyInfo))
-            {
-                m_publicKeyInfoBuf.clear();
-                return nullptr;
-            }
-        }
-        return reinterpret_cast<const CERT_PUBLIC_KEY_INFO*>(m_publicKeyInfoBuf.data());
+        return nullptr;
     }
-    return nullptr;
+    if (m_publicKeyInfoBuf.empty())
+    {
+        if (!CckyProbeAllocate<CryptExportPublicKeyInfo, CckyProbeReturnPositive{}>(m_hProv.get(),
+                m_keySpec, X509_ASN_ENCODING, CckyProbeBuffer(m_publicKeyInfoBuf),
+                CckyProbeBytesRef<DWORD>()))
+        {
+            return nullptr;
+        }
+    }
+    return reinterpret_cast<const CERT_PUBLIC_KEY_INFO*>(m_publicKeyInfoBuf.data());
 }
 
 } // namespace crypto

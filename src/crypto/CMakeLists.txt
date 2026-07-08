@@ -13,10 +13,10 @@ if(WIN32)
         windows/Time.cpp
         windows/Win32Cert.cpp
         windows/Win32PrivateKey.cpp
+        windows/Win32Signer.cpp
         windows/Win32Store.cpp
         windows/Win32Time.cpp
         windows/WinHelper.cpp
-        windows/WinSigner.cpp
         windows/WindowsException.cpp
     )
 else()
