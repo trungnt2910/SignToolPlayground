@@ -1,5 +1,7 @@
 #include "crypto/openssl/OpenSslCert.h"
 
+#include "crypto/CryptoFactory.h"
+#include "crypto/Strings.h"
 #include "crypto/Time.h"
 #include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslHelper.h"
@@ -305,7 +307,11 @@ std::vector<uint8_t> OpenSslCrl::getEncoded() const
 
 OpenSslCtl::OpenSslCtl(const std::vector<uint8_t>& derBytes) : m_der(derBytes) {}
 
-std::string OpenSslCtl::getSha1() const { return OpenSslHelper::getBufferSha1(m_der); }
+std::string OpenSslCtl::getSha1() const
+{
+    auto digest = CryptoFactory::getDigestFromName("sha1");
+    return digest ? Strings::toLower(digest->calculateHashString(m_der)) : "";
+}
 
 std::vector<uint8_t> OpenSslCtl::getEncoded() const { return m_der; }
 

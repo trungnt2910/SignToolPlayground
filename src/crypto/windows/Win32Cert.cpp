@@ -10,6 +10,8 @@
 #include <wintrust.h>
 
 #include "crypto/CckyProbeAllocate.h"
+#include "crypto/CryptoFactory.h"
+#include "crypto/Strings.h"
 #include "crypto/Time.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/Win32Time.h"
@@ -40,17 +42,9 @@ std::string Win32Cert::getSerialNumber() const
         return "";
     }
     CRYPT_INTEGER_BLOB* serial = &m_cert->pCertInfo->SerialNumber;
-    std::stringstream ss;
-    for (int i = static_cast<int>(serial->cbData) - 1; i >= 0; --i)
-    {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-           << static_cast<int>(serial->pbData[i]);
-        if (i > 0)
-        {
-            ss << " ";
-        }
-    }
-    return ss.str();
+    std::vector<uint8_t> bytes(serial->pbData, serial->pbData + serial->cbData);
+    std::reverse(bytes.begin(), bytes.end());
+    return Strings::hex(bytes, 1, ' ');
 }
 
 std::string Win32Cert::getSha1() const
@@ -63,12 +57,7 @@ std::string Win32Cert::getSha1() const
     DWORD len = sizeof(hash);
     if (CertGetCertificateContextProperty(m_cert.get(), CERT_SHA1_HASH_PROP_ID, hash, &len))
     {
-        std::stringstream ss;
-        for (DWORD i = 0; i < len; ++i)
-        {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-        }
-        return ss.str();
+        return Strings::toLower(Strings::hex(std::vector<uint8_t>(hash, hash + len)));
     }
     return "";
 }
@@ -85,17 +74,7 @@ std::string Win32Cert::getSha1Thumbprint() const
     {
         return "";
     }
-    std::stringstream ss;
-    for (DWORD i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-           << static_cast<int>(hash[i]);
-        if ((i % 4 == 3) && (i + 1 < len))
-        {
-            ss << " ";
-        }
-    }
-    return ss.str();
+    return Strings::hex(std::vector<uint8_t>(hash, hash + len), 4, ' ');
 }
 
 std::string Win32Cert::getMd5Thumbprint() const
@@ -110,17 +89,7 @@ std::string Win32Cert::getMd5Thumbprint() const
     {
         return "";
     }
-    std::stringstream ss;
-    for (DWORD i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-           << static_cast<int>(hash[i]);
-        if ((i % 4 == 3) && (i + 1 < len))
-        {
-            ss << " ";
-        }
-    }
-    return ss.str();
+    return Strings::hex(std::vector<uint8_t>(hash, hash + len), 4, ' ');
 }
 
 std::string Win32Cert::getSignatureAlgorithm() const
@@ -286,33 +255,12 @@ std::string Win32Cert::getKeySha256Thumbprint() const
         return "";
     }
 
-    CryptProvPtr hProv;
-    if (!CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
+    auto digest = CryptoFactory::getDigestFromName("sha256");
+    if (!digest)
     {
         return "";
     }
-    CryptHashPtr hHash;
-    if (!CryptCreateHash(hProv.get(), CALG_SHA_256, 0, 0, &hHash.init()))
-    {
-        return "";
-    }
-    if (!CryptHashData(hHash.get(), encodedBuf.data(), encodedBuf.size(), 0))
-    {
-        return "";
-    }
-    BYTE hash[32];
-    DWORD len = sizeof(hash);
-    if (!CryptGetHashParam(hHash.get(), HP_HASHVAL, hash, &len, 0))
-    {
-        return "";
-    }
-    std::stringstream ss;
-    for (DWORD i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-           << static_cast<int>(hash[i]);
-    }
-    return ss.str();
+    return digest->calculateHashString(encodedBuf);
 }
 
 // Private Key Information
@@ -668,12 +616,7 @@ std::string Win32Crl::getSha1() const
     {
         return "";
     }
-    std::stringstream ss;
-    for (DWORD i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-    }
-    return ss.str();
+    return Strings::toLower(Strings::hex(std::vector<uint8_t>(hash, hash + len)));
 }
 
 std::vector<uint8_t> Win32Crl::getEncoded() const
@@ -699,12 +642,7 @@ std::string Win32Ctl::getSha1() const
     {
         return "";
     }
-    std::stringstream ss;
-    for (DWORD i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-    }
-    return ss.str();
+    return Strings::toLower(Strings::hex(std::vector<uint8_t>(hash, hash + len)));
 }
 
 std::vector<uint8_t> Win32Ctl::getEncoded() const

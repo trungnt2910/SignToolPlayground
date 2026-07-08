@@ -7,7 +7,9 @@
 #include <string>
 #include <vector>
 
+#ifndef CRYPT_OID_INFO_HAS_EXTRA_FIELDS
 #define CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#endif
 #include <windows.h>
 
 #include <wincrypt.h>
@@ -78,13 +80,12 @@ struct IssuerProvCloser
     }
 };
 
-std::wstring getCngHashAlgId(const std::string& algo)
+LPCSTR getSignatureAlgorithmOid(DigestPtr digest, const std::string& pubKeyOid)
 {
-    return WinHelper::utf8ToWide(Strings::toUpper(algo));
-}
-
-LPCSTR getSignatureAlgorithmOid(const std::string& algo, const std::string& pubKeyOid)
-{
+    if (!digest)
+    {
+        throw CckyException("Digest algorithm option is missing", false);
+    }
     if (pubKeyOid.empty())
     {
         throw CckyException("Public key OID is empty", false);
@@ -99,7 +100,7 @@ LPCSTR getSignatureAlgorithmOid(const std::string& algo, const std::string& pubK
     }
 
     // 2. Get the CNG hash algorithm name
-    std::wstring wHashAlg = getCngHashAlgId(algo);
+    std::wstring wHashAlg = WinHelper::utf8ToWide(Strings::toUpper(digest->getName()));
 
     // 3. Find the signature OID
     LPCWSTR rgwszCNGAlgs[2] = {wHashAlg.c_str(), pPubKeyInfo->pwszCNGAlgid};
@@ -109,8 +110,8 @@ LPCSTR getSignatureAlgorithmOid(const std::string& algo, const std::string& pubK
 
     if (!pSigInfo)
     {
-        throw CckyException(
-            "Unsupported signature algorithm: " + algo + " with public key OID " + pubKeyOid,
+        throw CckyException("Unsupported signature algorithm: " + digest->getName() +
+                                " with public key OID " + pubKeyOid,
             false);
     }
 
@@ -867,7 +868,7 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
                                 ? pIssuerCert->pCertInfo->SubjectPublicKeyInfo.Algorithm.pszObjId
                                 : pSubjectPublicKeyInfo->Algorithm.pszObjId;
 
-    sigAlg.pszObjId = const_cast<LPSTR>(getSignatureAlgorithmOid(options.algo, pubKeyOid));
+    sigAlg.pszObjId = const_cast<LPSTR>(getSignatureAlgorithmOid(options.digest, pubKeyOid));
 
     // 10. Extensions
     std::vector<CERT_EXTENSION> extensions;

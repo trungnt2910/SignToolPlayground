@@ -71,6 +71,28 @@ int mockApiFetchFailure(uint8_t* buf, int* size)
     return 0;
 }
 
+int mockApiNullTerminated(char* buf, int size)
+{
+    const char text[] = "Hello";
+    const int len = 5;
+    if (buf == nullptr || size == 0)
+    {
+        return len;
+    }
+    if (size >= len + 1)
+    {
+        std::memcpy(buf, text, len);
+        buf[len] = '\0';
+        return len;
+    }
+    if (size > 0)
+    {
+        std::memcpy(buf, text, size - 1);
+        buf[size - 1] = '\0';
+    }
+    return len;
+}
+
 } // namespace
 
 TEST(Given_CckyProbeAllocate, When_ProbeSizeRefProvided_AllocatesAndPopulatesBuffer)
@@ -141,4 +163,16 @@ TEST(Given_CckyProbeAllocate, When_FetchPassFails_ClearsBufferAndReturnsFailure)
 
     EXPECT_EQ(result, 0);
     EXPECT_TRUE(buffer.empty());
+}
+
+TEST(Given_CckyProbeAllocate, When_ProbeStringUsed_AllocatesExtraSpaceAndTrimsNullTerminator)
+{
+    std::string buffer;
+
+    int result = CckyProbeAllocate<mockApiNullTerminated, CckyProbeReturnPositive{}>(
+        CckyProbeString(buffer), CckyProbeSize{});
+
+    EXPECT_EQ(result, 5);
+    EXPECT_EQ(buffer.size(), 5u);
+    EXPECT_EQ(buffer, "Hello");
 }

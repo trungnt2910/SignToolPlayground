@@ -29,6 +29,7 @@ class Win32Check
         return ptr;
     }
     static void checkHr(long hr, const std::string& context);
+    static void checkStatus(long status, const std::string& context);
 };
 
 } // namespace crypto

@@ -780,7 +780,9 @@ TEST_F(Given_SignTool, When_VerifyVerboseSelfSigned_MatchesOutput)
     // authenticated attribute by default. This causes the binary payload and SHA256 digest
     // to change on every signing operation. We dynamically replace the expected hash here
     // to match the actual runtime digest while preserving native signtool behavior.
-    std::string actualHash = ccky::crypto::CryptoFactory::calculateSha256(signedPe);
+    auto digest = ccky::crypto::CryptoFactory::getDigestFromName("sha256");
+    ASSERT_NE(digest, nullptr);
+    std::string actualHash = digest->calculateHashString(signedPe);
     size_t pos =
         expectedOut.find("414974B2E342C70208774E9E47E83382A6CFF5FF799DDB65F1DAD78673EA54D4");
     if (pos != std::string::npos && !actualHash.empty())

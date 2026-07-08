@@ -12,6 +12,7 @@
 #include "crypto/CckyException.h"
 #include "crypto/CertGenerator.h"
 #include "crypto/Console.h"
+#include "crypto/CryptoFactory.h"
 #include "crypto/PrivateKey.h"
 #include "crypto/Strings.h"
 #include "crypto/Time.h"
@@ -320,6 +321,13 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
     }
 
     std::string algo = args.getFlagValue("a", "sha1");
+    auto digest = crypto::CryptoFactory::getDigestFromName(algo);
+    if (!digest)
+    {
+        // TODO: Get the correct error message & goldens.
+        m_err << "MakeCert Error: Unknown digest algorithm: " << algo << "\n";
+        return 1;
+    }
     int keyLen = 0;
     if (args.hasFlag("len"))
     {
@@ -503,7 +511,7 @@ int MakeCertCommand::executeImpl(const cli::ParsedArgs& args)
     opts.keyContainer = keyContainer;
     opts.startTime = startTime;
     opts.endTime = endTime;
-    opts.algo = algo;
+    opts.digest = digest;
     opts.keyLen = keyLen;
     opts.keySpec = keySpec;
     opts.ssStoreName = ssStoreName;

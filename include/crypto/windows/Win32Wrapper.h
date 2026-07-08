@@ -2,8 +2,13 @@
 #define CCKY_WIN32_WRAPPER_H
 
 #include <array>
+
+#ifndef CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#define CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#endif
 #include <windows.h>
 
+#include <bcrypt.h>
 #include <ncrypt.h>
 #include <wincrypt.h>
 
@@ -34,6 +39,9 @@ template <typename T> using LocalFreePtr = CckyHandle<T*, LocalFree>;
 using CryptProvPtr = CckyHandle<HCRYPTPROV, CryptReleaseContext, std::array<DWORD, 1>{0}>;
 using CryptHashPtr = CckyHandle<HCRYPTHASH, CryptDestroyHash>;
 using CryptKeyPtr = CckyHandle<HCRYPTKEY, CryptDestroyKey>;
+using BCryptAlgHandlePtr =
+    CckyHandle<BCRYPT_ALG_HANDLE, BCryptCloseAlgorithmProvider, std::array<ULONG, 1>{0}>;
+using BCryptHashHandlePtr = CckyHandle<BCRYPT_HASH_HANDLE, BCryptDestroyHash>;
 
 } // namespace crypto
 } // namespace ccky

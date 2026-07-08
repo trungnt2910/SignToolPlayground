@@ -580,17 +580,19 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
 
         signOpts.certPath = args.getFlagValue("f");
         signOpts.password = args.getFlagValue("p");
-        signOpts.fileDigestAlg = args.getFlagValue("fd");
-        if (signOpts.fileDigestAlg.empty())
+        std::string fdStr = args.getFlagValue("fd");
+        if (fdStr.empty())
         {
             throw crypto::CckyException("A required parameter is missing.", true);
         }
+        signOpts.fileDigest = crypto::CryptoFactory::getDigestFromName(fdStr);
         signOpts.timestampUrl = args.getFlagValue("tr");
         if (signOpts.timestampUrl.empty())
         {
             signOpts.timestampUrl = args.getFlagValue("t");
         }
-        signOpts.timestampDigestAlg = args.getFlagValue("td", "SHA1");
+        std::string tdStr = args.getFlagValue("td", "SHA1");
+        signOpts.timestampDigest = crypto::CryptoFactory::getDigestFromName(tdStr);
         signOpts.description = args.getFlagValue("d");
         signOpts.descriptionUrl = args.getFlagValue("du");
         signOpts.append = args.hasFlag("as");
@@ -697,10 +699,8 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
 
         for (const auto& fileToSign : args.positional)
         {
-            // TODO: Cross-platform Digest helper.
-            // E.g. crypto::Digest::isSupported(signOpts.fileDigestAlg)
-            if (!Strings::equalsCaseInsensitive(signOpts.fileDigestAlg, "sha1") &&
-                !Strings::equalsCaseInsensitive(signOpts.fileDigestAlg, "sha256"))
+            // TODO: See what happens if we sign MD5 with this.
+            if (!signOpts.fileDigest)
             {
                 m_err << "SignTool Error: The specified algorithm cannot be used or is invalid.\n";
                 errorCount++;
@@ -778,7 +778,9 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
             peStore->load(filePath, opts);
 
             auto certs = peStore->getCertificates();
-            std::string sha256 = crypto::CryptoFactory::calculateSha256(filePath);
+            // TODO: Is it always SHA256 here?
+            auto sha256Digest = crypto::CryptoFactory::getDigestFromName("sha256");
+            std::string sha256 = sha256Digest ? sha256Digest->calculateHashString(filePath) : "";
 
             std::string outMsg;
             bool verified = false;
@@ -916,7 +918,8 @@ int SignToolCommand::executeImpl(const cli::ParsedArgs& args)
         {
             timestampOpts.timestampUrl = args.getFlagValue("t");
         }
-        timestampOpts.timestampDigestAlg = args.getFlagValue("td", "SHA1");
+        std::string tdStr = args.getFlagValue("td", "SHA1");
+        timestampOpts.timestampDigest = crypto::CryptoFactory::getDigestFromName(tdStr);
         std::string tpStr = args.getFlagValue("tp");
         if (!tpStr.empty())
         {

@@ -1,7 +1,7 @@
 include(FetchContent)
 
 if(WIN32)
-    set(CCKY_CRYPTO_BACKEND_DEPENDENCIES crypt32 wintrust ncrypt imagehlp)
+    set(CCKY_CRYPTO_BACKEND_DEPENDENCIES bcrypt crypt32 imagehlp ncrypt wintrust)
 else()
     set(OPENSSL_USE_STATIC_LIBS ON)
     set(ZLIB_USE_STATIC_LIBS ON)

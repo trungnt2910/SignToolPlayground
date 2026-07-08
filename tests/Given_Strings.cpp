@@ -62,3 +62,57 @@ TEST(Given_Strings, When_EqualsCaseInsensitiveDifferentCharacters_ReturnsFalse)
 
     EXPECT_FALSE(match);
 }
+
+TEST(Given_Strings, When_HexWithVectorBytes_ReturnsUppercaseHexString)
+{
+    std::vector<uint8_t> bytes = {0x00, 0x1A, 0x2B, 0xFF, 0x09};
+
+    std::string result = Strings::hex(bytes);
+
+    EXPECT_EQ("001A2BFF09", result);
+}
+
+TEST(Given_Strings, When_HexWithWCharTemplate_ReturnsUppercaseHexWString)
+{
+    std::vector<uint8_t> bytes = {0x00, 0x1A, 0x2B, 0xFF, 0x09};
+
+    std::wstring result = Strings::hex<wchar_t>(bytes);
+
+    EXPECT_EQ(L"001A2BFF09", result);
+}
+
+TEST(Given_Strings, When_HexWithEmptyBytes_ReturnsEmptyString)
+{
+    std::vector<uint8_t> bytes = {};
+
+    std::string result = Strings::hex(bytes);
+
+    EXPECT_TRUE(result.empty());
+}
+
+TEST(Given_Strings, When_HexWithGroupSize_GroupsOutputWithSeparators)
+{
+    std::vector<uint8_t> bytes = {0x00, 0x1A, 0x2B, 0xFF, 0x09};
+
+    std::string result = Strings::hex(bytes, 1, ' ');
+
+    EXPECT_EQ("00 1A 2B FF 09", result);
+}
+
+TEST(Given_Strings, When_HexWithCustomGroupAndSeparator_GroupsCorrectly)
+{
+    std::vector<uint8_t> bytes = {0x00, 0x1A, 0x2B, 0xFF, 0x09, 0x11, 0x22};
+
+    std::string result = Strings::hex(bytes, 4, '-');
+
+    EXPECT_EQ("001A2BFF-091122", result);
+}
+
+TEST(Given_Strings, When_HexWithGroupSizeLargerThanBytes_DoesNotAddSeparators)
+{
+    std::vector<uint8_t> bytes = {0x00, 0x1A, 0x2B};
+
+    std::string result = Strings::hex(bytes, 5, '-');
+
+    EXPECT_EQ("001A2B", result);
+}

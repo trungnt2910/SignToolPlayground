@@ -19,8 +19,12 @@ namespace ccky
 namespace crypto
 {
 
-std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, const std::string& alg)
+std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, DigestPtr digest)
 {
+    if (!digest)
+    {
+        return {};
+    }
     std::ifstream file(peFilePath, std::ios::binary);
     if (!file.is_open())
     {
@@ -72,7 +76,7 @@ std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, cons
     file.seekg(0, std::ios::end);
     uint32_t fileSize = file.tellg();
 
-    const EVP_MD* md = OpenSslHelper::getDigestAlgorithm(alg);
+    const EVP_MD* md = OpenSslHelper::getDigestAlgorithm(digest->getName());
 
     EVPMDCtxPtr ctx(EVP_MD_CTX_new());
     if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), md, nullptr) != 1)
@@ -123,29 +127,18 @@ std::vector<uint8_t> calculatePeHashInternal(const std::string& peFilePath, cons
     return std::vector<uint8_t>(mdVal, mdVal + mdLen);
 }
 
-std::vector<uint8_t> calculateAppxHashInternal(const std::string& filePath, const std::string& alg)
+std::vector<uint8_t> calculateAppxHashInternal(const std::string& filePath, DigestPtr digest)
 {
+    if (!digest)
+    {
+        return {};
+    }
     try
     {
         ZipArchive archive(filePath);
-        const EVP_MD* md = OpenSslHelper::getDigestAlgorithm(alg);
-
+        const EVP_MD* md = OpenSslHelper::getDigestAlgorithm(digest->getName());
         auto hashBuf = [&](const std::vector<uint8_t>& data) -> std::vector<uint8_t>
-        {
-            EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-            if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), md, nullptr) != 1)
-            {
-                return {};
-            }
-            EVP_DigestUpdate(ctx.get(), data.data(), data.size());
-            unsigned char val[EVP_MAX_MD_SIZE];
-            unsigned int len = 0;
-            if (EVP_DigestFinal_ex(ctx.get(), val, &len) != 1)
-            {
-                return {};
-            }
-            return std::vector<uint8_t>(val, val + len);
-        };
+        { return digest->calculateHash(data); };
 
         auto ctBytes = archive.getUncompressedContent("[Content_Types].xml");
         pugi::xml_document doc;
@@ -267,7 +260,7 @@ namespace
 void signAppx(const X509Ptr& x, const EVPPKeyPtr& pkey, const SignOptions& options,
     const std::string& filePath, const CertificateStorePtr& store)
 {
-    std::vector<uint8_t> appxHash = calculateAppxHashInternal(filePath, options.fileDigestAlg);
+    std::vector<uint8_t> appxHash = calculateAppxHashInternal(filePath, options.fileDigest);
     if (appxHash.empty())
     {
         throw OpenSslException("Failed to calculate APPX file digest for: " + filePath, false);
@@ -290,7 +283,7 @@ void signAppx(const X509Ptr& x, const EVPPKeyPtr& pkey, const SignOptions& optio
 void signPe(const X509Ptr& x, const EVPPKeyPtr& pkey, const SignOptions& options,
     const std::string& filePath, const CertificateStorePtr& store)
 {
-    std::vector<uint8_t> peHash = calculatePeHashInternal(filePath, options.fileDigestAlg);
+    std::vector<uint8_t> peHash = calculatePeHashInternal(filePath, options.fileDigest);
     if (peHash.empty())
     {
         throw OpenSslException("Failed to calculate PE file digest for: " + filePath, false);

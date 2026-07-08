@@ -12,6 +12,7 @@ if(WIN32)
         windows/Pvk2PfxConverter.cpp
         windows/Time.cpp
         windows/Win32Cert.cpp
+        windows/Win32Digest.cpp
         windows/Win32PrivateKey.cpp
         windows/Win32Signer.cpp
         windows/Win32Store.cpp
@@ -31,6 +32,7 @@ else()
         openssl/CryptoFactory.cpp
         openssl/FileTypeDetector.cpp
         openssl/OpenSslCert.cpp
+        openssl/OpenSslDigest.cpp
         openssl/OpenSslException.cpp
         openssl/OpenSslHelper.cpp
         openssl/OpenSslStore.cpp

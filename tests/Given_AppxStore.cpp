@@ -37,7 +37,7 @@ TEST_F(Given_AppxStore, When_SignAppx_PreservesExistingContent)
     certStore->load(pfxPath, opts);
     ASSERT_FALSE(certStore->getCertificates().empty());
     ccky::crypto::SignOptions signOpts;
-    signOpts.fileDigestAlg = "SHA256";
+    signOpts.fileDigest = ccky::crypto::CryptoFactory::getDigestFromName("SHA256");
     ccky::crypto::AuthenticodeSigner signer;
 
     signer.sign(certStore->getCertificates()[0], signOpts, outPath);

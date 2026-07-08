@@ -41,7 +41,12 @@ std::vector<uint8_t> deriveRc4Key(const std::string& password, const std::vector
     block.insert(block.end(), salt.begin(), salt.end());
     block.insert(block.end(), password.begin(), password.end());
 
-    std::vector<uint8_t> hash = CryptoFactory::calculateSha1Bytes(block);
+    auto sha1 = CryptoFactory::getDigestFromName("sha1");
+    if (!sha1)
+    {
+        throw CckyCryptoException("SHA-1 digest algorithm is unsupported");
+    }
+    std::vector<uint8_t> hash = sha1->calculateHash(block);
     hash.resize(16); // take first 16 bytes
     return hash;
 }

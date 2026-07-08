@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "crypto/Digest.h"
 #include "crypto/PrivateKey.h"
 
 namespace ccky
@@ -22,7 +23,7 @@ struct MakeCertOptions
     std::string keyContainer;
     std::chrono::system_clock::time_point startTime;
     std::chrono::system_clock::time_point endTime;
-    std::string algo;
+    DigestPtr digest;
     int keyLen;
     int keySpec;
     std::string ssStoreName;

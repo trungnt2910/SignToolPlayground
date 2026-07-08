@@ -9,6 +9,7 @@
 
 #include "crypto/FileTypeDetector.h"
 #include "crypto/openssl/OpenSslCert.h"
+#include "crypto/openssl/OpenSslDigest.h"
 #include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslHelper.h"
 #include "crypto/openssl/OpenSslStore.h"
@@ -87,6 +88,36 @@ CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
     return std::make_shared<OpenSslCtl>(derBytes);
 }
 
+DigestPtr CryptoFactory::getDigestFromName(const std::string& name)
+{
+    const EVP_MD* md = EVP_get_digestbyname(name.c_str());
+    if (!md)
+    {
+        return nullptr;
+    }
+    return std::make_shared<OpenSslDigest>(EVP_MD_type(md));
+}
+
+DigestPtr CryptoFactory::getDigestFromOid(const std::string& oid)
+{
+    ASN1ObjectPtr obj(OBJ_txt2obj(oid.c_str(), /* no_name = */ 1));
+    if (obj == nullptr)
+    {
+        return nullptr;
+    }
+    int nid = OBJ_obj2nid(obj.get());
+    if (nid == NID_undef)
+    {
+        return nullptr;
+    }
+    const EVP_MD* md = EVP_get_digestbynid(nid);
+    if (!md)
+    {
+        return nullptr;
+    }
+    return std::make_shared<OpenSslDigest>(nid);
+}
+
 bool CryptoFactory::acquireContext(const std::string& container, const std::string& provider)
 {
     throw OpenSslException("Windows Cryptographic Service Providers are unsupported on this "
@@ -98,42 +129,6 @@ void CryptoFactory::deleteKeyContainer(
     const std::string& name, const std::string& provider, uint32_t providerType)
 {
     // No-op on non-Windows platforms
-}
-
-std::string CryptoFactory::calculateSha256(const std::string& filePath)
-{
-    std::ifstream f(filePath, std::ios::binary);
-    if (!f.is_open())
-    {
-        return "";
-    }
-    std::vector<uint8_t> data(
-        (std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    return OpenSslHelper::getBufferSha256(data);
-}
-
-std::vector<uint8_t> CryptoFactory::calculateSha1Bytes(const std::vector<uint8_t>& data)
-{
-    EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (ctx == nullptr)
-    {
-        throw OpenSslException("Failed to create MD context");
-    }
-
-    if (EVP_DigestInit_ex(ctx.get(), EVP_sha1(), nullptr) != 1 ||
-        EVP_DigestUpdate(ctx.get(), data.data(), data.size()) != 1)
-    {
-        throw OpenSslException("Failed to compute SHA1");
-    }
-
-    uint8_t digest[20];
-    unsigned int len = 0;
-    if (EVP_DigestFinal_ex(ctx.get(), digest, &len) != 1)
-    {
-        throw OpenSslException("Failed to finalize SHA1");
-    }
-
-    return std::vector<uint8_t>(digest, digest + 20);
 }
 
 // We implement a custom RC4 function here instead of using OpenSSL's EVP_rc4()

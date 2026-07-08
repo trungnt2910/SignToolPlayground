@@ -21,8 +21,6 @@ class OpenSslHelper
     static std::string getNameDN(X509_NAME* name);
     static std::string getCertSha1(X509* cert);
     static std::string getCrlSha1(X509_CRL* crl);
-    static std::string getBufferSha1(const std::vector<uint8_t>& data);
-    static std::string getBufferSha256(const std::vector<uint8_t>& data);
 
     static std::string getCertSerialNumber(X509* cert);
     static std::string getCertThumbprint(X509* cert, const EVP_MD* md, bool spaceEvery8);

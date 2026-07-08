@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace ccky
 {
@@ -113,6 +114,36 @@ class Strings
         std::type_identity_t<std::basic_string_view<CharT, Traits>> b)
     {
         return equalsCaseInsensitiveImpl<CharT, Traits>(a, b);
+    }
+
+    template <typename CharT = char, typename Traits = std::char_traits<CharT>,
+        typename Allocator = std::allocator<CharT>>
+    static inline std::basic_string<CharT, Traits, Allocator> hex(const std::vector<uint8_t>& bytes,
+        size_t groupSize = 0, CharT groupSep = static_cast<CharT>(' '))
+    {
+        static const char hexChars[] = "0123456789ABCDEF";
+        if (bytes.empty())
+        {
+            return {};
+        }
+        std::basic_string<CharT, Traits, Allocator> res;
+        size_t numSeps = 0;
+        if (groupSize > 0 && bytes.size() > groupSize)
+        {
+            numSeps = (bytes.size() - 1) / groupSize;
+        }
+        res.reserve(bytes.size() * 2 + numSeps);
+        for (size_t i = 0; i < bytes.size(); ++i)
+        {
+            uint8_t b = bytes[i];
+            res.push_back(static_cast<CharT>(hexChars[b >> 4]));
+            res.push_back(static_cast<CharT>(hexChars[b & 0x0F]));
+            if (groupSize > 0 && (i + 1) % groupSize == 0 && (i + 1) < bytes.size())
+            {
+                res.push_back(groupSep);
+            }
+        }
+        return res;
     }
 };
 

@@ -5,13 +5,18 @@
 #include <sstream>
 #include <vector>
 
+#ifndef CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#define CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#endif
 #include <windows.h>
 
 #include <wincrypt.h>
 
 #include "crypto/CckyException.h"
 #include "crypto/FileTypeDetector.h"
+#include "crypto/Strings.h"
 #include "crypto/windows/Win32Cert.h"
+#include "crypto/windows/Win32Digest.h"
 #include "crypto/windows/Win32Store.h"
 #include "crypto/windows/Win32Wrapper.h"
 #include "crypto/windows/WinHelper.h"
@@ -95,6 +100,54 @@ CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
     return std::make_shared<Win32Ctl>(std::move(ctlPtr));
 }
 
+DigestPtr CryptoFactory::getDigestFromName(const std::string& name)
+{
+    std::wstring wName = WinHelper::utf8ToWide(Strings::toUpper(name));
+    PCCRYPT_OID_INFO pInfo =
+        CryptFindOIDInfo(CRYPT_OID_INFO_NAME_KEY, wName.data(), CRYPT_HASH_ALG_OID_GROUP_ID);
+    if (pInfo == nullptr)
+    {
+        return nullptr;
+    }
+    if (pInfo->Algid == CALG_OID_INFO_CNG_ONLY)
+    {
+        if (pInfo->pwszCNGAlgid == nullptr)
+        {
+            return nullptr;
+        }
+        return std::make_shared<Win32CngDigest>(pInfo->Algid, pInfo->pwszCNGAlgid);
+    }
+    if (pInfo->Algid == 0)
+    {
+        return nullptr;
+    }
+    return std::make_shared<Win32Digest>(pInfo->Algid);
+}
+
+DigestPtr CryptoFactory::getDigestFromOid(const std::string& oid)
+{
+    std::string tempOid = oid;
+    PCCRYPT_OID_INFO pInfo =
+        CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY, tempOid.data(), CRYPT_HASH_ALG_OID_GROUP_ID);
+    if (pInfo == nullptr)
+    {
+        return nullptr;
+    }
+    if (pInfo->Algid == CALG_OID_INFO_CNG_ONLY)
+    {
+        if (pInfo->pwszCNGAlgid == nullptr)
+        {
+            return nullptr;
+        }
+        return std::make_shared<Win32CngDigest>(pInfo->Algid, pInfo->pwszCNGAlgid);
+    }
+    if (pInfo->Algid == 0)
+    {
+        return nullptr;
+    }
+    return std::make_shared<Win32Digest>(pInfo->Algid);
+}
+
 bool CryptoFactory::acquireContext(const std::string& container, const std::string& provider)
 {
     std::wstring wContainer = WinHelper::utf8ToWide(container);
@@ -119,75 +172,6 @@ void CryptoFactory::deleteKeyContainer(
     CryptAcquireContextW(&hProv, wName.empty() ? nullptr : wName.c_str(),
         wProvider.empty() ? nullptr : wProvider.c_str(),
         providerType == 0 ? PROV_RSA_FULL : providerType, CRYPT_DELETEKEYSET);
-}
-
-std::string CryptoFactory::calculateSha256(const std::string& filePath)
-{
-    std::ifstream file(filePath, std::ios::binary);
-    if (!file.is_open())
-    {
-        return "";
-    }
-    std::vector<uint8_t> data(
-        (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    if (data.empty())
-    {
-        return "";
-    }
-
-    CryptProvPtr hProv;
-    if (CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
-    {
-        CryptHashPtr hHash;
-        if (CryptCreateHash(hProv.get(), CALG_SHA_256, 0, 0, &hHash.init()))
-        {
-            if (CryptHashData(hHash.get(), data.data(), data.size(), 0))
-            {
-                BYTE hash[32];
-                DWORD len = sizeof(hash);
-                if (CryptGetHashParam(hHash.get(), HP_HASHVAL, hash, &len, 0))
-                {
-                    std::stringstream ss;
-                    for (DWORD i = 0; i < len; ++i)
-                    {
-                        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-                           << static_cast<int>(hash[i]);
-                    }
-                    return ss.str();
-                }
-            }
-        }
-    }
-    return "";
-}
-
-std::vector<uint8_t> CryptoFactory::calculateSha1Bytes(const std::vector<uint8_t>& data)
-{
-    CryptProvPtr hProv;
-    if (!CryptAcquireContextW(&hProv.init(), nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
-    {
-        throw CckyException("Failed to acquire crypt context for SHA1");
-    }
-
-    CryptHashPtr hHash;
-    if (!CryptCreateHash(hProv.get(), CALG_SHA1, 0, 0, &hHash.init()))
-    {
-        throw CckyException("Failed to create SHA1 hash");
-    }
-
-    if (!CryptHashData(hHash.get(), data.data(), static_cast<DWORD>(data.size()), 0))
-    {
-        throw CckyException("Failed to hash data");
-    }
-
-    BYTE hash[20];
-    DWORD len = sizeof(hash);
-    if (!CryptGetHashParam(hHash.get(), HP_HASHVAL, hash, &len, 0))
-    {
-        throw CckyException("Failed to get hash value");
-    }
-
-    return std::vector<uint8_t>(hash, hash + 20);
 }
 
 std::vector<uint8_t> CryptoFactory::encryptRc4Bytes(

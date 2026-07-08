@@ -202,12 +202,7 @@ std::string OpenSslHelper::getCertSha1(X509* cert)
     {
         return "";
     }
-    std::stringstream ss;
-    for (unsigned int i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md[i]);
-    }
-    return ss.str();
+    return Strings::toLower(Strings::hex(std::vector<uint8_t>(md, md + len)));
 }
 
 std::string OpenSslHelper::getCrlSha1(X509_CRL* crl)
@@ -222,63 +217,7 @@ std::string OpenSslHelper::getCrlSha1(X509_CRL* crl)
     {
         return "";
     }
-    std::stringstream ss;
-    for (unsigned int i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md[i]);
-    }
-    return ss.str();
-}
-
-std::string OpenSslHelper::getBufferSha1(const std::vector<uint8_t>& data)
-{
-    EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), EVP_sha1(), nullptr) != 1)
-    {
-        return "";
-    }
-    if (!data.empty() && EVP_DigestUpdate(ctx.get(), data.data(), data.size()) != 1)
-    {
-        return "";
-    }
-    unsigned char md[EVP_MAX_MD_SIZE];
-    unsigned int len = 0;
-    if (EVP_DigestFinal_ex(ctx.get(), md, &len) != 1)
-    {
-        return "";
-    }
-    std::stringstream ss;
-    for (unsigned int i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md[i]);
-    }
-    return ss.str();
-}
-
-std::string OpenSslHelper::getBufferSha256(const std::vector<uint8_t>& data)
-{
-    EVPMDCtxPtr ctx(EVP_MD_CTX_new());
-    if (ctx == nullptr || EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) != 1)
-    {
-        return "";
-    }
-    if (!data.empty() && EVP_DigestUpdate(ctx.get(), data.data(), data.size()) != 1)
-    {
-        return "";
-    }
-    unsigned char md[EVP_MAX_MD_SIZE];
-    unsigned int len = 0;
-    if (EVP_DigestFinal_ex(ctx.get(), md, &len) != 1)
-    {
-        return "";
-    }
-    std::stringstream ss;
-    for (unsigned int i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-           << static_cast<int>(md[i]);
-    }
-    return ss.str();
+    return Strings::toLower(Strings::hex(std::vector<uint8_t>(md, md + len)));
 }
 
 std::string OpenSslHelper::getCertSerialNumber(X509* cert)
@@ -294,17 +233,7 @@ std::string OpenSslHelper::getCertSerialNumber(X509* cert)
     }
     const uint8_t* data = ASN1_STRING_get0_data(serial);
     int len = ASN1_STRING_length(serial);
-    std::stringstream ss;
-    for (int i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-           << static_cast<int>(data[i]);
-        if (i + 1 < len)
-        {
-            ss << " ";
-        }
-    }
-    return ss.str();
+    return Strings::hex(std::vector<uint8_t>(data, data + len), 1, ' ');
 }
 
 std::string OpenSslHelper::getCertThumbprint(X509* cert, const EVP_MD* md, bool spaceEvery8)
@@ -319,17 +248,7 @@ std::string OpenSslHelper::getCertThumbprint(X509* cert, const EVP_MD* md, bool 
     {
         return "";
     }
-    std::stringstream ss;
-    for (unsigned int i = 0; i < len; ++i)
-    {
-        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-           << static_cast<int>(buf[i]);
-        if (spaceEvery8 && (i % 4 == 3) && (i + 1 < len))
-        {
-            ss << " ";
-        }
-    }
-    return ss.str();
+    return Strings::hex(std::vector<uint8_t>(buf, buf + len), spaceEvery8 ? 4 : 0, ' ');
 }
 
 std::string OpenSslHelper::getCertKeyMd5Thumbprint(X509* cert)
@@ -356,17 +275,7 @@ std::string OpenSslHelper::getCertKeyMd5Thumbprint(X509* cert)
         EVP_DigestUpdate(ctx.get(), derPtr.get(), len) == 1 &&
         EVP_DigestFinal_ex(ctx.get(), md, &mdLen) == 1)
     {
-        std::stringstream ss;
-        for (unsigned int i = 0; i < mdLen; ++i)
-        {
-            ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-               << static_cast<int>(md[i]);
-            if ((i % 4 == 3) && (i + 1 < mdLen))
-            {
-                ss << " ";
-            }
-        }
-        return ss.str();
+        return Strings::hex(std::vector<uint8_t>(md, md + mdLen), 4, ' ');
     }
     return "";
 }
@@ -395,13 +304,7 @@ std::string OpenSslHelper::getCertKeySha256Thumbprint(X509* cert)
         EVP_DigestUpdate(ctx.get(), derPtr.get(), len) == 1 &&
         EVP_DigestFinal_ex(ctx.get(), md, &mdLen) == 1)
     {
-        std::stringstream ss;
-        for (unsigned int i = 0; i < mdLen; ++i)
-        {
-            ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-               << static_cast<int>(md[i]);
-        }
-        return ss.str();
+        return Strings::hex(std::vector<uint8_t>(md, md + mdLen));
     }
     return "";
 }

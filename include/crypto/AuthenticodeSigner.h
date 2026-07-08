@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "crypto/CertificateStore.h"
+#include "crypto/Digest.h"
 
 namespace ccky
 {
@@ -18,9 +19,9 @@ struct SignOptions
 {
     std::string certPath;             // /f
     std::string password;             // /p
-    std::string fileDigestAlg;        // /fd (SHA1, SHA256)
+    DigestPtr fileDigest;             // /fd (SHA1, SHA256)
     std::string timestampUrl;         // /t or /tr
-    std::string timestampDigestAlg;   // /td
+    DigestPtr timestampDigest;        // /td
     std::string description;          // /d
     std::string descriptionUrl;       // /du
     bool append = false;              // /as
@@ -60,10 +61,10 @@ struct VerifyOptions
 
 struct TimestampOptions
 {
-    std::string timestampUrl;       // /t or /tr
-    std::string timestampDigestAlg; // /td
-    int index = 0;                  // /tp
-    bool timestampPkcs7 = false;    // /p7
+    std::string timestampUrl;    // /t or /tr
+    DigestPtr timestampDigest;   // /td
+    int index = 0;               // /tp
+    bool timestampPkcs7 = false; // /p7
 };
 
 struct CatdbOptions

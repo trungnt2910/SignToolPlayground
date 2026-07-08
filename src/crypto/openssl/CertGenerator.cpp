@@ -390,10 +390,14 @@ void addNetscape(X509* cert, const MakeCertOptions& options)
 void signCertificate(const crypto::X509Ptr& cert, const crypto::EVPPKeyPtr& subjectKey,
     const crypto::EVPPKeyPtr& issuerKey, const MakeCertOptions& options)
 {
-    const EVP_MD* md = EVP_get_digestbyname(options.algo.c_str());
+    if (!options.digest)
+    {
+        throw std::runtime_error("Digest algorithm option is missing");
+    }
+    const EVP_MD* md = EVP_get_digestbyname(options.digest->getName().c_str());
     if (!md)
     {
-        throw std::runtime_error("Unknown digest algorithm: " + options.algo);
+        throw std::runtime_error("Unknown digest algorithm: " + options.digest->getName());
     }
 
     EVP_PKEY* signKey = subjectKey.get();

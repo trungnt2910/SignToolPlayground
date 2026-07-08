@@ -1,6 +1,7 @@
 #ifndef CCKY_PROBE_ALLOCATE_H
 #define CCKY_PROBE_ALLOCATE_H
 
+#include <algorithm>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
@@ -58,6 +59,16 @@ template <typename Container> struct CckyProbeBuffer
 };
 
 template <typename Container> CckyProbeBuffer(Container&) -> CckyProbeBuffer<Container>;
+
+template <typename Container> struct CckyProbeString
+{
+    using container_type = Container;
+    Container& container;
+
+    explicit CckyProbeString(Container& c) noexcept : container(c) {}
+};
+
+template <typename Container> CckyProbeString(Container&) -> CckyProbeString<Container>;
 
 namespace detail
 {
@@ -117,6 +128,14 @@ template <typename Container> struct IsProbeBuffer<CckyProbeBuffer<Container>> :
 {
 };
 
+template <typename T> struct IsProbeString : std::false_type
+{
+};
+
+template <typename Container> struct IsProbeString<CckyProbeString<Container>> : std::true_type
+{
+};
+
 template <typename T> struct IsProbeBytes : std::is_same<std::remove_cvref_t<T>, CckyProbeBytes>
 {
 };
@@ -132,7 +151,7 @@ template <bool IsProbe, typename Arg> decltype(auto) resolveArg(Arg&& arg, size_
     {
         return ResolvedProbeSize<IsProbe>{current_size};
     }
-    else if constexpr (IsProbeBuffer<CleanArg>::value)
+    else if constexpr (IsProbeBuffer<CleanArg>::value || IsProbeString<CleanArg>::value)
     {
         return ResolvedProbeBuffer<typename CleanArg::container_type, IsProbe>{arg.container};
     }
@@ -168,7 +187,7 @@ template <bool IsBytes, typename... Args> void resizeBuffer(size_t target_size, 
     auto tryResize = [&](auto& arg)
     {
         using CleanArg = std::remove_cvref_t<decltype(arg)>;
-        if constexpr (IsProbeBuffer<CleanArg>::value)
+        if constexpr (IsProbeBuffer<CleanArg>::value || IsProbeString<CleanArg>::value)
         {
             using ValueType = typename CleanArg::container_type::value_type;
             size_t count = target_size;
@@ -177,6 +196,23 @@ template <bool IsBytes, typename... Args> void resizeBuffer(size_t target_size, 
                 count = (target_size + sizeof(ValueType) - 1) / sizeof(ValueType);
             }
             arg.container.resize(count);
+        }
+    };
+    (tryResize(args), ...);
+}
+
+template <typename... Args> void resizeStringToNullTerminator(Args&... args)
+{
+    auto tryResize = [](auto& arg)
+    {
+        using CleanArg = std::remove_cvref_t<decltype(arg)>;
+        if constexpr (IsProbeString<CleanArg>::value)
+        {
+            auto& container = arg.container;
+            using ValueType = typename CleanArg::container_type::value_type;
+            auto it = std::find(container.begin(), container.end(), ValueType(0));
+            size_t new_size = std::distance(container.begin(), it);
+            container.resize(new_size);
         }
     };
     (tryResize(args), ...);
@@ -191,6 +227,14 @@ decltype(auto) CckyProbeAllocate(Args&&... args)
         (... + static_cast<int>(detail::IsProbeBuffer<std::remove_cvref_t<Args>>::value));
     static_assert(
         buffer_count <= 1, "CckyProbeAllocate allows at most one CckyProbeBuffer parameter");
+
+    constexpr int string_count =
+        (... + static_cast<int>(detail::IsProbeString<std::remove_cvref_t<Args>>::value));
+    static_assert(
+        string_count <= 1, "CckyProbeAllocate allows at most one CckyProbeString parameter");
+
+    static_assert(!(buffer_count > 0 && string_count > 0),
+        "CckyProbeAllocate cannot mix CckyProbeBuffer and CckyProbeString parameters");
 
     constexpr int bytes_ref_count =
         (... + static_cast<int>(detail::IsProbeBytesRef<std::remove_cvref_t<Args>>::value));
@@ -218,6 +262,8 @@ decltype(auto) CckyProbeAllocate(Args&&... args)
         "CckyProbeAllocate cannot mix CckyProbeBytes (bytes) and "
         "CckyProbeSize (elements) in the same call");
 
+    constexpr bool has_string = string_count > 0;
+
     size_t current_size = 0;
 
     while (true)
@@ -236,8 +282,14 @@ decltype(auto) CckyProbeAllocate(Args&&... args)
             return ret;
         }
 
-        detail::resizeBuffer</* IsBytes = */ has_bytes>(probed_size, args...);
-        current_size = probed_size;
+        size_t allocated_size = probed_size;
+        if constexpr (has_string)
+        {
+            allocated_size = probed_size + 1;
+        }
+
+        detail::resizeBuffer</* IsBytes = */ has_bytes>(allocated_size, args...);
+        current_size = allocated_size;
 
         auto fetch_ret =
             UnderlyingFunction(detail::resolveArg</* IsProbe = */ false>(args, current_size)...);
@@ -248,9 +300,19 @@ decltype(auto) CckyProbeAllocate(Args&&... args)
         }
 
         size_t fetch_probed_size = detail::getProbedSize(fetch_ret, args...);
-        if (fetch_probed_size <= current_size)
+        size_t limit_size = current_size;
+        if constexpr (has_string)
         {
-            if (fetch_probed_size < current_size)
+            limit_size = current_size - 1;
+        }
+
+        if (fetch_probed_size <= limit_size)
+        {
+            if constexpr (has_string)
+            {
+                detail::resizeStringToNullTerminator(args...);
+            }
+            else if (fetch_probed_size < current_size)
             {
                 detail::resizeBuffer</* IsBytes = */ has_bytes>(fetch_probed_size, args...);
             }

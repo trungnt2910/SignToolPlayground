@@ -7,6 +7,7 @@ ccky_add_executable(ccky_tests
     Given_Certificate.cpp
     Given_CertMgr.cpp
     Given_CliParser.cpp
+    Given_Digest.cpp
     Given_CommandRegistry.cpp
     Given_CryptoFactory.cpp
     Given_FileTypeDetector.cpp

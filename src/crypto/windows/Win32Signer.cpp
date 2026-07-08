@@ -4,6 +4,9 @@
 #include <fstream>
 #include <stdexcept>
 
+#ifndef CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#define CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#endif
 #include <windows.h>
 
 #include <mscat.h>
@@ -15,6 +18,7 @@
 #include "crypto/FileTypeDetector.h"
 #include "crypto/Strings.h"
 #include "crypto/windows/Win32Cert.h"
+#include "crypto/windows/Win32Digest.h"
 #include "crypto/windows/WinHelper.h"
 #include "crypto/windows/WindowsException.h"
 
@@ -242,18 +246,14 @@ void AuthenticodeSigner::sign(
     };
 
     ALG_ID algId = CALG_SHA1;
-    if (!options.fileDigestAlg.empty())
+    std::string oidStr;
+    if (options.fileDigest)
     {
-        std::wstring wideAlg = WinHelper::utf8ToWide(Strings::toUpper(options.fileDigestAlg));
-        PCCRYPT_OID_INFO pInfo = CryptFindOIDInfo(CRYPT_OID_INFO_NAME_KEY,
-            const_cast<wchar_t*>(wideAlg.c_str()), CRYPT_HASH_ALG_OID_GROUP_ID);
-        if (pInfo != nullptr && pInfo->Algid != 0)
+        oidStr = options.fileDigest->getOid();
+        auto winDigest = std::dynamic_pointer_cast<Win32Digest>(options.fileDigest);
+        if (winDigest)
         {
-            algId = pInfo->Algid;
-        }
-        else if (Strings::equalsCaseInsensitive(options.fileDigestAlg, "sha256"))
-        {
-            algId = CALG_SHA_256;
+            algId = winDigest->getInternal();
         }
     }
 
@@ -267,7 +267,8 @@ void AuthenticodeSigner::sign(
     };
 
     HRESULT hr = S_OK;
-    if (isAppx)
+    bool useSignEx2 = isAppx || (algId == CALG_OID_INFO_CNG_ONLY);
+    if (useSignEx2)
     {
         SIGNER_SIGN_EX2_PARAMS ex2Params = {
             .dwFlags = 0,
@@ -276,7 +277,7 @@ void AuthenticodeSigner::sign(
             .pSignatureInfo = &sigInfo,
             .pProviderInfo = nullptr,
             .dwTimestampFlags = 0,
-            .pszAlgorithmOid = nullptr,
+            .pszAlgorithmOid = oidStr.empty() ? nullptr : oidStr.c_str(),
             .pwszTimestampURL = wTimestamp.empty() ? nullptr : wTimestamp.c_str(),
             .pCryptAttrs = nullptr,
             .pSipData = nullptr,
@@ -289,7 +290,10 @@ void AuthenticodeSigner::sign(
             .pSignerParams = &ex2Params,
             .pAppxSipState = nullptr,
         };
-        ex2Params.pSipData = &appxClientData;
+        if (isAppx)
+        {
+            ex2Params.pSipData = &appxClientData;
+        }
 
         hr = loader.SignerSignEx2(ex2Params.dwFlags, ex2Params.pSubjectInfo, ex2Params.pSigningCert,
             ex2Params.pSignatureInfo, ex2Params.pProviderInfo, ex2Params.dwTimestampFlags,
@@ -297,7 +301,7 @@ void AuthenticodeSigner::sign(
             ex2Params.pSipData, ex2Params.ppSignerContext, ex2Params.pCryptoPolicy,
             ex2Params.pReserved);
 
-        if (appxClientData.pAppxSipState)
+        if (isAppx && appxClientData.pAppxSipState)
         {
             appxClientData.pAppxSipState->Release();
         }
