@@ -1,0 +1,2 @@
+SignTool Warning: The specified algorithm is not considered secure.
+SignTool Error: Missing filename.
