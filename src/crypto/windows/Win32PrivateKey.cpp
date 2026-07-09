@@ -7,7 +7,7 @@
 #include <wincrypt.h>
 
 #include "crypto/CckyProbeAllocate.h"
-#include "crypto/windows/WinHelper.h"
+#include "crypto/windows/Win32Helper.h"
 
 namespace ccky
 {
@@ -89,12 +89,12 @@ Win32PrivateKey::~Win32PrivateKey()
 
 std::string Win32PrivateKey::getContainerName() const
 {
-    return WinHelper::wideToUtf8(m_wContainerName);
+    return Win32Helper::wideToUtf8(m_wContainerName);
 }
 
 std::string Win32PrivateKey::getProviderName() const
 {
-    return WinHelper::wideToUtf8(m_wProviderName);
+    return Win32Helper::wideToUtf8(m_wProviderName);
 }
 
 const CERT_PUBLIC_KEY_INFO* Win32PrivateKey::getPublicKeyInfo() const

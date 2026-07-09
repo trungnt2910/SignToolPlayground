@@ -4,8 +4,8 @@
 
 #include <wincrypt.h>
 
+#include "crypto/windows/Win32Helper.h"
 #include "crypto/windows/Win32Wrapper.h"
-#include "crypto/windows/WinHelper.h"
 
 namespace ccky
 {
@@ -14,7 +14,7 @@ namespace crypto
 
 StoreType FileTypeDetector::detectCertType(const std::string& filePath)
 {
-    std::wstring wLocation = WinHelper::utf8ToWide(filePath);
+    std::wstring wLocation = Win32Helper::utf8ToWide(filePath);
     DWORD dwEncoding = 0;
     DWORD dwContentType = 0;
     DWORD dwFormatType = 0;

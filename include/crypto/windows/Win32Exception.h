@@ -1,5 +1,5 @@
-#ifndef CCKY_WINDOWS_EXCEPTION_H
-#define CCKY_WINDOWS_EXCEPTION_H
+#ifndef CCKY_WIN32_EXCEPTION_H
+#define CCKY_WIN32_EXCEPTION_H
 
 #include <windows.h>
 
@@ -10,10 +10,10 @@ namespace ccky
 namespace crypto
 {
 
-class WindowsException : public CckyCryptoException
+class Win32Exception : public CckyCryptoException
 {
   public:
-    explicit WindowsException(const std::string& what_arg, bool printHelp = false)
+    explicit Win32Exception(const std::string& what_arg, bool printHelp = false)
         : CckyCryptoException(what_arg, printHelp)
     {
     }
@@ -35,4 +35,4 @@ class Win32Check
 } // namespace crypto
 } // namespace ccky
 
-#endif // CCKY_WINDOWS_EXCEPTION_H
+#endif // CCKY_WIN32_EXCEPTION_H

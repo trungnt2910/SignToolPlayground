@@ -19,8 +19,8 @@
 #include "crypto/Strings.h"
 #include "crypto/windows/Win32Cert.h"
 #include "crypto/windows/Win32Digest.h"
-#include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WindowsException.h"
+#include "crypto/windows/Win32Exception.h"
+#include "crypto/windows/Win32Helper.h"
 
 #ifndef SIGNER_SUBJECT_FILE
 #define SIGNER_SUBJECT_FILE 1
@@ -173,27 +173,27 @@ void AuthenticodeSigner::sign(
     auto& loader = MSSign32Loader::getInstance();
     if (isAppx && !loader.SignerSignEx2)
     {
-        throw WindowsException(
+        throw Win32Exception(
             "mssign32.dll or SignerSignEx2 is not available on this Windows system.", false);
     }
     if (!isAppx && !loader.SignerSignEx)
     {
-        throw WindowsException(
+        throw Win32Exception(
             "mssign32.dll or SignerSignEx is not available on this Windows system.", false);
     }
 
     auto* winCert = dynamic_cast<Win32Cert*>(cert.get());
     if (!winCert || !winCert->getInternal())
     {
-        throw WindowsException("Invalid or missing signing certificate.", false);
+        throw Win32Exception("Invalid or missing signing certificate.", false);
     }
     PCCERT_CONTEXT pCert = winCert->getInternal();
 
-    std::wstring wFileName = WinHelper::utf8ToWide(filePath);
+    std::wstring wFileName = Win32Helper::utf8ToWide(filePath);
     std::wstring wTimestamp;
     if (!options.timestampUrl.empty())
     {
-        wTimestamp = WinHelper::utf8ToWide(options.timestampUrl);
+        wTimestamp = Win32Helper::utf8ToWide(options.timestampUrl);
     }
 
     HCRYPTPROV_OR_NCRYPT_KEY_HANDLE hKey = 0;
@@ -202,7 +202,7 @@ void AuthenticodeSigner::sign(
     if (!CryptAcquireCertificatePrivateKey(
             pCert, CRYPT_ACQUIRE_ALLOW_NCRYPT_KEY_FLAG, nullptr, &hKey, &dwKeySpec, &fFree))
     {
-        throw WindowsException("Failed to acquire certificate private key.", false);
+        throw Win32Exception("Failed to acquire certificate private key.", false);
     }
 
     if (fFree)
@@ -320,7 +320,7 @@ void AuthenticodeSigner::sign(
 
 void AuthenticodeSigner::verify(const VerifyOptions& options, const std::string& filePath)
 {
-    std::wstring wPath = WinHelper::utf8ToWide(filePath);
+    std::wstring wPath = Win32Helper::utf8ToWide(filePath);
     WINTRUST_FILE_INFO fileInfo = {
         .cbStruct = sizeof(WINTRUST_FILE_INFO),
         .pcwszFilePath = wPath.c_str(),
@@ -342,7 +342,7 @@ void AuthenticodeSigner::verify(const VerifyOptions& options, const std::string&
     };
     if (!options.catalogFile.empty())
     {
-        wCat = WinHelper::utf8ToWide(options.catalogFile);
+        wCat = Win32Helper::utf8ToWide(options.catalogFile);
         catInfo.pcwszCatalogFilePath = wCat.c_str();
         catInfo.pcwszMemberFilePath = wPath.c_str();
     }
@@ -386,14 +386,14 @@ void AuthenticodeSigner::verify(const VerifyOptions& options, const std::string&
     }
     else if (res == static_cast<LONG>(CERT_E_UNTRUSTEDROOT) || res == -2146762487)
     {
-        throw WindowsException(
+        throw Win32Exception(
             "A certificate chain processed, but terminated in a root\n\tcertificate which is not "
             "trusted by the trust provider.",
             false);
     }
     else if (res == static_cast<LONG>(TRUST_E_NOSIGNATURE) || res == -2146762749)
     {
-        throw WindowsException("No signature found.", false);
+        throw Win32Exception("No signature found.", false);
     }
     else
     {
@@ -406,12 +406,12 @@ void AuthenticodeSigner::timestamp(const TimestampOptions& options, const std::s
     auto& loader = MSSign32Loader::getInstance();
     if (!loader.SignerTimeStampEx)
     {
-        throw WindowsException(
+        throw Win32Exception(
             "mssign32.dll or SignerTimeStampEx is not available on this Windows system.", false);
     }
 
-    std::wstring wFileName = WinHelper::utf8ToWide(filePath);
-    std::wstring wTimestamp = WinHelper::utf8ToWide(options.timestampUrl);
+    std::wstring wFileName = Win32Helper::utf8ToWide(filePath);
+    std::wstring wTimestamp = Win32Helper::utf8ToWide(options.timestampUrl);
 
     SIGNER_FILE_INFO fileInfo = {
         .cbSize = sizeof(SIGNER_FILE_INFO),
@@ -439,18 +439,18 @@ void AuthenticodeSigner::catdb(const CatdbOptions& options)
     HCATADMIN hCatAdmin = nullptr;
     if (!CryptCATAdminAcquireContext(&hCatAdmin, nullptr, 0))
     {
-        throw WindowsException("Failed to acquire catalog admin context.", false);
+        throw Win32Exception("Failed to acquire catalog admin context.", false);
     }
 
     for (const auto& file : options.files)
     {
-        std::wstring wFile = WinHelper::utf8ToWide(file);
+        std::wstring wFile = Win32Helper::utf8ToWide(file);
         if (options.remove)
         {
             if (!CryptCATAdminRemoveCatalog(hCatAdmin, wFile.c_str(), 0))
             {
                 CryptCATAdminReleaseContext(hCatAdmin, 0);
-                throw WindowsException("Failed to remove catalog " + file, false);
+                throw Win32Exception("Failed to remove catalog " + file, false);
             }
         }
         else
@@ -460,7 +460,7 @@ void AuthenticodeSigner::catdb(const CatdbOptions& options)
             if (!hCatInfo)
             {
                 CryptCATAdminReleaseContext(hCatAdmin, 0);
-                throw WindowsException("Failed to add catalog " + file, false);
+                throw Win32Exception("Failed to add catalog " + file, false);
             }
             CryptCATAdminReleaseCatalogContext(hCatAdmin, hCatInfo, 0);
         }

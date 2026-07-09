@@ -17,8 +17,8 @@ if(WIN32)
         windows/Win32Signer.cpp
         windows/Win32Store.cpp
         windows/Win32Time.cpp
-        windows/WinHelper.cpp
-        windows/WindowsException.cpp
+        windows/Win32Helper.cpp
+        windows/Win32Exception.cpp
     )
 else()
     ccky_add_library(ccky_crypto STATIC

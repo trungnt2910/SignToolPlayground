@@ -13,9 +13,9 @@
 #include "crypto/CryptoFactory.h"
 #include "crypto/Strings.h"
 #include "crypto/Time.h"
+#include "crypto/windows/Win32Helper.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/Win32Time.h"
-#include "crypto/windows/WinHelper.h"
 
 namespace ccky
 {
@@ -111,7 +111,7 @@ std::string Win32Cert::getCommonName() const
     std::wstring wbuf;
     CckyProbeAllocate<CertGetNameStringW, CckyProbeReturnPositive{}>(m_cert.get(),
         CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, nullptr, CckyProbeBuffer(wbuf), CckyProbeSize{});
-    return WinHelper::wideToUtf8(wbuf.c_str());
+    return Win32Helper::wideToUtf8(wbuf.c_str());
 }
 
 std::string Win32Cert::getSubjectDisplay() const
@@ -143,7 +143,7 @@ std::string Win32Cert::getIssuerName() const
     CckyProbeAllocate<CertGetNameStringW, CckyProbeReturnPositive{}>(m_cert.get(),
         CERT_NAME_SIMPLE_DISPLAY_TYPE, CERT_NAME_ISSUER_FLAG, nullptr, CckyProbeBuffer(wbuf),
         CckyProbeSize{});
-    return WinHelper::wideToUtf8(wbuf.c_str());
+    return Win32Helper::wideToUtf8(wbuf.c_str());
 }
 
 std::string Win32Cert::getIssuerDisplay() const
@@ -382,7 +382,7 @@ std::string Win32Cert::getProviderName() const
     {
         return "";
     }
-    return WinHelper::wideToUtf8(info->pwszProvName);
+    return Win32Helper::wideToUtf8(info->pwszProvName);
 }
 
 std::string Win32Cert::getContainerName() const
@@ -403,7 +403,7 @@ std::string Win32Cert::getContainerName() const
     {
         return "";
     }
-    return WinHelper::wideToUtf8(info->pwszContainerName);
+    return Win32Helper::wideToUtf8(info->pwszContainerName);
 }
 
 // Extensions & Policy Attributes
@@ -524,7 +524,7 @@ std::string Win32Cert::getPolicyLink() const
     }
     PSPC_SP_AGENCY_INFO pInfo = reinterpret_cast<PSPC_SP_AGENCY_INFO>(infoBuf.data());
     {
-        return WinHelper::wideToUtf8(pInfo->pPolicyInformation->pwszUrl);
+        return Win32Helper::wideToUtf8(pInfo->pPolicyInformation->pwszUrl);
     }
     return "";
 }
@@ -560,7 +560,7 @@ std::string Win32Cert::getNameDisplay(const CERT_NAME_BLOB* pNameBlob) const
                     CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY, pAttr->pszObjId, 0);
                 if (pOidInfo && pOidInfo->pwszName)
                 {
-                    ss << " (" << WinHelper::wideToUtf8(pOidInfo->pwszName) << ")";
+                    ss << " (" << Win32Helper::wideToUtf8(pOidInfo->pwszName) << ")";
                 }
             }
             std::wstring valBuf;
@@ -568,7 +568,7 @@ std::string Win32Cert::getNameDisplay(const CERT_NAME_BLOB* pNameBlob) const
                 pAttr->dwValueType, &pAttr->Value, CckyProbeBuffer(valBuf), CckyProbeSize{});
             if (cch > 0)
             {
-                ss << " " << WinHelper::wideToUtf8(valBuf.c_str());
+                ss << " " << Win32Helper::wideToUtf8(valBuf.c_str());
             }
             if (j + 1 < pRDN->cRDNAttr || i + 1 < pInfo->cRDN)
             {
@@ -591,7 +591,7 @@ std::string Win32Cert::getNameDN(const CERT_NAME_BLOB* pNameBlob) const
     CckyProbeAllocate<CertNameToStrW, CckyProbeReturnPositive{}>(X509_ASN_ENCODING,
         const_cast<PCERT_NAME_BLOB>(pNameBlob), CERT_X500_NAME_STR, CckyProbeBuffer(wbuf),
         CckyProbeSize{});
-    return WinHelper::wideToUtf8(wbuf.c_str());
+    return Win32Helper::wideToUtf8(wbuf.c_str());
 }
 
 Win32PfxCert::Win32PfxCert(CertContextPtr cert) : Win32Cert(std::move(cert)) {}

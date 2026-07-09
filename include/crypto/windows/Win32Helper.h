@@ -1,5 +1,5 @@
-#ifndef CCKY_WIN_HELPER_H
-#define CCKY_WIN_HELPER_H
+#ifndef CCKY_WIN32_HELPER_H
+#define CCKY_WIN32_HELPER_H
 
 #include <string>
 
@@ -8,7 +8,7 @@ namespace ccky
 namespace crypto
 {
 
-class WinHelper
+class Win32Helper
 {
   public:
     static std::wstring utf8ToWide(const std::string& utf8Str);
@@ -18,4 +18,4 @@ class WinHelper
 } // namespace crypto
 } // namespace ccky
 
-#endif // CCKY_WIN_HELPER_H
+#endif // CCKY_WIN32_HELPER_H

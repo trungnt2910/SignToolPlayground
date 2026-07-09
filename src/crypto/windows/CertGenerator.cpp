@@ -21,11 +21,11 @@
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
 #include "crypto/Strings.h"
+#include "crypto/windows/Win32Exception.h"
+#include "crypto/windows/Win32Helper.h"
 #include "crypto/windows/Win32PrivateKey.h"
 #include "crypto/windows/Win32Time.h"
 #include "crypto/windows/Win32Wrapper.h"
-#include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WindowsException.h"
 
 namespace ccky
 {
@@ -100,7 +100,7 @@ LPCSTR getSignatureAlgorithmOid(DigestPtr digest, const std::string& pubKeyOid)
     }
 
     // 2. Get the CNG hash algorithm name
-    std::wstring wHashAlg = WinHelper::utf8ToWide(Strings::toUpper(digest->getName()));
+    std::wstring wHashAlg = Win32Helper::utf8ToWide(Strings::toUpper(digest->getName()));
 
     // 3. Find the signature OID
     LPCWSTR rgwszCNGAlgs[2] = {wHashAlg.c_str(), pPubKeyInfo->pwszCNGAlgid};
@@ -124,7 +124,7 @@ CertContextPtr loadSubjectCert(const MakeCertOptions& options)
     {
         return nullptr;
     }
-    std::wstring wSubjectCertFile = WinHelper::utf8ToWide(options.subjectCertFile);
+    std::wstring wSubjectCertFile = Win32Helper::utf8ToWide(options.subjectCertFile);
     CertContextPtr cert;
     if (!CryptQueryObject(CERT_QUERY_OBJECT_FILE, wSubjectCertFile.c_str(),
             CERT_QUERY_CONTENT_FLAG_CERT, CERT_QUERY_FORMAT_FLAG_BINARY, 0, nullptr, nullptr,
@@ -146,7 +146,7 @@ CertContextPtr loadIssuerCert(const MakeCertOptions& options)
 
     if (!options.issuerCertFile.empty())
     {
-        std::wstring wIssuerCertFile = WinHelper::utf8ToWide(options.issuerCertFile);
+        std::wstring wIssuerCertFile = Win32Helper::utf8ToWide(options.issuerCertFile);
         CertContextPtr cert;
         if (!CryptQueryObject(CERT_QUERY_OBJECT_FILE, wIssuerCertFile.c_str(),
                 CERT_QUERY_CONTENT_FLAG_CERT, CERT_QUERY_FORMAT_FLAG_ALL, 0, nullptr, nullptr,
@@ -160,7 +160,7 @@ CertContextPtr loadIssuerCert(const MakeCertOptions& options)
     }
     else if (!options.issuerName.empty())
     {
-        std::wstring wIssuerStoreName = WinHelper::utf8ToWide(options.issuerStoreName);
+        std::wstring wIssuerStoreName = Win32Helper::utf8ToWide(options.issuerStoreName);
         DWORD storeFlags = CERT_SYSTEM_STORE_CURRENT_USER;
         if (options.issuerStoreLocation == "localmachine")
         {
@@ -175,7 +175,7 @@ CertContextPtr loadIssuerCert(const MakeCertOptions& options)
                 "Failed to open issuer certificate store: " + options.issuerStoreName, false);
         }
 
-        std::wstring wIssuerName = WinHelper::utf8ToWide(options.issuerName);
+        std::wstring wIssuerName = Win32Helper::utf8ToWide(options.issuerName);
         CertContextPtr cert(
             CertFindCertificateInStore(hStore.get(), X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, 0,
                 CERT_FIND_SUBJECT_STR_W, wIssuerName.c_str(), nullptr));
@@ -466,7 +466,7 @@ std::vector<BYTE> encodePolicyLink(const MakeCertOptions& options)
         return policyEncoded;
     }
 
-    std::wstring wUrl = WinHelper::utf8ToWide(options.policyLink);
+    std::wstring wUrl = Win32Helper::utf8ToWide(options.policyLink);
 
     SPC_LINK link;
     link.dwLinkChoice = SPC_URL_LINK_CHOICE;
@@ -574,7 +574,7 @@ void writeCertificate(
 {
     if (!options.outputCertFile.empty())
     {
-        std::wstring wOutputCertFile = WinHelper::utf8ToWide(options.outputCertFile);
+        std::wstring wOutputCertFile = Win32Helper::utf8ToWide(options.outputCertFile);
         HandlePtr hFile(CreateFileW(wOutputCertFile.c_str(), GENERIC_WRITE, 0, nullptr,
             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
         if (hFile.get() == INVALID_HANDLE_VALUE)
@@ -593,7 +593,7 @@ void writeCertificate(
 
     if (!options.ssStoreName.empty())
     {
-        std::wstring wStoreName = WinHelper::utf8ToWide(options.ssStoreName);
+        std::wstring wStoreName = Win32Helper::utf8ToWide(options.ssStoreName);
         DWORD storeFlags = CERT_SYSTEM_STORE_CURRENT_USER;
         if (options.srStoreLocation == "localmachine")
         {
@@ -613,8 +613,8 @@ void writeCertificate(
         {
             CRYPT_KEY_PROV_INFO keyProvInfo;
             ZeroMemory(&keyProvInfo, sizeof(keyProvInfo));
-            std::wstring containerName = WinHelper::utf8ToWide(subjectKey->getContainerName());
-            std::wstring providerName = WinHelper::utf8ToWide(subjectKey->getProviderName());
+            std::wstring containerName = Win32Helper::utf8ToWide(subjectKey->getContainerName());
+            std::wstring providerName = Win32Helper::utf8ToWide(subjectKey->getProviderName());
 
             keyProvInfo.pwszContainerName = const_cast<LPWSTR>(containerName.c_str());
             keyProvInfo.pwszProvName =
@@ -657,7 +657,7 @@ PrivateKeyPtr CertGenerator::loadSubjectKey(const MakeCertOptions& options)
         std::wstring wProviderName;
         if (!options.spProviderName.empty())
         {
-            wProviderName = WinHelper::utf8ToWide(options.spProviderName);
+            wProviderName = Win32Helper::utf8ToWide(options.spProviderName);
             providerName = wProviderName.c_str();
         }
         DWORD providerType = options.syProviderType == 0 ? PROV_RSA_FULL : options.syProviderType;
@@ -709,7 +709,7 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
     bool isTempContainer = true;
     if (!options.keyContainer.empty())
     {
-        containerName = WinHelper::utf8ToWide(options.keyContainer);
+        containerName = Win32Helper::utf8ToWide(options.keyContainer);
         isTempContainer = false;
     }
     else if (options.pvkFile.empty())
@@ -734,7 +734,7 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
     std::wstring wProviderName;
     if (!options.spProviderName.empty())
     {
-        wProviderName = WinHelper::utf8ToWide(options.spProviderName);
+        wProviderName = Win32Helper::utf8ToWide(options.spProviderName);
         providerName = wProviderName.c_str();
     }
     DWORD providerType = options.syProviderType == 0 ? PROV_RSA_FULL : options.syProviderType;
@@ -797,7 +797,7 @@ PrivateKeyPtr CertGenerator::generateSubjectKey(const MakeCertOptions& options)
 void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateKeyPtr subjectKey)
 {
     // 1. Convert Subject Name
-    std::wstring wSubjectName = WinHelper::utf8ToWide(options.subjectName);
+    std::wstring wSubjectName = Win32Helper::utf8ToWide(options.subjectName);
 
     auto winSubjectKey = std::dynamic_pointer_cast<Win32PrivateKey>(subjectKey);
     if (!winSubjectKey)
@@ -818,7 +818,7 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
     std::wstring wProviderName;
     if (!options.spProviderName.empty())
     {
-        wProviderName = WinHelper::utf8ToWide(options.spProviderName);
+        wProviderName = Win32Helper::utf8ToWide(options.spProviderName);
         providerName = wProviderName.c_str();
     }
     DWORD providerType = options.syProviderType == 0 ? PROV_RSA_FULL : options.syProviderType;
@@ -842,7 +842,7 @@ void CertGenerator::generateCertificate(const MakeCertOptions& options, PrivateK
             CryptKeyPtr hTempKey;
             if (!CryptGenKey(hIssuerProv, options.keySpec, 0, &hTempKey.init()))
             {
-                throw WindowsException("Failed to generate temporary signing key");
+                throw Win32Exception("Failed to generate temporary signing key");
             }
         }
     }

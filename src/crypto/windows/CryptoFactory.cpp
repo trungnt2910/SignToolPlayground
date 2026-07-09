@@ -17,9 +17,9 @@
 #include "crypto/Strings.h"
 #include "crypto/windows/Win32Cert.h"
 #include "crypto/windows/Win32Digest.h"
+#include "crypto/windows/Win32Helper.h"
 #include "crypto/windows/Win32Store.h"
 #include "crypto/windows/Win32Wrapper.h"
-#include "crypto/windows/WinHelper.h"
 
 namespace ccky
 {
@@ -102,7 +102,7 @@ CtlPtr CryptoFactory::createCtlFromDer(const std::vector<uint8_t>& derBytes)
 
 DigestPtr CryptoFactory::getDigestFromName(const std::string& name)
 {
-    std::wstring wName = WinHelper::utf8ToWide(Strings::toUpper(name));
+    std::wstring wName = Win32Helper::utf8ToWide(Strings::toUpper(name));
     PCCRYPT_OID_INFO pInfo =
         CryptFindOIDInfo(CRYPT_OID_INFO_NAME_KEY, wName.data(), CRYPT_HASH_ALG_OID_GROUP_ID);
     if (pInfo == nullptr)
@@ -150,8 +150,8 @@ DigestPtr CryptoFactory::getDigestFromOid(const std::string& oid)
 
 bool CryptoFactory::acquireContext(const std::string& container, const std::string& provider)
 {
-    std::wstring wContainer = WinHelper::utf8ToWide(container);
-    std::wstring wProvider = WinHelper::utf8ToWide(provider);
+    std::wstring wContainer = Win32Helper::utf8ToWide(container);
+    std::wstring wProvider = Win32Helper::utf8ToWide(provider);
 
     HCRYPTPROV hProv = 0;
     if (CryptAcquireContextW(&hProv, wContainer.empty() ? nullptr : wContainer.c_str(),
@@ -166,8 +166,8 @@ bool CryptoFactory::acquireContext(const std::string& container, const std::stri
 void CryptoFactory::deleteKeyContainer(
     const std::string& name, const std::string& provider, uint32_t providerType)
 {
-    std::wstring wName = WinHelper::utf8ToWide(name);
-    std::wstring wProvider = WinHelper::utf8ToWide(provider);
+    std::wstring wName = Win32Helper::utf8ToWide(name);
+    std::wstring wProvider = Win32Helper::utf8ToWide(provider);
     HCRYPTPROV hProv = 0;
     CryptAcquireContextW(&hProv, wName.empty() ? nullptr : wName.c_str(),
         wProvider.empty() ? nullptr : wProvider.c_str(),

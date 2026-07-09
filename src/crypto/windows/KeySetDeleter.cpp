@@ -8,7 +8,7 @@
 #include <wincrypt.h>
 
 #include "crypto/windows/Win32Cert.h"
-#include "crypto/windows/WinHelper.h"
+#include "crypto/windows/Win32Helper.h"
 
 namespace ccky
 {
@@ -120,7 +120,7 @@ void KeySetDeleter::initFromHandle(HCRYPTPROV_OR_NCRYPT_KEY_HANDLE hKeyOrProv)
         if (CryptGetProvParam(
                 hKeyOrProv, PP_CONTAINER, reinterpret_cast<BYTE*>(buf.data()), &cbSize, 0))
         {
-            m_containerName = WinHelper::utf8ToWide(buf.data());
+            m_containerName = Win32Helper::utf8ToWide(buf.data());
         }
         DWORD provType = 0;
         DWORD provTypeSize = sizeof(provType);
@@ -136,7 +136,7 @@ void KeySetDeleter::initFromHandle(HCRYPTPROV_OR_NCRYPT_KEY_HANDLE hKeyOrProv)
             if (CryptGetProvParam(
                     hKeyOrProv, PP_NAME, reinterpret_cast<BYTE*>(provBuf.data()), &cbSize, 0))
             {
-                m_providerName = WinHelper::utf8ToWide(provBuf.data());
+                m_providerName = Win32Helper::utf8ToWide(provBuf.data());
             }
         }
     }

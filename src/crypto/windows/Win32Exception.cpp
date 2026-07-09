@@ -1,11 +1,11 @@
-#include "crypto/windows/WindowsException.h"
+#include "crypto/windows/Win32Exception.h"
 
 #include <format>
 
 #include <windows.h>
 
+#include "crypto/windows/Win32Helper.h"
 #include "crypto/windows/Win32Wrapper.h"
-#include "crypto/windows/WinHelper.h"
 
 namespace ccky
 {
@@ -25,9 +25,9 @@ void Win32Check::check(bool condition, const std::string& context)
         std::string msg = std::format("{} (Error {})", context, err);
         if (buf.get())
         {
-            msg += ": " + WinHelper::wideToUtf8(buf.get());
+            msg += ": " + Win32Helper::wideToUtf8(buf.get());
         }
-        throw WindowsException(msg);
+        throw Win32Exception(msg);
     }
 }
 
@@ -44,9 +44,9 @@ void Win32Check::checkHr(long hr, const std::string& context)
         std::string msg = std::format("{} (HRESULT {})", context, hr);
         if (buf.get())
         {
-            msg += ": " + WinHelper::wideToUtf8(buf.get());
+            msg += ": " + Win32Helper::wideToUtf8(buf.get());
         }
-        throw WindowsException(msg);
+        throw Win32Exception(msg);
     }
 }
 
@@ -63,9 +63,9 @@ void Win32Check::checkStatus(long status, const std::string& context)
         std::string msg = std::format("{} (NTSTATUS 0x{:08x})", context, err);
         if (buf.get())
         {
-            msg += ": " + WinHelper::wideToUtf8(buf.get());
+            msg += ": " + Win32Helper::wideToUtf8(buf.get());
         }
-        throw WindowsException(msg);
+        throw Win32Exception(msg);
     }
 }
 

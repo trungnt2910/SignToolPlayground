@@ -10,8 +10,8 @@
 #include <windows.h>
 
 #include "crypto/Strings.h"
-#include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WindowsException.h"
+#include "crypto/windows/Win32Exception.h"
+#include "crypto/windows/Win32Helper.h"
 
 namespace ccky
 {
@@ -69,12 +69,12 @@ std::vector<uint8_t> Win32Digest::calculateHash(const std::filesystem::path& pat
 {
     if (!std::filesystem::exists(path))
     {
-        throw WindowsException("File does not exist: " + path.string());
+        throw Win32Exception("File does not exist: " + path.string());
     }
     std::ifstream f(path, std::ios::binary);
     if (!f.is_open())
     {
-        throw WindowsException("Failed to open file: " + path.string());
+        throw Win32Exception("Failed to open file: " + path.string());
     }
     auto stream = createStream();
     std::vector<uint8_t> buf(65536);
@@ -112,9 +112,9 @@ std::string Win32Digest::getName() const
         CryptFindOIDInfo(CRYPT_OID_INFO_ALGID_KEY, &algId, CRYPT_HASH_ALG_OID_GROUP_ID);
     if (pInfo == nullptr || pInfo->pwszName == nullptr)
     {
-        throw WindowsException("Unsupported digest algorithm ID: " + std::to_string(m_algId));
+        throw Win32Exception("Unsupported digest algorithm ID: " + std::to_string(m_algId));
     }
-    return Strings::toLower(WinHelper::wideToUtf8(pInfo->pwszName));
+    return Strings::toLower(Win32Helper::wideToUtf8(pInfo->pwszName));
 }
 
 std::string Win32Digest::getOid() const
@@ -124,7 +124,7 @@ std::string Win32Digest::getOid() const
         CryptFindOIDInfo(CRYPT_OID_INFO_ALGID_KEY, &algId, CRYPT_HASH_ALG_OID_GROUP_ID);
     if (pInfo == nullptr || pInfo->pszOID == nullptr)
     {
-        throw WindowsException("Unsupported digest algorithm ID: " + std::to_string(m_algId));
+        throw Win32Exception("Unsupported digest algorithm ID: " + std::to_string(m_algId));
     }
     return pInfo->pszOID;
 }
@@ -198,9 +198,9 @@ std::string Win32CngDigest::getName() const
         const_cast<wchar_t*>(m_cngAlgId.c_str()), CRYPT_HASH_ALG_OID_GROUP_ID);
     if (pInfo == nullptr || pInfo->pwszName == nullptr)
     {
-        return Strings::toLower(WinHelper::wideToUtf8(m_cngAlgId));
+        return Strings::toLower(Win32Helper::wideToUtf8(m_cngAlgId));
     }
-    return Strings::toLower(WinHelper::wideToUtf8(pInfo->pwszName));
+    return Strings::toLower(Win32Helper::wideToUtf8(pInfo->pwszName));
 }
 
 std::string Win32CngDigest::getOid() const
@@ -209,8 +209,8 @@ std::string Win32CngDigest::getOid() const
         const_cast<wchar_t*>(m_cngAlgId.c_str()), CRYPT_HASH_ALG_OID_GROUP_ID);
     if (pInfo == nullptr || pInfo->pszOID == nullptr)
     {
-        throw WindowsException(
-            "Unsupported CNG digest OID for: " + WinHelper::wideToUtf8(m_cngAlgId));
+        throw Win32Exception(
+            "Unsupported CNG digest OID for: " + Win32Helper::wideToUtf8(m_cngAlgId));
     }
     return pInfo->pszOID;
 }

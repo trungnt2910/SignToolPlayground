@@ -1,6 +1,6 @@
 #include "crypto/windows/Win32Time.h"
 
-#include "crypto/windows/WindowsException.h"
+#include "crypto/windows/Win32Exception.h"
 
 namespace ccky
 {

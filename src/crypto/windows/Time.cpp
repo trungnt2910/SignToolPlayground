@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-#include "crypto/windows/WinHelper.h"
+#include "crypto/windows/Win32Helper.h"
 
 namespace ccky
 {
@@ -38,7 +38,7 @@ void Time::setLocale(const std::string& lang, const std::string& region)
         tag = region;
     }
 
-    s_overrideLocale = WinHelper::utf8ToWide(tag);
+    s_overrideLocale = Win32Helper::utf8ToWide(tag);
 }
 
 void Time::clearLocale() { s_overrideLocale.clear(); }

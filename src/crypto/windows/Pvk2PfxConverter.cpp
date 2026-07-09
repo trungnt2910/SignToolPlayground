@@ -15,8 +15,8 @@
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
 #include "crypto/windows/Win32Cert.h"
-#include "crypto/windows/WinHelper.h"
-#include "crypto/windows/WindowsException.h"
+#include "crypto/windows/Win32Exception.h"
+#include "crypto/windows/Win32Helper.h"
 
 using namespace ccky::crypto;
 
@@ -81,7 +81,7 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
     if (!CryptAcquireContextW(
             &rawProv, containerName.c_str(), MS_DEF_PROV_W, PROV_RSA_FULL, CRYPT_NEWKEYSET))
     {
-        throw WindowsException("Failed to create temporary crypt container");
+        throw Win32Exception("Failed to create temporary crypt container");
     }
 
     // RAII for crypt provider, with custom deleter to also delete the keyset
@@ -106,7 +106,7 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
     if (!CryptImportKey(hProv.get(), keyData.data(), static_cast<DWORD>(keyData.size()), 0,
             CRYPT_EXPORTABLE, &hKey.init()))
     {
-        throw WindowsException("Failed to import PVK private key");
+        throw Win32Exception("Failed to import PVK private key");
     }
 
     // 4. Create in-memory certificate store
@@ -114,7 +114,7 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
         CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, CERT_STORE_CREATE_NEW_FLAG, nullptr));
     if (hMemStore == nullptr)
     {
-        throw WindowsException("Failed to create memory store");
+        throw Win32Exception("Failed to create memory store");
     }
 
     // Add all certificates and associate the private key with the first one
@@ -152,11 +152,11 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
 
     // 5. Export to PFX
     CRYPT_DATA_BLOB pfxBlob = {0};
-    std::wstring pfxPassW = WinHelper::utf8ToWide(opts.pfxPassword);
+    std::wstring pfxPassW = Win32Helper::utf8ToWide(opts.pfxPassword);
     if (!PFXExportCertStoreEx(static_cast<HCERTSTORE>(hMemStore.get()), &pfxBlob, pfxPassW.c_str(),
             nullptr, EXPORT_PRIVATE_KEYS))
     {
-        throw WindowsException("Failed to export PFX size");
+        throw Win32Exception("Failed to export PFX size");
     }
 
     std::vector<BYTE> pfxData(pfxBlob.cbData);
@@ -164,7 +164,7 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
     if (!PFXExportCertStoreEx(static_cast<HCERTSTORE>(hMemStore.get()), &pfxBlob, pfxPassW.c_str(),
             nullptr, EXPORT_PRIVATE_KEYS))
     {
-        throw WindowsException("Failed to export PFX");
+        throw Win32Exception("Failed to export PFX");
     }
 
     // 6. Write output
