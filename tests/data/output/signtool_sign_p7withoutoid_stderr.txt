@@ -1,0 +1,1 @@
+SignTool Error: The /p7 <output path> option requires the /p7co <OID> option.

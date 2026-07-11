@@ -1,0 +1,1 @@
+SignTool Error: Invalid SHA1 hash format: bad

@@ -1,0 +1,2 @@
+SignTool Warning: The existing signature was removed and the file was
+	successfully re-signed and sealed.

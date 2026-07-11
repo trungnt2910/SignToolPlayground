@@ -1,0 +1,1 @@
+SignTool Error: The /t option is incompatible with the /tseal option.

@@ -1,0 +1,4 @@
+SignTool Error: The file has a sealed signature. In order to append more
+	signatures the seal will have to be removed and the file will have to
+	be re-signed. The /force option must be specified as part of the
+	command in order to do so.

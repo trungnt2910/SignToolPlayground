@@ -1,0 +1,3 @@
+Error information: "SignerTimeStampEx3() failed." (-2146869243/0x80096005)
+SignTool Error: An error occurred while attempting to timestamp: sealed.exe
+SignTool Error: An unexpected internal error has occurred.

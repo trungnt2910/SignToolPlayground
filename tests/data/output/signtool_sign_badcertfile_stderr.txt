@@ -1,0 +1,2 @@
+SignTool Error: An error occurred while attempting to load the signing
+	certificate from: ccky.pvk

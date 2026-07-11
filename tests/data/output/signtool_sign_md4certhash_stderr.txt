@@ -1,0 +1,2 @@
+SignTool Error: The signer's certificate is not valid for signing.
+SignTool Error: An error occurred while attempting to sign: test.exe

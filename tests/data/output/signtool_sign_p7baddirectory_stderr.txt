@@ -1,0 +1,2 @@
+SignTool Error: An unexpected internal error has occurred.
+Error information: "Error: pkcs7 sign." (-2147024893/0x80070003)

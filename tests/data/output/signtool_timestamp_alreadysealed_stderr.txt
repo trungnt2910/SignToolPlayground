@@ -1,0 +1,4 @@
+SignTool Error: The file has a sealed signature. In order to timestamp the file
+	the seal will have to be removed and the file will have to be resigned.
+	The /force option must be specified as part of the command in order to
+	do so.

@@ -1,0 +1,2 @@
+SignTool Error: This file format cannot be signed because it is not recognized.
+SignTool Error: An error occurred while attempting to sign: ccky.p7b

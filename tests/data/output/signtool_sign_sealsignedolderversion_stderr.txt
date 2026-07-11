@@ -1,0 +1,5 @@
+SignTool Error: This file is signed with an older version of the Authenticode
+	signature format that does not support sealing. The file will have to
+	have its existing signature(s) removed and resigned with support for
+	sealing. The /force option must be specified as part of the command in
+	order to do so.

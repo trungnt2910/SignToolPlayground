@@ -1,0 +1,4 @@
+Successfully timestamped: test.exe
+
+Number of files successfully timestamped: 1
+Number of errors: 0

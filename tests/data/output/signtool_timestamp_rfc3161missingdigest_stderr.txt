@@ -1,0 +1,1 @@
+SignTool Error: No file timestamp algorithm specified. Please specify the timestamp algorithm with the /td flag. Using /td SHA256 is recommended and more secure than SHA1. Calling signtool with /td sha1 is equivalent to the previous behavior.

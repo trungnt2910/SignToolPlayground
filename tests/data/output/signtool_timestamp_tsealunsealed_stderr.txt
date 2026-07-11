@@ -1,0 +1,2 @@
+SignTool Error: No sealing signature was found. The file must be sealed before
+	it can be seal timestamped.

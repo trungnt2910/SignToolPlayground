@@ -1,0 +1,3 @@
+Error information: "AuthenticodeTimestamper does not support pkcs7 signing." (-2147467259/0x80004005)
+SignTool Error: An error occurred while attempting to timestamp: ccky.p7b
+SignTool Error: An unexpected internal error has occurred.

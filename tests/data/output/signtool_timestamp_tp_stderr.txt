@@ -1,0 +1,2 @@
+SignTool Error: The /tp option is incompatible with the /t option.
+SignTool Error: Specify the RFC 3161 timestamp server's URL instead with /tr.

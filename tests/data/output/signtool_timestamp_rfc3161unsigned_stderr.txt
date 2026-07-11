@@ -1,0 +1,3 @@
+SignTool Error: No signature was found. The file must be signed before it can
+	be timestamped.
+SignTool Error: An error occurred while attempting to timestamp: enum.exe

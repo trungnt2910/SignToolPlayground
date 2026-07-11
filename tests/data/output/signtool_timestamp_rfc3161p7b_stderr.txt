@@ -1,0 +1,3 @@
+SignTool Error: Rfc3161Timestamper::TimestampPkcs7 returned error: 0x80091008
+	The index value is not valid.
+SignTool Error: An error occurred while attempting to timestamp: ccky.p7b

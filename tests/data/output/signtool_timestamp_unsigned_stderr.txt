@@ -1,0 +1,3 @@
+Error information: "SignerTimeStamp() failed." (-2146762496/0x800b0100)
+SignTool Error: An error occurred while attempting to timestamp: test.exe
+SignTool Error: An unexpected internal error has occurred.

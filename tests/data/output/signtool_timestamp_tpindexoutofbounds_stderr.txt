@@ -1,0 +1,2 @@
+SignTool Error: Invalid index specified.
+SignTool Error: An error occurred while attempting to timestamp: test.exe

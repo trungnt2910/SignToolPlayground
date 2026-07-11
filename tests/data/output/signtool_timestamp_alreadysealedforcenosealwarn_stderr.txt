@@ -1,0 +1,3 @@
+SignTool Warning: The existing seal was removed from the file and the file was
+	successfully timestamped. The file will fail verification until the
+	signature is sealed and users are therefore advised to seal.

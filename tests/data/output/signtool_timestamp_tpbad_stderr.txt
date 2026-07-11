@@ -1,0 +1,1 @@
+SignTool Error: Invalid index selected for timestamping.

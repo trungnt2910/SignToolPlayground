@@ -1,0 +1,1 @@
+SignTool Warning: The file digest algorithm and the hash algorithm used in the signing certificate's signature are different.

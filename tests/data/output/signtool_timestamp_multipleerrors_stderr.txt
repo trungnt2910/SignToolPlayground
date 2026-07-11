@@ -1,0 +1,6 @@
+SignTool Error: The specified timestamp server either could not be reached or
+returned an invalid response.
+SignTool Error: An error occurred while attempting to timestamp: test.exe
+SignTool Error: The specified timestamp server either could not be reached or
+returned an invalid response.
+SignTool Error: An error occurred while attempting to timestamp: test1.exe
