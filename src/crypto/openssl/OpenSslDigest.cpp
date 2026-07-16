@@ -16,15 +16,10 @@ namespace crypto
 
 OpenSslDigestStream::OpenSslDigestStream(const EVP_MD* md) : m_md(md)
 {
-    if (m_md == nullptr)
-    {
-        throw OpenSslException("Invalid OpenSSL digest algorithm");
-    }
+    OpenSslCheck::check(m_md != nullptr, "Invalid OpenSSL digest algorithm");
     m_ctx.reset(EVP_MD_CTX_new());
-    if (m_ctx == nullptr || EVP_DigestInit_ex(m_ctx.get(), m_md, nullptr) != 1)
-    {
-        throw OpenSslException("Failed to initialize OpenSSL digest context");
-    }
+    OpenSslCheck::check(m_ctx != nullptr && EVP_DigestInit_ex(m_ctx.get(), m_md, nullptr) == 1,
+        "Failed to initialize OpenSSL digest context");
 }
 
 void OpenSslDigestStream::update(const std::vector<uint8_t>& data)
@@ -38,16 +33,12 @@ void OpenSslDigestStream::update(const std::vector<uint8_t>& data)
 std::vector<uint8_t> OpenSslDigestStream::calculateHash()
 {
     EVPMDCtxPtr dupCtx(EVP_MD_CTX_new());
-    if (dupCtx == nullptr || EVP_MD_CTX_copy_ex(dupCtx.get(), m_ctx.get()) != 1)
-    {
-        throw OpenSslException("Failed to duplicate OpenSSL digest context");
-    }
+    OpenSslCheck::check(dupCtx != nullptr && EVP_MD_CTX_copy_ex(dupCtx.get(), m_ctx.get()) == 1,
+        "Failed to duplicate OpenSSL digest context");
     unsigned char mdVal[EVP_MAX_MD_SIZE];
     unsigned int mdLen = 0;
-    if (EVP_DigestFinal_ex(dupCtx.get(), mdVal, &mdLen) != 1)
-    {
-        throw OpenSslException("Failed to finalize OpenSSL digest");
-    }
+    OpenSslCheck::check(
+        EVP_DigestFinal_ex(dupCtx.get(), mdVal, &mdLen) == 1, "Failed to finalize OpenSSL digest");
     return std::vector<uint8_t>(mdVal, mdVal + mdLen);
 }
 
@@ -55,10 +46,8 @@ std::string OpenSslDigestStream::calculateHashString() { return Strings::hex(cal
 
 OpenSslDigest::OpenSslDigest(int nid) : m_nid(nid)
 {
-    if (getMd() == nullptr)
-    {
-        throw OpenSslException("Unsupported NID for OpenSslDigest: " + std::to_string(nid));
-    }
+    OpenSslCheck::check(
+        getMd() != nullptr, "Unsupported NID for OpenSslDigest: " + std::to_string(nid));
 }
 
 const EVP_MD* OpenSslDigest::getMd() const { return EVP_get_digestbynid(m_nid); }

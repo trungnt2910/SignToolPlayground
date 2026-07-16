@@ -20,12 +20,24 @@ class OpenSslException : public CckyCryptoException
 class OpenSslCheck
 {
   public:
-    static void check(bool condition, const std::string& context);
-    template <typename T> static T* checkPtr(T* ptr, const std::string& context)
+    template <typename E = OpenSslException>
+    static void check(bool condition, const std::string& context)
     {
-        check(ptr != nullptr, context);
+        if (!condition)
+        {
+            throw E(buildMessage(context));
+        }
+    }
+    template <typename E = OpenSslException, typename T>
+    static T* checkPtr(T* ptr, const std::string& context)
+    {
+        check<E>(ptr != nullptr, context);
         return ptr;
     }
+
+  private:
+    // Appends the current OpenSSL error (ERR_get_error) to context, if any.
+    static std::string buildMessage(const std::string& context);
 };
 
 } // namespace crypto

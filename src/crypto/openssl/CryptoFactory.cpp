@@ -164,10 +164,8 @@ std::vector<uint8_t> CryptoFactory::encryptRc4Bytes(
 
 void CryptoFactory::getRandomBytes(void* buf, size_t len)
 {
-    if (RAND_bytes(static_cast<unsigned char*>(buf), static_cast<int>(len)) != 1)
-    {
-        throw OpenSslException("Failed to generate random bytes");
-    }
+    OpenSslCheck::check(RAND_bytes(static_cast<unsigned char*>(buf), static_cast<int>(len)) == 1,
+        "Failed to generate random bytes");
 }
 
 } // namespace crypto
