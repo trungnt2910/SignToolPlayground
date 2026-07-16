@@ -15,6 +15,10 @@ namespace crypto
 std::string Win32Check::buildMessage(const std::string& context)
 {
     DWORD err = GetLastError();
+    if (err == 0)
+    {
+        return context;
+    }
     LocalFreePtr<WCHAR> buf;
     FormatMessageW(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
