@@ -268,10 +268,7 @@ void signAppx(const X509Ptr& x, const EVPPKeyPtr& pkey, const SignOptions& optio
     BIOPtr memBio(BIO_new_mem_buf(appxHash.data(), appxHash.size()));
     PKCS7Ptr p7(
         PKCS7_sign(x.get(), pkey.get(), nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
-    if (p7 == nullptr)
-    {
-        throw OpenSslException("Failed to create PKCS#7 signature structure", false);
-    }
+    OpenSslCheck::checkHandle(p7, "Failed to create PKCS#7 signature structure");
     auto* appxStore = dynamic_cast<OpenSslAppxFileStore*>(store.get());
     if (!appxStore || !appxStore->setPkcs7(p7.get()))
     {
@@ -291,10 +288,7 @@ void signPe(const X509Ptr& x, const EVPPKeyPtr& pkey, const SignOptions& options
     BIOPtr memBio(BIO_new_mem_buf(peHash.data(), peHash.size()));
     PKCS7Ptr p7(
         PKCS7_sign(x.get(), pkey.get(), nullptr, memBio.get(), PKCS7_BINARY | PKCS7_DETACHED));
-    if (p7 == nullptr)
-    {
-        throw OpenSslException("Failed to create PKCS#7 signature structure", false);
-    }
+    OpenSslCheck::checkHandle(p7, "Failed to create PKCS#7 signature structure");
     auto* peStore = dynamic_cast<OpenSslPeFileStore*>(store.get());
     if (!peStore || !peStore->setPkcs7(p7.get()))
     {

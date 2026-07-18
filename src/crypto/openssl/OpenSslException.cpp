@@ -7,21 +7,18 @@ namespace ccky
 namespace crypto
 {
 
-void OpenSslCheck::check(bool condition, const std::string& context)
+std::string OpenSslCheck::buildMessage(const std::string& context)
 {
-    if (!condition)
+    unsigned long err = ERR_get_error();
+    std::string msg = context;
+    if (err != 0)
     {
-        unsigned long err = ERR_get_error();
-        std::string msg = context;
-        if (err != 0)
-        {
-            char buf[256];
-            ERR_error_string_n(err, buf, sizeof(buf));
-            msg += ": ";
-            msg += buf;
-        }
-        throw OpenSslException(msg);
+        char buf[256];
+        ERR_error_string_n(err, buf, sizeof(buf));
+        msg += ": ";
+        msg += buf;
     }
+    return msg;
 }
 
 } // namespace crypto

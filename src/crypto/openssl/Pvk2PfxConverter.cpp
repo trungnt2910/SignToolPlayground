@@ -12,6 +12,7 @@
 #include "crypto/CryptoFactory.h"
 #include "crypto/PvkKey.h"
 #include "crypto/openssl/OpenSslCert.h"
+#include "crypto/openssl/OpenSslException.h"
 #include "crypto/openssl/OpenSslWrapper.h"
 #include "crypto/openssl/PvkHelper.h"
 
@@ -78,10 +79,9 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
         throw CckyCryptoException("Failed to parse main certificate from SPC file");
     }
 
-    if (X509_check_private_key(mainCert->getInternal().get(), pkey.get()) != 1)
-    {
-        throw KeyMismatchException("Private key does not match certificate");
-    }
+    OpenSslCheck::check<KeyMismatchException>(
+        X509_check_private_key(mainCert->getInternal().get(), pkey.get()) == 1,
+        "Private key does not match certificate");
 
     STACK_OF(X509)* caCerts = nullptr;
     if (certs.size() > 1)
@@ -107,21 +107,14 @@ void Pvk2PfxConverter::convert(PvkKey& pvkKey, const Pvk2PfxOptions& opts)
         sk_X509_free(caCerts);
     }
 
-    if (p12 == nullptr)
-    {
-        throw CckyCryptoException("Failed to create PKCS12 structure");
-    }
+    OpenSslCheck::check<CckyCryptoException>(p12 != nullptr, "Failed to create PKCS12 structure");
 
     BIOPtr outBio(BIO_new_file(outPfx.c_str(), "wb"));
-    if (outBio == nullptr)
-    {
-        throw CckyCryptoException("Failed to open output PFX file for writing: " + outPfx);
-    }
+    OpenSslCheck::check<CckyCryptoException>(
+        outBio != nullptr, "Failed to open output PFX file for writing: " + outPfx);
 
-    if (i2d_PKCS12_bio(outBio.get(), p12.get()) != 1)
-    {
-        throw CckyCryptoException("Failed to write PKCS12 to file");
-    }
+    OpenSslCheck::check<CckyCryptoException>(
+        i2d_PKCS12_bio(outBio.get(), p12.get()) == 1, "Failed to write PKCS12 to file");
 }
 
 } // namespace crypto
