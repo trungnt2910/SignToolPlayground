@@ -1,6 +1,8 @@
 #ifndef CCKY_OPENSSL_EXCEPTION_H
 #define CCKY_OPENSSL_EXCEPTION_H
 
+#include <utility>
+
 #include "crypto/CckyException.h"
 
 namespace ccky
@@ -33,6 +35,15 @@ class OpenSslCheck
     {
         check<E>(ptr != nullptr, context);
         return ptr;
+    }
+    // Validates a CckyHandle (or any handle exposing isValid()) without requiring
+    // the caller to reach for the underlying pointer via a manual != nullptr check.
+    template <typename E = OpenSslException, typename Handle>
+    static Handle&& checkHandle(Handle&& handle, const std::string& context)
+        requires requires { handle.isValid(); }
+    {
+        check<E>(handle.isValid(), context);
+        return std::forward<Handle>(handle);
     }
 
   private:

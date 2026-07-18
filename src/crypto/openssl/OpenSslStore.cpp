@@ -32,7 +32,7 @@ void OpenSslCerFileStore::load(const std::string& location, const StoreOptions& 
     }
 
     BIOPtr bio(BIO_new_file(location.c_str(), "rb"));
-    OpenSslCheck::check(bio != nullptr, "Failed to open the store");
+    OpenSslCheck::checkHandle(bio, "Failed to open the store");
 
     while (true)
     {
@@ -97,7 +97,7 @@ void OpenSslCerFileStore::save(const std::string& location, const StoreOptions& 
 void OpenSslCerFileStore::saveAsDer(const std::string& location)
 {
     BIOPtr bio(BIO_new_file(location.c_str(), "wb"));
-    OpenSslCheck::check(bio != nullptr, "Failed to save the store");
+    OpenSslCheck::checkHandle(bio, "Failed to save the store");
 
     for (const auto& cert : m_certs)
     {
@@ -117,10 +117,10 @@ void OpenSslCerFileStore::saveAsDer(const std::string& location)
 void OpenSslCerFileStore::saveAsPkcs7(const std::string& location)
 {
     BIOPtr bio(BIO_new_file(location.c_str(), "wb"));
-    OpenSslCheck::check(bio != nullptr, "Failed to open file for PKCS#7 save");
+    OpenSslCheck::checkHandle(bio, "Failed to open file for PKCS#7 save");
 
     PKCS7Ptr p7(PKCS7_new());
-    OpenSslCheck::check(p7 != nullptr, "Failed to create PKCS#7 structure");
+    OpenSslCheck::checkHandle(p7, "Failed to create PKCS#7 structure");
     PKCS7_set_type(p7.get(), NID_pkcs7_signed);
     PKCS7_content_new(p7.get(), NID_pkcs7_data);
 
@@ -149,7 +149,7 @@ void OpenSslP7bFileStore::load(const std::string& location, const StoreOptions& 
     }
 
     BIOPtr bio(BIO_new_file(location.c_str(), "rb"));
-    OpenSslCheck::check(bio != nullptr, "Failed to open the store");
+    OpenSslCheck::checkHandle(bio, "Failed to open the store");
 
     PKCS7Ptr p7(PEM_read_bio_PKCS7(bio.get(), nullptr, nullptr, nullptr));
     if (p7 == nullptr)
@@ -214,7 +214,7 @@ void OpenSslCerFileStore::addCertificate(CertificatePtr cert)
     auto der = cert->getEncoded();
     const unsigned char* p = der.data();
     X509Ptr x(d2i_X509(nullptr, &p, der.size()));
-    OpenSslCheck::check(x != nullptr, "Failed to parse certificate");
+    OpenSslCheck::checkHandle(x, "Failed to parse certificate");
     m_certs.push_back(std::move(x));
 }
 
@@ -227,7 +227,7 @@ void OpenSslCerFileStore::addCrl(CrlPtr crl)
     auto der = crl->getEncoded();
     const unsigned char* p = der.data();
     X509CRLPtr x(d2i_X509_CRL(nullptr, &p, der.size()));
-    OpenSslCheck::check(x != nullptr, "Failed to parse CRL");
+    OpenSslCheck::checkHandle(x, "Failed to parse CRL");
     m_crls.push_back(std::move(x));
 }
 
@@ -532,7 +532,7 @@ void OpenSslPeFileStore::save(const std::string& location, const StoreOptions& o
     }
 
     PKCS7Ptr p7(PKCS7_new());
-    OpenSslCheck::check(p7 != nullptr, "Failed to create PKCS7 structure");
+    OpenSslCheck::checkHandle(p7, "Failed to create PKCS7 structure");
     PKCS7_set_type(p7.get(), NID_pkcs7_signed);
     PKCS7_content_new(p7.get(), NID_pkcs7_data);
 
@@ -583,7 +583,7 @@ void OpenSslPeFileStore::addCertificate(CertificatePtr cert)
     auto der = cert->getEncoded();
     const unsigned char* p = der.data();
     X509Ptr x(d2i_X509(nullptr, &p, der.size()));
-    OpenSslCheck::check(x != nullptr, "Failed to parse certificate");
+    OpenSslCheck::checkHandle(x, "Failed to parse certificate");
     m_certs.push_back(std::move(x));
 }
 
@@ -596,7 +596,7 @@ void OpenSslPeFileStore::addCrl(CrlPtr crl)
     auto der = crl->getEncoded();
     const unsigned char* p = der.data();
     X509CRLPtr x(d2i_X509_CRL(nullptr, &p, der.size()));
-    OpenSslCheck::check(x != nullptr, "Failed to parse CRL");
+    OpenSslCheck::checkHandle(x, "Failed to parse CRL");
     m_crls.push_back(std::move(x));
 }
 
@@ -753,7 +753,7 @@ void OpenSslAppxFileStore::save(const std::string& location, const StoreOptions&
     }
 
     PKCS7Ptr p7(PKCS7_new());
-    OpenSslCheck::check(p7 != nullptr, "Failed to create PKCS7 structure");
+    OpenSslCheck::checkHandle(p7, "Failed to create PKCS7 structure");
     PKCS7_set_type(p7.get(), NID_pkcs7_signed);
     PKCS7_content_new(p7.get(), NID_pkcs7_data);
 
@@ -804,7 +804,7 @@ void OpenSslAppxFileStore::addCertificate(CertificatePtr cert)
     auto der = cert->getEncoded();
     const unsigned char* p = der.data();
     X509Ptr x(d2i_X509(nullptr, &p, der.size()));
-    OpenSslCheck::check(x != nullptr, "Failed to parse certificate");
+    OpenSslCheck::checkHandle(x, "Failed to parse certificate");
     m_certs.push_back(std::move(x));
 }
 
@@ -817,7 +817,7 @@ void OpenSslAppxFileStore::addCrl(CrlPtr crl)
     auto der = crl->getEncoded();
     const unsigned char* p = der.data();
     X509CRLPtr x(d2i_X509_CRL(nullptr, &p, der.size()));
-    OpenSslCheck::check(x != nullptr, "Failed to parse CRL");
+    OpenSslCheck::checkHandle(x, "Failed to parse CRL");
     m_crls.push_back(std::move(x));
 }
 
@@ -1014,10 +1014,10 @@ void OpenSslPfxCertStore::load(const std::string& location, const StoreOptions& 
     m_loadedLocation = location;
 
     BIOPtr bio(BIO_new_file(location.c_str(), "rb"));
-    OpenSslCheck::check(bio != nullptr, "Failed to open the store");
+    OpenSslCheck::checkHandle(bio, "Failed to open the store");
 
     PKCS12Ptr p12(d2i_PKCS12_bio(bio.get(), nullptr));
-    OpenSslCheck::check(p12 != nullptr, "Failed to parse PFX/PKCS12 store.");
+    OpenSslCheck::checkHandle(p12, "Failed to parse PFX/PKCS12 store.");
 
     EVPPKeyPtr kPtr;
     X509Ptr cPtr;
@@ -1062,7 +1062,7 @@ void OpenSslPfxCertStore::addCertificate(CertificatePtr cert)
     auto der = cert->getEncoded();
     const unsigned char* p = der.data();
     X509Ptr x(d2i_X509(nullptr, &p, der.size()));
-    OpenSslCheck::check(x != nullptr, "Failed to parse certificate");
+    OpenSslCheck::checkHandle(x, "Failed to parse certificate");
     PrivateKeyPtr pkeyHolder;
     EVPPKeyPtr pkey;
     if (cert->hasPrivateKey())
